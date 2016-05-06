@@ -1,0 +1,7 @@
+ANGUISH that which one might experience when their shell lacks a programming language
+or
+ANother GUIle SHell
+
+This project aims to produce at least a POSIX compliant sh
+replacement.  On top of that it also intends to make scheme available
+for interactive and scripting application.
