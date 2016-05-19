@@ -1,3 +1,7 @@
+cat <<EOF
+foobar
+EOF
+
 for file in $(find * -type f)
 do
   if [ "${file}" != "generator.log"\
