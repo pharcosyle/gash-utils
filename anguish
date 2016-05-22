@@ -4,10 +4,12 @@
 
 (load "sh.peg.scm")
 
-(use-modules (ice-9 pretty-print))
 (use-modules (ice-9 getopt-long))
 (use-modules (ice-9 match))
+(use-modules (ice-9 pretty-print))
 (use-modules (ice-9 rdelim))
+(use-modules (ice-9 readline))
+(use-modules (ice-9 ftw))
 
 (define (remove-shell-comments s)
   (string-join (map
@@ -26,55 +28,122 @@
     (else
       (cons (car lst) (flatten (cdr lst))))))
 
+(define (builtin cmd)
+  (if (and (pair? cmd) (string=? (car cmd) "cd"))
+      (lambda () (chdir (cadr cmd)))
+      #f))
+
 (define (sh-exec ast)
   (define (sh-exec- ast)
     (match ast
       (('name o) o)
       (('word o) o)
-      (('command o ...) (map sh-exec- o))
-      ((head tail ...) (map sh-exec- (append (list head) tail)))
-      ;;(('list o ...) (map sh-exec o))
-      ((_ o) (sh-exec- o))
+      (('command o) (map sh-exec- o))
+      ((head tail ...) (map sh-exec- tail))
+      ((_ o) o)
       (_ #f)))
   (let ((cmd (filter identity (flatten (sh-exec- ast)))))
-    cmd
-    (apply system* cmd)))
+    (if (builtin cmd)
+        ((builtin cmd))
+        (apply system* cmd))))
 
+(define (prompt)
+  (let* ((esc (string #\033))
+         (CWD (getcwd))
+         (HOME (getenv "HOME"))
+         (cwd (if (string-prefix? HOME CWD)
+                  (string-replace CWD "~" 0 (string-length HOME))
+                  CWD)))
+   (string-append esc "[01;34m" cwd esc "[00m$ ")))
+
+(define (redraw-current-line)
+  (dynamic-call (dynamic-func "rl_refresh_line"
+                              (dynamic-link "libreadline.so"))
+                #f))
+
+(define (filename-completion text state)
+  (if (not state)
+      (let ((completions (map car
+                              (filter (lambda (entry) (string-prefix? text (car entry)))
+                                      (cddr (file-system-tree (getcwd)))))))
+        (cond ((< 1 (length completions)) (begin (newline)
+                                                 (display (string-join completions " ")) (newline)
+                                                 (redraw-current-line)
+                                                 #f))
+              ((= 1 (length completions)) (car completions))
+              (#t #f)))
+      #f))
+
+(define (search-binary-in-path-completion text state)
+  (if (not state)
+      (let ((completions (map car
+                              (filter (lambda (entry) (string-prefix? text (car entry)))
+                                      (cddr (file-system-tree "/bin"))))))
+        (cond ((< 1 (length completions)) (begin (newline)
+                                                 (display (string-join completions " ")) (newline)
+                                                 (redraw-current-line)
+                                                 #f))
+              ((= 1 (length completions)) (car completions))
+              (#t #f)))
+      #f))
+
+(define (completion text state)
+  (or (filename-completion text state)
+      ;(search-binary-in-path-completion text state)
+      ))
 
 (define (main args)
   (let* ((option-spec '((help (single-char #\h) (value #f))
                         (parse (single-char #\p) (value #f))
                         (version (single-char #\v) (value #f))))
          (options (getopt-long args option-spec
-                  #:stop-at-first-non-option #t ))
-         (help? (option-ref options 'help (null? (cdr args))))
+                               #:stop-at-first-non-option #t ))
+         (help? (option-ref options 'help #f))
          (parse? (option-ref options 'parse (null? #f)))
          (version? (option-ref options 'version #f))
          (files (option-ref options '() '())))
-    (if help?
-        (display "\
+    (cond
+     (help?
+      (display "\
 anguish [options]
   -h, --help       Display this help
   -p, --parse      Parse the shell script and print the parse tree
   -v, --version    Display the version
-")
-        (begin
-          (if version?
-              (display "\
-             Copryright (c) 2016 Rutger E.W. van Beusekom
-                    rutger.van.beusekom@gmail.com
+"))
+     (version?
+      (display "
+Anguish 0.1
+Copryright (C) 2016 R.E.W. van Beusekom, rutger.van.beusekom@gmail.com.
 
-                     ANGUISH: ANother GUIle SHell
-                                  or
-                   the feeling one might experience
-            when their shell lacks a programming language
-" (current-output-port)))
-          (if (pair? files)
-              (let ((ast (parse
-                          (remove-shell-comments
-                           (read-string
-                            (open-input-file
-                             (car files)))))))
-                (if parse?
-                    (pretty-print ast)
-                    (sh-exec ast))))))))
+This is anguish, ANother GUIle SHell, or the feeling you might have
+when your shell lacks a real programming language. Anguish is free
+software and is covered by the GNU Public License, see COPYING for the
+copyleft.
+"))
+     ((pair? files)
+      (let ((ast (parse
+                  (remove-shell-comments
+                   (read-string
+                    (open-input-file
+                     (car files)))))))
+        (if parse?
+            (pretty-print ast)
+            (sh-exec ast))))
+     (#t (let* ((HOME (string-append (getenv "HOME") "/.anguishistory"))
+                (thunk (lambda ()
+                         (let loop ((line (readline (prompt))))
+                           (if (not (eof-object? line))
+                               (begin
+                                 (let ((ast (parse (remove-shell-comments line))))
+                                   (add-history line)
+                                   (if parse?
+                                       (pretty-print ast)
+                                       (sh-exec ast)))
+                                 (loop (readline (prompt)))))))))
+           (activate-readline)
+           (clear-history)
+           (read-history HOME)
+           (with-readline-completion-function completion thunk)
+           ;;(thunk)
+           (write-history HOME))
+         (newline)))))
