@@ -1,45 +1,8 @@
 (use-modules (ice-9 peg))
 (use-modules (ice-9 peg codegen))
 (use-modules (ice-9 pretty-print))
-(use-modules (ice-9 rdelim))
-(use-modules (ice-9 match))
-
-
-(define (remove-shell-comments s)
-  (string-join (map
-                (lambda (s)
-                  (let* ((n (string-index s #\#)))
-                    (if n (string-pad-right s (string-length s) #\space  0 n)
-                        s)))
-                (string-split s #\newline)) "\n"))
-
-(define (flatten lst)
-  (cond
-    ((null? lst)
-      '())
-    ((list? (car lst))
-      (append (flatten (car lst)) (flatten (cdr lst))))
-    (else
-      (cons (car lst) (flatten (cdr lst))))))
-
-(define (sh-exec ast)
-  (define (sh-exec- ast)
-    (match ast
-      (('name o) o)
-      (('word o) o)
-      (('command o ...) (map sh-exec- o))
-      ((head tail ...) (map sh-exec- (append (list head) tail)))
-      ;;(('list o ...) (map sh-exec o))
-      ((_ o) (sh-exec- o))
-      (_ #f)))
-  (let ((cmd (filter identity (flatten (sh-exec- ast)))))
-    cmd
-    (apply system* cmd)
-    ))
-
 
 (define (parse input)
-
   (define label "")
   (define (label-name str len pos)
     (let ((at (string-skip str char-alphabetic? pos len)))
@@ -112,11 +75,3 @@
         (pretty-print "parse error" (current-error-port))
         (pretty-print (peg:end match)))
       (peg:tree match))))
-
-
-;; (let* ((input (read-string (open-input-file (cadr (command-line)))))
-;;        (input (remove-shell-comments input))
-;;        (ast (parse input)))
-;;   (sh-exec ast))
-
-(pretty-print (parse (remove-shell-comments (read-string (open-input-file (cadr (command-line)))))))

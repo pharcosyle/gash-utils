@@ -1,0 +1,80 @@
+#!/usr/bin/guile \
+-e main -s
+!#
+
+(load "sh.peg.scm")
+
+(use-modules (ice-9 pretty-print))
+(use-modules (ice-9 getopt-long))
+(use-modules (ice-9 match))
+(use-modules (ice-9 rdelim))
+
+(define (remove-shell-comments s)
+  (string-join (map
+                (lambda (s)
+                  (let* ((n (string-index s #\#)))
+                    (if n (string-pad-right s (string-length s) #\space  0 n)
+                        s)))
+                (string-split s #\newline)) "\n"))
+
+(define (flatten lst)
+  (cond
+    ((null? lst)
+      '())
+    ((list? (car lst))
+      (append (flatten (car lst)) (flatten (cdr lst))))
+    (else
+      (cons (car lst) (flatten (cdr lst))))))
+
+(define (sh-exec ast)
+  (define (sh-exec- ast)
+    (match ast
+      (('name o) o)
+      (('word o) o)
+      (('command o ...) (map sh-exec- o))
+      ((head tail ...) (map sh-exec- (append (list head) tail)))
+      ;;(('list o ...) (map sh-exec o))
+      ((_ o) (sh-exec- o))
+      (_ #f)))
+  (let ((cmd (filter identity (flatten (sh-exec- ast)))))
+    cmd
+    (apply system* cmd)))
+
+
+(define (main args)
+  (let* ((option-spec '((help (single-char #\h) (value #f))
+                        (parse (single-char #\p) (value #f))
+                        (version (single-char #\v) (value #f))))
+         (options (getopt-long args option-spec
+                  #:stop-at-first-non-option #t ))
+         (help? (option-ref options 'help (null? (cdr args))))
+         (parse? (option-ref options 'parse (null? #f)))
+         (version? (option-ref options 'version #f))
+         (files (option-ref options '() '())))
+    (if help?
+        (display "\
+anguish [options]
+  -h, --help       Display this help
+  -p, --parse      Parse the shell script and print the parse tree
+  -v, --version    Display the version
+")
+        (begin
+          (if version?
+              (display "\
+             Copryright (c) 2016 Rutger E.W. van Beusekom
+                    rutger.van.beusekom@gmail.com
+
+                     ANGUISH: ANother GUIle SHell
+                                  or
+                   the feeling one might experience
+            when their shell lacks a programming language
+" (current-output-port)))
+          (if (pair? files)
+              (let ((ast (parse
+                          (remove-shell-comments
+                           (read-string
+                            (open-input-file
+                             (car files)))))))
+                (if parse?
+                    (pretty-print ast)
+                    (sh-exec ast))))))))
