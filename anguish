@@ -3,6 +3,7 @@
 !#
 
 (load "sh.peg.scm")
+(load "pipe.scm")
 
 (use-modules (ice-9 getopt-long))
 (use-modules (ice-9 match))
@@ -19,33 +20,30 @@
                         s)))
                 (string-split s #\newline)) "\n"))
 
-(define (flatten lst)
-  (cond
-    ((null? lst)
-      '())
-    ((list? (car lst))
-      (append (flatten (car lst)) (flatten (cdr lst))))
-    (else
-      (cons (car lst) (flatten (cdr lst))))))
-
 (define (builtin cmd)
-  (if (and (pair? cmd) (string=? (car cmd) "cd"))
+  (if (and (pair? cmd) (string? (car cmd)) (string=? (car cmd) "cd"))
       (lambda () (chdir (cadr cmd)))
       #f))
 
+(define (transform ast)
+  (match ast
+    (('pipeline command) (transform command))
+    (('pipeline command piped-commands) (cons 'pipeline (cons (transform command) (transform piped-commands))))
+    (('simple-command ('word s)) (list s))
+    (('simple-command ('word s1) ('word s2)) (list s1 s2))
+    (('simple-command ('word s1) (list ('word s2) ...)) (cons s1 s2))
+    ((('pipe _) command ...) (map transform command))
+    (((('pipe _) command) ...) (map transform command))
+    ((_ o) (transform o))
+    (_ ast)))
+
 (define (sh-exec ast)
-  (define (sh-exec- ast)
-    (match ast
-      (('name o) o)
-      (('word o) o)
-      (('command o) (map sh-exec- o))
-      ((head tail ...) (map sh-exec- tail))
-      ((_ o) o)
-      (_ #f)))
-  (let ((cmd (filter identity (flatten (sh-exec- ast)))))
+  (let ((cmd (transform ast)))
     (if (builtin cmd)
         ((builtin cmd))
-        (apply system* cmd))))
+        (if (and (pair? cmd) (eq? 'pipeline (car cmd)))
+            (pipeline (cdr cmd))
+            (apply system* cmd)))))
 
 (define (prompt)
   (let* ((esc (string #\033))
@@ -101,7 +99,10 @@
          (help? (option-ref options 'help #f))
          (parse? (option-ref options 'parse (null? #f)))
          (version? (option-ref options 'version #f))
-         (files (option-ref options '() '())))
+         (files (option-ref options '() '()))
+         (run (lambda (ast) (if parse?
+                                (pretty-print (list ast (transform ast)))
+                                (sh-exec ast)))))
     (cond
      (help?
       (display "\
@@ -126,9 +127,7 @@ copyleft.
                    (read-string
                     (open-input-file
                      (car files)))))))
-        (if parse?
-            (pretty-print ast)
-            (sh-exec ast))))
+        (run ast)))
      (#t (let* ((HOME (string-append (getenv "HOME") "/.anguishistory"))
                 (thunk (lambda ()
                          (let loop ((line (readline (prompt))))
@@ -136,9 +135,7 @@ copyleft.
                                (begin
                                  (let ((ast (parse (remove-shell-comments line))))
                                    (add-history line)
-                                   (if parse?
-                                       (pretty-print ast)
-                                       (sh-exec ast)))
+                                   (run ast))
                                  (loop (readline (prompt)))))))))
            (activate-readline)
            (clear-history)
