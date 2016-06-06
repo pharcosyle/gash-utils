@@ -1,5 +1,7 @@
-(use-modules (ice-9 popen))
-(use-modules (srfi srfi-8)) ;; receive
+(define-module (sh pipe)
+  :use-module (ice-9 popen)
+  :use-module (srfi srfi-8)
+  :export (pipeline))
 
 (define (pipe*)
   (let ((p (pipe)))

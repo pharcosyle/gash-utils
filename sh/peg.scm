@@ -1,6 +1,8 @@
-(use-modules (ice-9 peg))
-(use-modules (ice-9 peg codegen))
-(use-modules (ice-9 pretty-print))
+(define-module (sh peg)
+  :use-module (ice-9 peg)
+  :use-module (ice-9 peg codegen)
+  :use-module (ice-9 pretty-print)
+  :export (parse))
 
 (define (parse input)
   (define label "")
@@ -50,7 +52,7 @@
  io-suffix        <-  sp* here-label sp* linebreak
  filename         <-- word
  name             <-- identifier
- identifier       <-- [_a-zA-Z][_a-zA-Z0-9]*
+ identifier       <-  [_a-zA-Z][_a-zA-Z0-9]*
  word             <-- test / substitution / assignment / literal
  test             <-- ltest (!' ]' .)* rtest
  ltest            <   '[ '
