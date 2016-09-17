@@ -1,4 +1,5 @@
 (define-module (sh anguish)
+  :use-module (srfi srfi-1)
   :use-module (ice-9 getopt-long)
   :use-module (ice-9 match)
   :use-module (ice-9 pretty-print)
@@ -30,11 +31,15 @@
          (parse? (option-ref options 'parse (null? #f)))
          (version? (option-ref options 'version #f))
          (files (option-ref options '() '()))
-         (run (lambda (ast) (if parse?
-                                (let ((ast- (transform ast)))
-                                  (display ast) (newline)(newline)
-                                  (display ast-) (newline)(newline))
-                                (sh-exec ast)))))
+         (run (lambda (ast) (and ast
+                                 (cond (parse?
+                                        (let ((ast- (transform ast)))
+                                          (display ast) (newline)(newline)
+                                          (display ast-) (newline)(newline)
+                                          #t))
+                                       (#t
+                                        (sh-exec ast)
+                                        #t))))))
     (cond
      (help?
       (display "\
@@ -54,8 +59,9 @@ software and is covered by the GNU Public License, see COPYING for the
 copyleft.
 "))
      ((pair? files)
-      (let ((asts (map file-to-ast files)))
-        (map run asts)))
+      (let* ((asts (map file-to-ast files))
+             (status (map run asts)))
+        (quit (every identity status))))
      (#t (let* ((HOME (string-append (getenv "HOME") "/.anguishistory"))
                 (thunk (lambda ()
                          (let loop ((line (readline (prompt))))
