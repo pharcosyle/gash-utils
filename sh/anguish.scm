@@ -11,6 +11,15 @@
 (use-modules ((sh pipe) :renamer (symbol-prefix-proc 'sh:)))
 (use-modules ((sh peg) :renamer (symbol-prefix-proc 'sh:)))
 
+(define (file-to-string filename)
+  ((compose read-string open-input-file)  filename))
+
+(define (string-to-ast string)
+  ((compose sh:parse remove-shell-comments) string))
+
+(define (file-to-ast filename)
+  ((compose string-to-ast file-to-string) filename))
+
 (define (main args)
   (let* ((option-spec '((help (single-char #\h) (value #f))
                         (parse (single-char #\p) (value #f))
@@ -22,7 +31,9 @@
          (version? (option-ref options 'version #f))
          (files (option-ref options '() '()))
          (run (lambda (ast) (if parse?
-                                (pretty-print (list ast (transform ast)))
+                                (let ((ast- (transform ast)))
+                                  (display ast) (newline)(newline)
+                                  (display ast-) (newline)(newline))
                                 (sh-exec ast)))))
     (cond
      (help?
@@ -43,18 +54,14 @@ software and is covered by the GNU Public License, see COPYING for the
 copyleft.
 "))
      ((pair? files)
-      (let ((ast (sh:parse
-                  (remove-shell-comments
-                   (read-string
-                    (open-input-file
-                     (car files)))))))
-        (run ast)))
+      (let ((asts (map file-to-ast files)))
+        (map run asts)))
      (#t (let* ((HOME (string-append (getenv "HOME") "/.anguishistory"))
                 (thunk (lambda ()
                          (let loop ((line (readline (prompt))))
                            (if (not (eof-object? line))
                                (begin
-                                 (let ((ast (sh:parse (remove-shell-comments line))))
+                                 (let ((ast (string-to-ast line)))
                                    (add-history line)
                                    (run ast))
                                  (loop (readline (prompt)))))))))
@@ -81,7 +88,9 @@ copyleft.
       #f))
 
 (define (transform ast)
+  ;(display 'TRANSFORM:) (display ast) (newline)
   (match ast
+    (('script command 'separator) (transform command))
     (('pipeline command) (transform command))
     (('pipeline command piped-commands) (cons 'pipeline (cons (transform command) (transform piped-commands))))
     (('simple-command ('word s)) (list s))
