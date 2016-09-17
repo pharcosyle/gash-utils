@@ -31,8 +31,9 @@
  compound-command <-- brace-group / subshell / for-clause / case-clause / if-clause / while-clause / until-clause
  subshell         <-- '(' compound-list ')'
  compound-list    <-- ws* term (separator term)* separator?
- case-clause      <-- 'case' sp+ word ws* 'in' ws* (case-item sp)* 'esac'
- case-item        <-- '('? sp* pattern sp* ')' ((ws ';;' ws) / ((compound-list sp* ';;'?)? ws))
+ case-clause      <-- 'case' sp+ word ws+ 'in' ws+ case-item* 'esac'
+ case-item        <-- sp* pattern sp* ')' compound-list? ws* case-sep ws
+ case-sep         <   ';;'
  pattern          <-- word (sp* '|' sp* word)*
  for-clause       <-- 'for' sp+ identifier ws+ ('in' (sp+ word)* sp* sequential-sep)? do-group
  do-group         <-- 'do' compound-list 'done'
@@ -53,7 +54,8 @@
  filename         <-- word
  name             <-- identifier
  identifier       <-  [_a-zA-Z][_a-zA-Z0-9]*
- word             <-- test / substitution / assignment / literal
+ word             <-- test / substitution / assignment / literal / number
+ number           <-- [0-9]+
  test             <-- ltest (!rtest .)* rtest
  ltest            <   '[ '
  rtest            <   ' ]'
@@ -63,9 +65,10 @@
  literal          <-- (subst / delim / (![0-9] (![()] !io-op !sp !nl !break !pipe !assign .)+) / ([0-9]+ &separator)) literal*
  subst            <-- '$' ('$' / '*' / '@' / [0-9] / identifier / ([{] (![}] .)+ [}]))
  delim            <-  (['] (!['] .)* [']) / ([\"] (![\"] .)* [\"]) / ([`] (![`] .)* [`])
- separator        <-- (sp* break ws*) / ws*
- break            <-- '&' / ';'
+ separator        <-- (sp* break !semi ws*) / ws*
+ break            <-- amp / semi
  sequential-sep   <-- (semi ws*) / ws+
+ amp              <   '&'
  semi             <   ';'
  nl               <   '\n'
  sp               <   [\t ]
@@ -77,7 +80,8 @@
       (let ((tree (peg:tree match)))
         (pretty-print (peg:tree match))
         (pretty-print "parse error" (current-error-port))
-        (pretty-print (peg:end match)))
+        (pretty-print (peg:end match))
+        #f)
       (peg:tree match))))
 
 
