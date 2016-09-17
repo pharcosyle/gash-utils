@@ -1,0 +1,1 @@
+echo a b c | grep -v a | cat
