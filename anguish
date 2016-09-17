@@ -1,4 +1,4 @@
-#!/usr/bin/guile \
+#!/usr/bin/guile-2.2 \
 -e main -s
 !#
 ;; workaround:
