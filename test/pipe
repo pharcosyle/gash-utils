@@ -1,1 +1,1 @@
-echo a b c | grep -v a | cat
+echo -e 'a\nb\nc' | grep -v b | cat

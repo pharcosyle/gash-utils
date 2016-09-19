@@ -64,7 +64,13 @@
  assign           <   '='
  literal          <-- (subst / delim / (![0-9] (![()] !io-op !sp !nl !break !pipe !assign .)+) / ([0-9]+ &separator)) literal*
  subst            <-- '$' ('$' / '*' / '@' / [0-9] / identifier / ([{] (![}] .)+ [}]))
- delim            <-  (['] (!['] .)* [']) / ([\"] (![\"] .)* [\"]) / ([`] (![`] .)* [`])
+ delim            <-- singlequotes / doublequotes / backticks
+ sq               <   [']
+ dq               <   [\"]
+ bt               <   [`]
+ singlequotes     <-- (sq  (doublequotes / backticks / (!sq .))* sq)
+ doublequotes     <-- (dq (singlequotes / backticks / (!dq .))* dq)
+ backticks        <-- (bt  (singlequotes / doublequotes / (!bt .))* bt)
  separator        <-- (sp* break !semi ws*) / ws*
  break            <-- amp / semi
  sequential-sep   <-- (semi ws*) / ws+
