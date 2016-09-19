@@ -22,7 +22,8 @@
   ((compose string-to-ast file-to-string) filename))
 
 (define (main args)
-  (let* ((option-spec '((help (single-char #\h) (value #f))
+  (let* ((option-spec '((debug (single-char #\d) (value #f))
+                        (help (single-char #\h) (value #f))
                         (parse (single-char #\p) (value #f))
                         (version (single-char #\v) (value #f))))
          (options (getopt-long args option-spec
@@ -34,8 +35,8 @@
          (run (lambda (ast) (and ast
                                  (cond (parse?
                                         (let ((ast- (transform ast)))
-                                          (display ast) (newline)(newline)
-                                          (display ast-) (newline)(newline)
+                                          (display "parsed  : ") (display ast) (newline)(newline)
+                                          (display "prepared: ") (display ast-) (newline)(newline)
                                           #t))
                                        (#t
                                         (sh-exec ast)
@@ -94,14 +95,14 @@ copyleft.
       #f))
 
 (define (transform ast)
-  ;(display 'TRANSFORM:) (display ast) (newline)
   (match ast
     (('script command 'separator) (transform command))
     (('pipeline command) (transform command))
     (('pipeline command piped-commands) (cons 'pipeline (cons (transform command) (transform piped-commands))))
-    (('simple-command ('word s)) (list s))
-    (('simple-command ('word s1) ('word s2)) (list s1 s2))
-    (('simple-command ('word s1) (list ('word s2) ...)) (cons s1 s2))
+    (('simple-command ('word s)) (list (transform s)))
+    (('simple-command ('word s1) ('word s2)) (list (transform s1) (transform s2)))
+    (('simple-command ('word s1) (('word s2) ...)) (cons (transform s1) (map transform s2)))
+    (('literal s) s)
     ((('pipe _) command ...) (map transform command))
     (((('pipe _) command) ...) (map transform command))
     ((_ o) (transform o))
@@ -109,6 +110,7 @@ copyleft.
 
 (define (sh-exec ast)
   (let ((cmd (transform ast)))
+    ;(display "executing: ")(display cmd) (newline)
     (if (builtin cmd)
         ((builtin cmd))
         (if (and (pair? cmd) (eq? 'pipeline (car cmd)))
