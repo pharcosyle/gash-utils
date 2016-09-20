@@ -16,6 +16,7 @@
     (if (string-prefix? label (substring str pos)) (list (+ pos (string-length label)) '())
         #f))
 
+  (define-peg-pattern error all (followed-by peg-any))
   (define-peg-pattern here-label none label-name)
   (define-peg-pattern here-delim none label-match)
   (define-peg-pattern here-document all (and (+ (and (not-followed-by here-delim) peg-any)) here-delim))
@@ -29,21 +30,22 @@
  pipe             <-- '|'
  command          <-- simple-command / (compound-command (sp+ io-redirect)*) / function-def
  compound-command <-- brace-group / subshell / for-clause / case-clause / if-clause / while-clause / until-clause
- subshell         <-- '(' compound-list ')'
+ subshell         <-- '(' ne-compound-list ')'
  compound-list    <-- ws* term (separator term)* separator?
- case-clause      <-- 'case' sp+ word ws+ 'in' ws+ case-item* 'esac'
+ ne-compound-list <-- compound-list / error
+ case-clause      <-- 'case' (sp+ word ws+ 'in' ws+ case-item* 'esac' / error)
  case-item        <-- sp* pattern sp* ')' compound-list? ws* case-sep ws
  case-sep         <   ';;'
  pattern          <-- word (sp* '|' sp* word)*
- for-clause       <-- 'for' sp+ identifier ws+ ('in' (sp+ word)* sp* sequential-sep)? do-group
- do-group         <-- 'do' compound-list 'done'
- if-clause        <-- 'if' compound-list 'then' compound-list else-part? 'fi'
- else-part        <-- ('elif' compound-list 'then' compound-list else-part?) / ('else' compound-list)
- while-clause     <-- 'while' compound-list do-group
- until-clause     <-- 'until' compound-list do-group
- function-def     <-- name sp* '(' sp* ')' ws* function-body
+ for-clause       <-- 'for' (sp+ identifier ws+ ('in' (sp+ word)* sp* sequential-sep)? do-group / error)
+ do-group         <-- 'do' (ne-compound-list 'done' / error)
+ if-clause        <-- 'if' (ne-compound-list 'then' ne-compound-list else-part? 'fi' / error)
+ else-part        <-- ('elif' (ne-compound-list 'then' ne-compound-list else-part? / error)) / ('else' (ne-compound-list / error))
+ while-clause     <-- 'while' (ne-compound-list do-group / error)
+ until-clause     <-- 'until' (ne-compound-list do-group / error)
+ function-def     <-- name sp* '(' sp* ')' ws* (function-body / error)
  function-body    <-- compound-command io-redirect*
- brace-group      <-- '{' sp* compound-list sp* '}'
+ brace-group      <-- '{' (sp* ne-compound-list sp* '}' / error)
  simple-command   <-- (io-redirect sp+)* (!(reserved ws+) word) (sp+ (io-redirect / (!(reserved ws+) word)))*
  reserved         <   ('case' / 'esac' / 'if' / 'fi' / 'then' / 'else' / 'elif' / 'for' / 'done' / 'do' / 'until' / 'while')
  io-redirect      <-- [0-9]* sp* (io-here / io-file)
@@ -59,7 +61,7 @@
  test             <-- ltest (!rtest .)* rtest
  ltest            <   '[ '
  rtest            <   ' ]'
- substitution     <-- ('$(' 'ls' ')') / ('`' script '`')
+ substitution     <-- ('$(' (script ')' / error)) / ('`' (script '`' / error))
  assignment       <-- name assign word?
  assign           <   '='
  literal          <-- (subst / delim / (![0-9] (![()] !io-op !sp !nl !break !pipe !assign .)+) / ([0-9]+ &separator)) literal*
@@ -68,9 +70,9 @@
  sq               <   [']
  dq               <   [\"]
  bt               <   [`]
- singlequotes     <-- (sq  (doublequotes / backticks / (!sq .))* sq)
- doublequotes     <-- (dq (singlequotes / backticks / (!dq .))* dq)
- backticks        <-- (bt  (singlequotes / doublequotes / (!bt .))* bt)
+ singlequotes     <-- sq  ((doublequotes / backticks / (!sq .))* sq / error)
+ doublequotes     <-- dq ((singlequotes / backticks / (!dq .))* dq / error)
+ backticks        <-- bt  ((singlequotes / doublequotes / (!bt .))* bt / error)
  separator        <-- (sp* break !semi ws*) / ws*
  break            <-- amp / semi
  sequential-sep   <-- (semi ws*) / ws+
@@ -89,9 +91,3 @@
         (pretty-print (peg:end match))
         #f)
       (peg:tree match))))
-
-
-;; (display 'foo)
-;; (newline)
-;; (display (parse "for f in a b; do echo $f; ls; done"))
-;; (newline)
