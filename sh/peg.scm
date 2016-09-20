@@ -83,11 +83,12 @@
  ws               <   sp / nl
 ")
 
-(let ((match (match-pattern script input)))
+(let* ((match (match-pattern script input))
+       (tree (peg:tree match)))
   (if (not (eq? (string-length input) (peg:end match)))
-      (let ((tree (peg:tree match)))
-        (pretty-print (peg:tree match))
+      (begin
+        (pretty-print tree)
         (pretty-print "parse error" (current-error-port))
         (pretty-print (peg:end match))
         #f)
-      (peg:tree match))))
+      tree)))
