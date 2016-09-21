@@ -35,8 +35,8 @@
          (run (lambda (ast) (and ast
                                  (cond (parse?
                                         (let ((ast- (transform ast)))
-                                          (display "parsed  : ") (display ast) (newline)(newline)
-                                          (display "prepared: ") (display ast-) (newline)(newline)
+                                          (format (current-output-port) "parsed  : ~s\n\n" ast)
+                                          (format (current-output-port) "prepared: ~s\n\n" ast-)
                                           #t))
                                        (#t
                                         (sh-exec ast)
