@@ -97,6 +97,9 @@ copyleft.
 (define (transform ast)
   (match ast
     (('script command 'separator) (transform command))
+    (('if-clause "if" (expression "then" consequent "fi")) `(if ,(transform expression) ,(transform consequent)))
+    (('if-clause "if" expression "then" consequent "else" alternative "fi") `(if ,(transform expression) ,(transform consequent) ,(transform alternative)))
+    (('compound-list command ('separator 'break)) (transform command))
     (('pipeline command) (transform command))
     (('pipeline command piped-commands) (cons 'pipeline (cons (transform command) (transform piped-commands))))
     (('simple-command ('word s)) (list (transform s)))
@@ -121,7 +124,9 @@ copyleft.
         ((builtin cmd))
         (if (and (pair? cmd) (eq? 'pipeline (car cmd)))
             (sh:pipeline (cdr cmd))
-            (apply system* cmd)))))
+            (if (eq? 'if (car cmd))
+                (pretty-print cmd)
+                (apply system* cmd))))))
 
 (define (prompt)
   (let* ((esc (string #\033))
