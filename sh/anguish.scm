@@ -12,6 +12,16 @@
 (use-modules ((sh pipe) :renamer (symbol-prefix-proc 'sh:)))
 (use-modules ((sh peg) :renamer (symbol-prefix-proc 'sh:)))
 
+(define (stdout . o)
+  (map (lambda (o) (display o (current-output-port))) o)
+  (newline)
+  o)
+
+(define (stderr . o)
+  (map (lambda (o) (display o (current-error-port))) o)
+  (newline)
+  o)
+
 (define (file-to-string filename)
   ((compose read-string open-input-file)  filename))
 
@@ -89,17 +99,12 @@ copyleft.
                         s)))
                 (string-split s #\newline)) "\n"))
 
-(define (builtin cmd)
-  (if (and (pair? cmd) (string? (car cmd)) (string=? (car cmd) "cd"))
-      (lambda () (chdir (cadr cmd)))
-      #f))
-
 (define (transform ast)
   (match ast
-    (('script command 'separator) (transform command))
+    (('script command) (transform command))
+    (('script command separator) (transform command))
     (('if-clause "if" (expression "then" consequent "fi")) `(if ,(transform expression) ,(transform consequent)))
-    (('if-clause "if" expression "then" consequent "else" alternative "fi") `(if ,(transform expression) ,(transform consequent) ,(transform alternative)))
-    (('compound-list command ('separator 'break)) (transform command))
+    (('if-clause "if" (expression "then" consequent ('else-part "else" alternative) "fi")) `(if ,(transform expression) ,(transform consequent) ,(transform alternative)))
     (('pipeline command) (transform command))
     (('pipeline command piped-commands) (cons 'pipeline (cons (transform command) (transform piped-commands))))
     (('simple-command ('word s)) (list (transform s)))
@@ -118,15 +123,19 @@ copyleft.
     (_ ast)))
 
 (define (sh-exec ast)
+  ;;(stdout "parsed: " ast)
   (let ((cmd (transform ast)))
-    ;(display "executing: ")(display cmd) (newline)
-    (if (builtin cmd)
-        ((builtin cmd))
-        (if (and (pair? cmd) (eq? 'pipeline (car cmd)))
-            (sh:pipeline (cdr cmd))
-            (if (eq? 'if (car cmd))
-                (pretty-print cmd)
-                (apply system* cmd))))))
+    ;;(stdout "executing: " cmd)
+    (match cmd
+      (("cd" argument ...) (apply chdir argument))
+      (('if expression consequent) (if (equal? 0 (status:exit-val (apply system* expression)))
+                                        (apply system* consequent)))
+      (('if expression consequent alternative) (if (equal? 0 (status:exit-val (apply system* expression)))
+                                                    (apply system* consequent)
+                                                    (apply system* alternative)))
+      (('pipeline command ...) (sh:pipeline command))
+      ('script '())
+      (_ (apply system* cmd)))))
 
 (define (prompt)
   (let* ((esc (string #\033))
