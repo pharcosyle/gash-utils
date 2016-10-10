@@ -1,16 +1,18 @@
 (define-module (sh anguish)
   :use-module (srfi srfi-1)
+  :use-module (srfi srfi-26)
   :use-module (ice-9 getopt-long)
   :use-module (ice-9 match)
   :use-module (ice-9 pretty-print)
   :use-module (ice-9 rdelim)
   :use-module (ice-9 readline)
   :use-module (ice-9 ftw)
+  :use-module (ice-9 local-eval)
+
+  :use-module (sh pipe)
+  :use-module (sh peg)
 
   :export (main))
-
-(use-modules ((sh pipe) :renamer (symbol-prefix-proc 'sh:)))
-(use-modules ((sh peg) :renamer (symbol-prefix-proc 'sh:)))
 
 (define (stdout . o)
   (map (lambda (o) (display o (current-output-port))) o)
@@ -26,7 +28,7 @@
   ((compose read-string open-input-file)  filename))
 
 (define (string-to-ast string)
-  ((compose sh:parse remove-shell-comments) string))
+  ((compose parse remove-shell-comments) string))
 
 (define (file-to-ast filename)
   ((compose string-to-ast file-to-string) filename))
@@ -99,17 +101,38 @@ copyleft.
                         s)))
                 (string-split s #\newline)) "\n"))
 
+(define (expand identifier o) ;;identifier-string -> symbol
+  (define (foo o)
+    (let ((dollar-identifier (string-append "$" identifier)))
+      (match o
+        ((? symbol?) o)
+        ((? string?) (if (string=? o dollar-identifier) (string->symbol identifier) o))
+        ((? list?) (map foo o)))))
+  (map foo o))
+
+(define (glob o) ;;HAX0R, more todo
+  (define (foo o)
+    (match o
+      ("*" (map car (cddr (file-system-tree (getcwd)))))
+      ((? symbol?) o)
+      ((? string?) o)
+      ((? list?) (map foo o))
+      (_ o)))
+  (map foo o))
+
 (define (transform ast)
   (match ast
     (('script command) (transform command))
     (('script command separator) (transform command))
-    (('if-clause "if" (expression "then" consequent "fi")) `(if ,(transform expression) ,(transform consequent)))
-    (('if-clause "if" (expression "then" consequent ('else-part "else" alternative) "fi")) `(if ,(transform expression) ,(transform consequent) ,(transform alternative)))
-    (('pipeline command) (transform command))
+    (('if-clause "if" (expression "then" consequent "fi")) `(if (equal? 0 (status:exit-val ,(transform expression))) ,(transform consequent)))
+    (('if-clause "if" (expression "then" consequent ('else-part "else" alternative) "fi")) `(if (equal? 0 (status:exit-val ,(transform expression))) ,(transform consequent) ,(transform alternative)))
+    (('for-clause "for" ((identifier "in" lst sep) do-group)) (list 'for-each (list 'lambda (list (string->symbol identifier)) (expand identifier (transform do-group))) (cons 'list (transform (glob lst)))))
+    (('do-group "do" (command "done")) (transform command))
+    (('pipeline command) (let ((command (transform command))) (if (eq? 'list (car command)) `(apply system* ,command) command)))
     (('pipeline command piped-commands) (cons 'pipeline (cons (transform command) (transform piped-commands))))
-    (('simple-command ('word s)) (list (transform s)))
-    (('simple-command ('word s1) ('word s2)) (list (transform s1) (transform s2)))
-    (('simple-command ('word s1) (('word s2) ...)) (cons (transform s1) (map transform s2)))
+    (('simple-command ('word s)) `(list ,(transform s)))
+    (('simple-command ('word s1) ('word s2)) `(list ,(transform s1) ,(transform s2)))
+    (('simple-command ('word s1) (('word s2) ...)) (append `(list ,(transform s1)) (map transform s2)))
     (('literal s) (transform s))
     (('singlequotes s) (string-concatenate (list "'" s "'")))
     (('doublequotes s) (string-concatenate (list "\"" s "\"")))
@@ -119,23 +142,17 @@ copyleft.
     (('delim ('backticks s ...)) (string-concatenate (map transform s)))
     ((('pipe _) command ...) (map transform command))
     (((('pipe _) command) ...) (map transform command))
-    ((_ o) (transform o))
+    ((_ o) (transform o)) ;;peel the onion: (symbol (...)) -> (...)
     (_ ast)))
 
-(define (sh-exec ast)
+(define (sh-exec ast) ;; (local-eval (transform ast) (the-environment))
   ;;(stdout "parsed: " ast)
   (let ((cmd (transform ast)))
     ;;(stdout "executing: " cmd)
     (match cmd
-      (("cd" argument ...) (apply chdir argument))
-      (('if expression consequent) (if (equal? 0 (status:exit-val (apply system* expression)))
-                                        (apply system* consequent)))
-      (('if expression consequent alternative) (if (equal? 0 (status:exit-val (apply system* expression)))
-                                                    (apply system* consequent)
-                                                    (apply system* alternative)))
-      (('pipeline command ...) (sh:pipeline command))
+      (('list "cd" argument ...) (apply chdir argument))
       ('script '())
-      (_ (apply system* cmd)))))
+      (_ (local-eval cmd (the-environment))))))
 
 (define (prompt)
   (let* ((esc (string #\033))
@@ -144,7 +161,7 @@ copyleft.
          (cwd (if (string-prefix? HOME CWD)
                   (string-replace CWD "~" 0 (string-length HOME))
                   CWD)))
-   (string-append esc "[01;34m" cwd esc "[00m$ ")))
+    (string-append esc "[01;34m" cwd esc "[00m$ ")))
 
 (define (redraw-current-line)
   (dynamic-call (dynamic-func "rl_refresh_line"
@@ -154,8 +171,8 @@ copyleft.
 (define (filename-completion text state)
   (if (not state)
       (let ((completions (map car
-                              (filter (lambda (entry) (string-prefix? text (car entry)))
-                                      (cddr (file-system-tree (getcwd)))))))
+                              (filter (cut string-prefix? text <>)
+                                      (map car (cddr (file-system-tree (getcwd))))))))
         (cond ((< 1 (length completions)) (begin (newline)
                                                  (display (string-join completions " ")) (newline)
                                                  (redraw-current-line)
@@ -167,8 +184,8 @@ copyleft.
 (define (search-binary-in-path-completion text state)
   (if (not state)
       (let ((completions (map car
-                              (filter (lambda (entry) (string-prefix? text (car entry)))
-                                      (cddr (file-system-tree "/bin"))))))
+                              (filter (cut string-prefix? text <>)
+                                      (map car (cddr (file-system-tree "/bin")))))))
         (cond ((< 1 (length completions)) (begin (newline)
                                                  (display (string-join completions " ")) (newline)
                                                  (redraw-current-line)
@@ -179,5 +196,5 @@ copyleft.
 
 (define (completion text state)
   (or (filename-completion text state)
-      ;(search-binary-in-path-completion text state)
+      ;;(search-binary-in-path-completion text state)
       ))
