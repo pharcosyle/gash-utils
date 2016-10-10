@@ -44,7 +44,7 @@
            (close src)
            (waitpid pid)))))
 
-(define (pipeline commands)
+(define (pipeline . commands)
   (if (< 1 (length commands))
       (let loop ((src (spawn-source (car commands)))
                  (commands (cdr commands)))
@@ -52,4 +52,4 @@
             (loop (spawn-filter src (car commands))
                   (cdr commands))))))
 
-;;(pipeline (list (list "ls" "/") (list "grep" "o") (list "tr" "o" "e")))
+;;(pipeline (list "ls" "/") (list "grep" "o") (list "tr" "o" "e"))
