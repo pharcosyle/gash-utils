@@ -1,13 +1,14 @@
 (define-module (sh anguish)
   :use-module (srfi srfi-1)
   :use-module (srfi srfi-26)
+  :use-module (ice-9 ftw)
   :use-module (ice-9 getopt-long)
+  :use-module (ice-9 local-eval)
   :use-module (ice-9 match)
   :use-module (ice-9 pretty-print)
   :use-module (ice-9 rdelim)
   :use-module (ice-9 readline)
-  :use-module (ice-9 ftw)
-  :use-module (ice-9 local-eval)
+  :use-module (ice-9 regex)
 
   :use-module (sh pipe)
   :use-module (sh peg)
@@ -110,15 +111,31 @@ copyleft.
         ((? list?) (map foo o)))))
   (map foo o))
 
-(define (glob o) ;;HAX0R, more todo
-  (define (foo o)
-    (match o
-      ("*" (map car (cddr (file-system-tree (getcwd)))))
-      ((? symbol?) o)
-      ((? string?) o)
-      ((? list?) (map foo o))
-      (_ o)))
-  (map foo o))
+
+(define (glob pattern) ;; pattern -> list of path
+  (define (glob2regex pattern)
+    (let* ((pattern (regexp-substitute/global #f "\\." pattern 'pre "\\." 'post))
+           (pattern (regexp-substitute/global #f "\\?" pattern 'pre "." 'post))
+           (pattern (regexp-substitute/global #f "\\*" pattern 'pre ".*" 'post)))
+      (make-regexp (string-append pattern "$"))))
+
+  (define (glob-match pattern path) ;; pattern path -> bool
+    (regexp-match? (regexp-exec (glob2regex pattern) path)))
+
+  (define (glob- pattern paths)
+    (append-map (lambda (path)
+                  (let ((empty? (string=? "" path)))
+                   (map (lambda (extension) (if empty? extension (string-join (list path "/" extension) "")))
+                        (filter (cute glob-match pattern <>)
+                                (map car (cddr (file-system-tree (if empty? (getcwd) path))))))))
+                paths))
+
+  (let ((absolute? (eq? #\/ (string-ref pattern 0))))
+    (let loop ((patterns (string-split pattern #\/))
+               (paths (if absolute? '("/") `(""))))
+      (if (null? patterns) paths
+          (loop (cdr patterns) (glob- (car patterns) paths))))))
+
 
 (define (builtin . ast)
   (match ast
@@ -136,7 +153,7 @@ copyleft.
     (('pipeline command) (let ((command (transform command))) (if (eq? 'list (car command)) `(apply system* ,command) command)))
     (('pipeline command piped-commands) (cons 'pipeline (cons (transform command) (transform piped-commands))))
     (('simple-command ('word s)) `(list ,(transform s)))
-    (('simple-command ('word s1) ('word s2)) (builtin (transform s1) (transform s2)))
+    (('simple-command ('word s1) ('word s2)) (apply builtin (append (list (transform s1)) (glob (transform s2)))))
     (('simple-command ('word s1) (('word s2) ...)) (apply builtin (append (list (transform s1)) (map transform s2))))
     (('literal s) (transform s))
     (('singlequotes s) (string-concatenate (list "'" s "'")))
@@ -154,9 +171,9 @@ copyleft.
   (define (exec cmd)
     (local-eval cmd (the-environment)))
 
-  (stdout "parsed: " ast)
+  ;;(stdout "parsed: " ast)
   (let ((cmd (transform ast)))
-    (stdout "executing: " cmd)
+    ;;(stdout "executing: " cmd)
     (match cmd
       ('script '()) ;; skip
       (('list cmd ...) (map exec cmd))
