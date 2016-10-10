@@ -120,9 +120,14 @@ copyleft.
       (_ o)))
   (map foo o))
 
+(define (builtin . ast)
+  (match ast
+    (("cd" arg) `(chdir ,arg))
+    (_ `(apply system* ,(cons 'list ast)))))
+
 (define (transform ast)
   (match ast
-    (('script command) (transform command))
+    (('script command ...) (cons 'list (map transform command)))
     (('script command separator) (transform command))
     (('if-clause "if" (expression "then" consequent "fi")) `(if (equal? 0 (status:exit-val ,(transform expression))) ,(transform consequent)))
     (('if-clause "if" (expression "then" consequent ('else-part "else" alternative) "fi")) `(if (equal? 0 (status:exit-val ,(transform expression))) ,(transform consequent) ,(transform alternative)))
@@ -131,8 +136,8 @@ copyleft.
     (('pipeline command) (let ((command (transform command))) (if (eq? 'list (car command)) `(apply system* ,command) command)))
     (('pipeline command piped-commands) (cons 'pipeline (cons (transform command) (transform piped-commands))))
     (('simple-command ('word s)) `(list ,(transform s)))
-    (('simple-command ('word s1) ('word s2)) `(list ,(transform s1) ,(transform s2)))
-    (('simple-command ('word s1) (('word s2) ...)) (append `(list ,(transform s1)) (map transform s2)))
+    (('simple-command ('word s1) ('word s2)) (builtin (transform s1) (transform s2)))
+    (('simple-command ('word s1) (('word s2) ...)) (apply builtin (append (list (transform s1)) (map transform s2))))
     (('literal s) (transform s))
     (('singlequotes s) (string-concatenate (list "'" s "'")))
     (('doublequotes s) (string-concatenate (list "\"" s "\"")))
@@ -146,13 +151,16 @@ copyleft.
     (_ ast)))
 
 (define (sh-exec ast) ;; (local-eval (transform ast) (the-environment))
-  ;;(stdout "parsed: " ast)
+  (define (exec cmd)
+    (local-eval cmd (the-environment)))
+
+  (stdout "parsed: " ast)
   (let ((cmd (transform ast)))
-    ;;(stdout "executing: " cmd)
+    (stdout "executing: " cmd)
     (match cmd
-      (('list "cd" argument ...) (apply chdir argument))
-      ('script '())
-      (_ (local-eval cmd (the-environment))))))
+      ('script '()) ;; skip
+      (('list cmd ...) (map exec cmd))
+      (_ (exec cmd)))))
 
 (define (prompt)
   (let* ((esc (string #\033))
@@ -171,7 +179,7 @@ copyleft.
 (define (filename-completion text state)
   (if (not state)
       (let ((completions (map car
-                              (filter (cut string-prefix? text <>)
+                              (filter (cute string-prefix? text <>)
                                       (map car (cddr (file-system-tree (getcwd))))))))
         (cond ((< 1 (length completions)) (begin (newline)
                                                  (display (string-join completions " ")) (newline)
@@ -184,7 +192,7 @@ copyleft.
 (define (search-binary-in-path-completion text state)
   (if (not state)
       (let ((completions (map car
-                              (filter (cut string-prefix? text <>)
+                              (filter (cute string-prefix? text <>)
                                       (map car (cddr (file-system-tree "/bin")))))))
         (cond ((< 1 (length completions)) (begin (newline)
                                                  (display (string-join completions " ")) (newline)
