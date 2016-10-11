@@ -1,1 +1,1 @@
-echo -e 'a\nb\nc' | grep -v b | cat
+echo -e 'a\nb\nc' * | sed 's, ,\n,g' | cat

@@ -112,7 +112,12 @@ copyleft.
   (map foo o))
 
 
+;; TODO: add braces and pattern ending with /
+
 (define (glob pattern) ;; pattern -> list of path
+  (define (glob? pattern)
+    (string-match "\\?|\\*" pattern))
+
   (define (glob2regex pattern)
     (let* ((pattern (regexp-substitute/global #f "\\." pattern 'pre "\\." 'post))
            (pattern (regexp-substitute/global #f "\\?" pattern 'pre "." 'post))
@@ -125,36 +130,44 @@ copyleft.
   (define (glob- pattern paths)
     (append-map (lambda (path)
                   (let ((empty? (string=? "" path)))
-                   (map (lambda (extension) (if empty? extension (string-join (list path "/" extension) "")))
-                        (filter (cute glob-match pattern <>)
-                                (map car (cddr (file-system-tree (if empty? (getcwd) path))))))))
+                    (map (lambda (extension) (if empty? extension (string-join (list path "/" extension) "")))
+                         (filter (cute glob-match pattern <>)
+                                 (map car (cddr (file-system-tree (if empty? (getcwd) path))))))))
                 paths))
 
-  (let ((absolute? (eq? #\/ (string-ref pattern 0))))
-    (let loop ((patterns (string-split pattern #\/))
-               (paths (if absolute? '("/") `(""))))
-      (if (null? patterns) paths
-          (loop (cdr patterns) (glob- (car patterns) paths))))))
+  (if (glob? pattern)
+      (let ((absolute? (char=? #\/ (string-ref pattern 0))))
+        (let loop ((patterns (string-split pattern #\/))
+                   (paths (if absolute? '("/") `(""))))
+          (if (null? patterns) paths
+              (loop (cdr patterns) (glob- (car patterns) paths)))))
+      (list pattern)))
 
 
-(define (builtin . ast)
+(define (builtin ast)
+  ;(stdout "builtin: " ast)
   (match ast
     (("cd" arg) `(chdir ,arg))
-    (_ `(apply system* ,(cons 'list ast)))))
+    (('for-each rest ...) ast)
+    (('if rest ...) ast)
+    (_ #f)))
+
+
+;; TODO: add globbing
 
 (define (transform ast)
   (match ast
-    (('script command ...) (cons 'list (map transform command)))
+    (('script command ...) (map transform command))
     (('script command separator) (transform command))
     (('if-clause "if" (expression "then" consequent "fi")) `(if (equal? 0 (status:exit-val ,(transform expression))) ,(transform consequent)))
     (('if-clause "if" (expression "then" consequent ('else-part "else" alternative) "fi")) `(if (equal? 0 (status:exit-val ,(transform expression))) ,(transform consequent) ,(transform alternative)))
-    (('for-clause "for" ((identifier "in" lst sep) do-group)) (list 'for-each (list 'lambda (list (string->symbol identifier)) (expand identifier (transform do-group))) (cons 'list (transform (glob lst)))))
+    (('for-clause "for" ((identifier "in" lst sep) do-group)) `(for-each (lambda (,(string->symbol identifier)) ,(expand identifier (transform do-group))) (glob ,(transform lst))))
     (('do-group "do" (command "done")) (transform command))
-    (('pipeline command) (let ((command (transform command))) (if (eq? 'list (car command)) `(apply system* ,command) command)))
-    (('pipeline command piped-commands) (cons 'pipeline (cons (transform command) (transform piped-commands))))
+    (('pipeline command) (let* ((command (transform command))) (or (builtin command) `(pipeline ,command))))
+    (('pipeline command piped-commands) `(pipeline ,(transform command) ,@(transform piped-commands)))
     (('simple-command ('word s)) `(list ,(transform s)))
-    (('simple-command ('word s1) ('word s2)) (apply builtin (append (list (transform s1)) (glob (transform s2)))))
-    (('simple-command ('word s1) (('word s2) ...)) (apply builtin (append (list (transform s1)) (map transform s2))))
+    (('simple-command ('word s1) ('word s2)) `(append (glob ,(transform s1)) (glob ,(transform s2))))
+    (('simple-command ('word s1) (('word s2) ...)) `(append (glob ,(transform s1)) (append-map glob (list ,@(map transform s2)))))
     (('literal s) (transform s))
     (('singlequotes s) (string-concatenate (list "'" s "'")))
     (('doublequotes s) (string-concatenate (list "\"" s "\"")))
@@ -164,20 +177,19 @@ copyleft.
     (('delim ('backticks s ...)) (string-concatenate (map transform s)))
     ((('pipe _) command ...) (map transform command))
     (((('pipe _) command) ...) (map transform command))
-    ((_ o) (transform o)) ;;peel the onion: (symbol (...)) -> (...)
+    ((_ o) (transform o)) ;; peel the onion: (symbol (...)) -> (...)
     (_ ast)))
 
 (define (sh-exec ast) ;; (local-eval (transform ast) (the-environment))
   (define (exec cmd)
+    ;(format (current-output-port) "eval: ~s\n" cmd)
     (local-eval cmd (the-environment)))
 
-  ;;(stdout "parsed: " ast)
+  ;(format (current-error-port) "parsed: ~a\n" ast)
   (let ((cmd (transform ast)))
-    ;;(stdout "executing: " cmd)
     (match cmd
       ('script '()) ;; skip
-      (('list cmd ...) (map exec cmd))
-      (_ (exec cmd)))))
+      ((? list? cmd ...) (map exec cmd)))))
 
 (define (prompt)
   (let* ((esc (string #\033))

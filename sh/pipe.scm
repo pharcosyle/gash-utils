@@ -50,6 +50,7 @@
                  (commands (cdr commands)))
         (if (null? (cdr commands)) (spawn-sink src (car commands))
             (loop (spawn-filter src (car commands))
-                  (cdr commands))))))
+                  (cdr commands))))
+      (apply system* (car commands))))
 
 ;;(pipeline (list "ls" "/") (list "grep" "o") (list "tr" "o" "e"))
