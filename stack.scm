@@ -16,7 +16,8 @@
   (let ((source (frame-source frame)))
     (if source
         (let* ((args (frame-arguments frame))
-               (args (if (null? args) "" (string-append " args: " (to-string args)))))
+               (args (if (null? args) "" (string-append " args: " (to-string args))))
+               (foo (format (current-output-port) "~a\n" (frame-procedure frame))))
           (string-append (cadr source) ":"
                               (number->string  (caddr source)) ":" args))
         source)))
