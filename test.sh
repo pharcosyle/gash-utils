@@ -1,1 +1,1 @@
-for f in *; do ../anguish -p $f; done
+for f in test/*; do echo $f; ./anguish -p $f; ./anguish $f; done

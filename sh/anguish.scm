@@ -157,15 +157,18 @@ copyleft.
 
 (define (transform ast)
   (match ast
-    (('script command ...) (map transform command))
-    (('script command separator) (transform command))
+    (('script terms ...) (list (transform terms)))
+    (('script term separator) (transform term))
     (('if-clause "if" (expression "then" consequent "fi")) `(if (equal? 0 (status:exit-val ,(transform expression))) ,(transform consequent)))
     (('if-clause "if" (expression "then" consequent ('else-part "else" alternative) "fi")) `(if (equal? 0 (status:exit-val ,(transform expression))) ,(transform consequent) ,(transform alternative)))
     (('for-clause "for" ((identifier "in" lst sep) do-group)) `(for-each (lambda (,(string->symbol identifier)) ,(expand identifier (transform do-group))) (glob ,(transform lst))))
     (('do-group "do" (command "done")) (transform command))
     (('pipeline command) (let* ((command (transform command))) (or (builtin command) `(pipeline ,command))))
     (('pipeline command piped-commands) `(pipeline ,(transform command) ,@(transform piped-commands)))
-    (('simple-command ('word s)) `(list ,(transform s)))
+    (('compound-list terms ...) (transform terms))
+    ((('term command)) (transform command))
+    ((('term ('pipeline command)) (('term ('pipeline commands)) ...)) `(map pipeline ,(cons 'list (cons (transform command) (map transform commands)))))
+    (('simple-command ('word s)) `(glob ,(transform s)))
     (('simple-command ('word s1) ('word s2)) `(append (glob ,(transform s1)) (glob ,(transform s2))))
     (('simple-command ('word s1) (('word s2) ...)) `(append (glob ,(transform s1)) (append-map glob (list ,@(map transform s2)))))
     (('literal s) (transform s))
@@ -180,16 +183,19 @@ copyleft.
     ((_ o) (transform o)) ;; peel the onion: (symbol (...)) -> (...)
     (_ ast)))
 
-(define (sh-exec ast) ;; (local-eval (transform ast) (the-environment))
+(define (sh-exec ast)
   (define (exec cmd)
     ;(format (current-output-port) "eval: ~s\n" cmd)
     (local-eval cmd (the-environment)))
 
-  ;(format (current-error-port) "parsed: ~a\n" ast)
-  (let ((cmd (transform ast)))
-    (match cmd
+  (let* (;(print (format (current-error-port) "parsed: ~a\n" ast))
+         (ast (transform ast))
+         ;(print (format (current-error-port) "transformed: ~a\n" ast))
+         )
+    (match ast
       ('script '()) ;; skip
-      ((? list? cmd ...) (map exec cmd)))))
+      (_ (map exec ast)))))
+
 
 (define (prompt)
   (let* ((esc (string #\033))
