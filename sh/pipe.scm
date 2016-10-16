@@ -118,24 +118,43 @@
 (define (set-job-stopped! job-table pid)
   (set-job-status! (assoc-ref job-table pid) 'stopped))
 
-(define (update-job-status job-table)
+(define (set-job-terminated! job-table pid) ;; signal
+  (set-job-status! (assoc-ref job-table pid) 'terminated))
+
+(define (set-job-completed! job-table pid) ;; exit value
+  (set-job-status! (assoc-ref job-table pid) 'completed))
+
+(define (mark-status pid status)
+  (if (not (= 0 pid))
+      (cond ((status:stop-sig status)
+             (set-job-stopped! pid job-table))
+            ((status:term-sig status)
+             (set-job-terminated! pid job-table))
+            ((status:exit-val status)
+             (set-job-completed! pid job-table)))))
+
+(define (notify-job-status job-table) ;; call when prompting, from SIGCHLD handler or
   (let* ((pid-status (waitpid WAIT_ANY (logior WUNTRACED WNOHANG)))
          (pid (car pid-status))
          (status (cdr pid-status)))
-    (if (and (not (= 0 pid))
-             (status:stop-sig status))
-        (set-job-stopped! pid job-table))))
+    (mark-status pid status)))
 
-;(define (handle-children sig))
+(define (job-by-id job-table id)
+  (if (< job-id (length job-table))
+      (list-ref job-table job-id)
+      #f))
 
 (define (background job-id)
-  (let ((job (if (< job-id (length job-table)) (list-ref job-table job-id) #f)))
-    (if (and job (eq? 'stopped job-status))
+  (let ((job (job-by-id job-table job-id)))
+    (if (and job (eq? 'stopped (job-status job)))
         (kill (- (job-pgid job)) SIGCONT))))
 
-;; (define (foreground job)
-;;   ())
-
-;; (init)
-
-;; (launch (list "sleep" "10") #t)
+(define (foreground job-id)
+  (let ((job (job-by-id job-table job-id)))
+    (tcsetpgrp (current-input-port) (job-pgid job))
+    (if (and job (eq? 'stopped (job-status job)))
+        (kill (- (job-pgid job)) SIGCONT))
+    (let ((pid-status (waitpid WAIT_ANY WUNTRACED)) ;; loop until job-id changes status
+          (pid (car pid-status))
+          (status (cdr pid-status)))
+      (mark-process pid status))))
