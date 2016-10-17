@@ -90,7 +90,7 @@
         (setpgid pid pgid)
         (tcsetpgrp (current-input-port) pid))))
 
-(define (job-launch command fg?)
+(define (job-launch command fg?) ;; todo: integrate into pipeline
   (let* ((interactive? (isatty? (current-input-port)))
          (pgid (getpid))
          (pid (primitive-fork)))
@@ -115,6 +115,24 @@
             (waitpid pid WUNTRACED)
             (tcsetpgrp (current-input-port) (getpid)))))))
 
+(define (mark-job-status pid status)
+  (if (not (= 0 pid))
+      (cond ((status:stop-sig status)
+             (set-job-stopped! pid job-table))
+            ((status:term-sig status)
+             (set-job-terminated! pid job-table))
+            ((status:exit-val status)
+             (set-job-completed! pid job-table)))))
+
+(define (job-wait job)
+  (let loop ()
+    (let* ((status (job-status job))
+           (pid-status (waitpid WAIT_ANY WUNTRACED))
+           (pid (car pid-status))
+           (status (cdr pid-status)))
+      (mark-job-status pid status)
+      (if (eq? status (job-status job)) (loop)))))
+
 (define (set-job-stopped! job-table pid)
   (set-job-status! (assoc-ref job-table pid) 'stopped))
 
@@ -124,20 +142,11 @@
 (define (set-job-completed! job-table pid) ;; exit value
   (set-job-status! (assoc-ref job-table pid) 'completed))
 
-(define (mark-status pid status)
-  (if (not (= 0 pid))
-      (cond ((status:stop-sig status)
-             (set-job-stopped! pid job-table))
-            ((status:term-sig status)
-             (set-job-terminated! pid job-table))
-            ((status:exit-val status)
-             (set-job-completed! pid job-table)))))
-
 (define (notify-job-status job-table) ;; call when prompting, from SIGCHLD handler or
   (let* ((pid-status (waitpid WAIT_ANY (logior WUNTRACED WNOHANG)))
          (pid (car pid-status))
          (status (cdr pid-status)))
-    (mark-status pid status)))
+    (mark-job-status pid status)))
 
 (define (job-by-id job-table id)
   (if (< job-id (length job-table))
@@ -154,7 +163,5 @@
     (tcsetpgrp (current-input-port) (job-pgid job))
     (if (and job (eq? 'stopped (job-status job)))
         (kill (- (job-pgid job)) SIGCONT))
-    (let ((pid-status (waitpid WAIT_ANY WUNTRACED)) ;; loop until job-id changes status
-          (pid (car pid-status))
-          (status (cdr pid-status)))
-      (mark-process pid status))))
+    (job-wait job)
+    (tcsetpgrp (current-input-port) (getpid))))
