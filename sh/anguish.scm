@@ -36,6 +36,7 @@
 
 (define (main args)
   (job-control-init)
+  (stdout "ISATTY: " (isatty? (current-input-port)))
   (let* ((option-spec '((debug (single-char #\d) (value #f))
                         (help (single-char #\h) (value #f))
                         (parse (single-char #\p) (value #f))
@@ -204,7 +205,7 @@ copyleft.
          (cwd (if (string-prefix? HOME CWD)
                   (string-replace CWD "~" 0 (string-length HOME))
                   CWD)))
-    (string-append esc "[01;34m" cwd esc "[00m$ ")))
+    (string-append (if (isatty? (current-error-port)) "OK" "NOK") esc "[01;34m" cwd esc "[00m$ ")))
 
 (define (redraw-current-line)
   (dynamic-call (dynamic-func "rl_refresh_line"

@@ -37,28 +37,28 @@
 
 (define (add-to-process-group job pid)
   (let* ((pgid (job-pgid job))
-         (pgid (if (= 0 pgid) pid pgid)))
+         (pgid (or pgid pid)))
     (setpgid pid pgid)
     pgid))
 
 (define (job-add-process job pid command)
   (let ((pgid (add-to-process-group job pid)))
     (set-job-pgid! job pgid)
-    (tcsetpgrp (current-input-port) pgid)
-    (cons (make-process pid command 'running) (job-processes job))))
+    (tcsetpgrp (current-error-port) pgid)
+    (set-job-processes! job (cons (make-process pid command 'running) (job-processes job)))))
 
 (define (job-control-init)
-  (let* ((interactive? (isatty? (current-input-port)))
+  (let* ((interactive? (isatty? (current-error-port)))
          (pgid (getpgrp))
          (pid (getpid)))
     (when interactive?
-      (while (not (eqv? (tcgetpgrp (current-input-port)) pgid))
+      (while (not (eqv? (tcgetpgrp (current-error-port)) pgid))
         (kill (- pgid) SIGTTIN)) ;; we are not in the foreground
       (map (cut sigaction <> SIG_IGN)
            (list SIGINT SIGQUIT SIGTSTP SIGTTIN SIGTTOU))
       (sigaction SIGCHLD SIG_DFL)
       (setpgid pid pid) ;; create new process group for ourself
-      (tcsetpgrp (current-input-port) pid))))
+      (tcsetpgrp (current-error-port) pid))))
 
 (define (pipe*)
   (let ((p (pipe)))
@@ -74,7 +74,7 @@
   (receive (r w) (pipe*)
     (let ((pid (primitive-fork)))
       (cond ((= 0 pid) (close r)
-             (tcsetpgrp (current-input-port) (add-to-process-group job (getpid)))
+             (tcsetpgrp (current-error-port) (add-to-process-group job (getpid)))
              (move->fdes w 1)
              (exec* command))
             (#t
@@ -86,7 +86,7 @@
   (receive (r w) (pipe*)
     (let ((pid (primitive-fork)))
       (cond ((= 0 pid)
-             (tcsetpgrp (current-input-port) (add-to-process-group job (getpid)))
+             (tcsetpgrp (current-error-port) (add-to-process-group job (getpid)))
              (move->fdes src 0)
              (close r)
              (move->fdes w 1)
@@ -99,7 +99,8 @@
 (define (spawn-sink job interactive? src command)
   (let ((pid (primitive-fork)))
     (cond ((= 0 pid)
-           (tcsetpgrp (current-input-port) (add-to-process-group job (getpid)))
+           (tcsetpgrp (current-error-port) (add-to-process-group job (getpid)))
+
            (map (cut sigaction <> SIG_DFL)
                (list SIGINT SIGQUIT SIGTSTP SIGTTIN SIGTTOU SIGCHLD))
 
@@ -109,11 +110,39 @@
            (job-add-process job pid command)
            (and src (close src))))))
 
+(define (job-launch command fg?) ;; todo: integrate into pipeline
+  (let* ((interactive? (isatty? (current-error-port)))
+         (foo (stdout "ISATTY: " interactive?))
+         (pgid (getpid))
+         (pid (primitive-fork)))
+    (if (= 0 pid)
+        (when interactive? ;; the child i.e. command
+          (setpgid (getpid) (getpid)) ;; put job in own process group
+          (if fg? (tcsetpgrp (current-error-port) (getpid))) ;; put job in foreground
+
+          (map (cut sigaction <> SIG_DFL)
+               (list SIGINT SIGQUIT SIGTSTP SIGTTIN SIGTTOU SIGCHLD))
+          (fdes->inport 0)
+          (map fdes->outport '(1 2))
+
+          (exec* command)
+          (exit 1))
+        (when interactive? ;; the parent i.e. shell
+          (setpgid pid pid) ;; put job in own process group
+          (tcsetpgrp (current-error-port) pid) ;; put job in foreground
+          (when fg?
+            (waitpid pid WUNTRACED)
+            (tcsetpgrp (current-error-port) (getpid))))))) ;; put shell in foreground
+
+(define (pipelinex . commands)
+  (stdout "pipeline: " commands)
+  (job-launch (car commands) #t))
+
 (define (pipeline . commands)
-  (let ((interactive? (isatty? (current-input-port)))
-        (job (make-job (length job-table) 0 '())))
+  (let ((interactive? (isatty? (current-error-port)))
+        (job (make-job (length job-table) #f '())))
     (set! job-table (cons job job-table))
-    (if (< 1 (length commands))
+    (if (> (length commands) 1)
         (let loop ((src (spawn-source job interactive? (car commands)))
                    (commands (cdr commands)))
           (if (null? (cdr commands))
@@ -122,39 +151,13 @@
                     (cdr commands))))
         (spawn-sink job interactive? #f (car commands))))
   (waitpid WAIT_ANY WUNTRACED)
-  (sleep 2)
-  ;;(tcsetpgrp (current-input-port) (getpgrp))
+  (tcsetpgrp (current-error-port) (getpgrp))
   (stdout "job-table: " job-table))
 
 ;;(pipeline (list "ls" "/")
 ;;(pipeline (list "ls" "/") (list "grep" "o") (list "tr" "o" "e"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; (define (job-launch command fg?) ;; todo: integrate into pipeline
-;;   (let* ((interactive? (isatty? (current-input-port)))
-;;          (pgid (getpid))
-;;          (pid (primitive-fork)))
-;;     (if (= 0 pid)
-;;         (when interactive? ;; the child i.e. command
-;;           (setpgid pid pgid)
-;;           (if fg? (tcsetpgrp (current-input-port) pgid))
-;;           (map (cut sigaction <> SIG_DFL)
-;;                (list SIGINT SIGQUIT SIGTSTP SIGTTIN SIGTTOU SIGCHLD))
-;;           (map move->fdes
-;;                (list (current-input-port) (current-output-port) (current-error-port))
-;;                (iota 4))
-;;           (exec* command)
-;;           (exit 1))
-;;         (when interactive? ;; the parent i.e. shell
-;;           (setpgid pid pgid)
-;;           (set! job-table
-;;             (acons pid
-;;                    (make-job (length job-table) `(,pid) pgid command 'running)
-;;                    job-table))
-;;           (when fg?
-;;             (waitpid pid WUNTRACED)
-;;             (tcsetpgrp (current-input-port) (getpid)))))))
 
 ;; (define (mark-job-status pid status)
 ;;   (if (not (= 0 pid))
@@ -201,8 +204,8 @@
 
 ;; (define (foreground job-id)
 ;;   (let ((job (job-by-id job-table job-id)))
-;;     (tcsetpgrp (current-input-port) (job-pgid job))
+;;     (tcsetpgrp (current-error-port) (job-pgid job))
 ;;     (if (and job (eq? 'stopped (job-status job)))
 ;;         (kill (- (job-pgid job)) SIGCONT))
 ;;     (job-wait job)
-;;     (tcsetpgrp (current-input-port) (getpid))))
+;;     (tcsetpgrp (current-error-port) (getpid))))
