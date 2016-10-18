@@ -145,7 +145,7 @@ copyleft.
 
 
 (define (builtin ast)
-  (format (current-error-port) "builtin: ~s\n" ast)
+  ;;(format (current-error-port) "builtin: ~s\n" ast)
   (match ast
     (('append ('glob "cd") arg) `(apply chdir ,arg))
     (('for-each rest ...) ast)
