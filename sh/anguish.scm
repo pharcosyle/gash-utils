@@ -132,7 +132,7 @@ copyleft.
                   (let ((empty? (string=? "" path)))
                     (map (lambda (extension) (if empty? extension (string-join (list path "/" extension) "")))
                          (filter (cute glob-match pattern <>)
-                                 (map car (cddr (file-system-tree (if empty? (getcwd) path))))))))
+                                 (filter (negate (cute string-any #\. <> 0 1)) (scandir (if empty? (getcwd) path)))))))
                 paths))
 
   (if (glob? pattern)
