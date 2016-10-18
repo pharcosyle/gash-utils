@@ -35,6 +35,7 @@
   ((compose string-to-ast file-to-string) filename))
 
 (define (main args)
+  (job-control-init)
   (let* ((option-spec '((debug (single-char #\d) (value #f))
                         (help (single-char #\h) (value #f))
                         (parse (single-char #\p) (value #f))
@@ -49,11 +50,10 @@
                                  (cond (parse?
                                         (let ((ast- (transform ast)))
                                           (format (current-output-port) "parsed  : ~s\n\n" ast)
-                                          (format (current-output-port) "prepared: ~s\n\n" ast-)
+                                          (map (cut format (current-output-port) "prepared: ~s\n\n" <>) ast-)
                                           #t))
                                        (#t
-                                        (sh-exec ast)
-                                        #t))))))
+                                        (sh-exec ast)))))))
     (cond
      (help?
       (display "\
@@ -181,7 +181,7 @@ copyleft.
     ((('pipe _) command ...) (map transform command))
     (((('pipe _) command) ...) (map transform command))
     ((_ o) (transform o)) ;; peel the onion: (symbol (...)) -> (...)
-    (_ ast)))
+    (_ ast))) ;; done
 
 (define (sh-exec ast)
   (define (exec cmd)
@@ -193,8 +193,8 @@ copyleft.
          ;(print (format (current-error-port) "transformed: ~a\n" ast))
          )
     (match ast
-      ('script '()) ;; skip
-      (_ (map exec ast)))))
+      ('script #t) ;; skip
+      (_ (begin (map exec ast) #t)))))
 
 
 (define (prompt)
