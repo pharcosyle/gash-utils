@@ -213,9 +213,8 @@ copyleft.
 
 (define (filename-completion text state)
   (if (not state)
-      (let ((completions (map car
-                              (filter (cute string-prefix? text <>)
-                                      (map car (cddr (file-system-tree (getcwd))))))))
+      (let ((completions (filter (cute string-prefix? text <>)
+                                 (scandir (getcwd)))))
         (cond ((< 1 (length completions)) (begin (newline)
                                                  (display (string-join completions " ")) (newline)
                                                  (redraw-current-line)
@@ -226,9 +225,8 @@ copyleft.
 
 (define (search-binary-in-path-completion text state)
   (if (not state)
-      (let ((completions (map car
-                              (filter (cute string-prefix? text <>)
-                                      (map car (cddr (file-system-tree "/bin")))))))
+      (let ((completions (filter (cute string-prefix? text <>)
+                                 (scandir "/bin"))))
         (cond ((< 1 (length completions)) (begin (newline)
                                                  (display (string-join completions " ")) (newline)
                                                  (redraw-current-line)
@@ -239,5 +237,4 @@ copyleft.
 
 (define (completion text state)
   (or (filename-completion text state)
-      ;;(search-binary-in-path-completion text state)
-      ))
+      (search-binary-in-path-completion text state)))
