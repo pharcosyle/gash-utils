@@ -148,6 +148,7 @@ copyleft.
   ;;(format (current-error-port) "builtin: ~s\n" ast)
   (match ast
     (('append ('glob "cd") arg) `(apply chdir ,arg))
+    (('append ('glob "echo") args ...) `(apply stdout ,@args))
     (('for-each rest ...) ast)
     (('if rest ...) ast)
     (_ #f)))
