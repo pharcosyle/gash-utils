@@ -8,7 +8,7 @@
   :use-module (srfi srfi-9)
   :use-module (srfi srfi-26)
 
-  :export (pipeline job-control-init))
+  :export (pipeline job-control-init jobs))
 
 (define (stdout . o)
   (map display o)
@@ -35,10 +35,17 @@
 (define job-table '()) ;; list of <job>
 
 (define (status->state status)
-  (cond ((status:exit-val status) 'completed)
-        ((status:term-sig status) 'terminated)
-        ((status:stop-sig status) 'stopped)
-        (#t 'running)))
+  (cond ((status:exit-val status) 'Completed)
+        ((status:term-sig status) 'Terminated)
+        ((status:stop-sig status) 'Stopped)
+        (#t 'Running)))
+
+(define (jobs)
+  (map (lambda (job number)
+         (stdout "[" number "]?  " (status->state (job-status job)) "\t\t"
+                 (process-command (car (job-processes job)))))
+       (reverse job-table)
+       (iota (length job-table) 1 1)))
 
 (define (job-status job)
   (process-status (car (job-processes job))))
@@ -50,6 +57,9 @@
 
 (define (job-running? job)
   (find (compose not process-status) (job-processes job)))
+
+(define (job-stopped? job)
+  (find (compose status:stop-sig process-status) (job-processes job)))
 
 (define (add-to-process-group job pid)
   (let* ((pgid (job-pgid job))
@@ -128,6 +138,10 @@
            (job-add-process job pid command)
            (and src (close src))))))
 
+;; TODO:
+;;   report job status: before prompt or by calling jobs
+;;   remove reported terminated or completed jobs
+
 (define (pipeline . commands)
   (let ((interactive? (isatty? (current-error-port)))
         (job (make-job (length job-table) #f '())))
@@ -148,7 +162,15 @@
         (if (job-running? job) (loop))))
     (tcsetpgrp (current-error-port) (getpid))
     ;;(pretty-print job-table)
-    (job-status job)))
+    (job-status job)
+    (reap-jobs)))
+
+(define (disjoin . predicates)
+  (lambda (. arguments)
+   (any (cut apply <> arguments) predicates)))
+
+(define (reap-jobs)
+  (set! job-table (filter (disjoin job-running? job-stopped?) job-table)))
 
 ;;(pipeline (list "ls" "/")
 ;;(pipeline (list "ls" "/") (list "grep" "o") (list "tr" "o" "e"))

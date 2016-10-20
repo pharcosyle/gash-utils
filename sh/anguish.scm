@@ -149,6 +149,7 @@ copyleft.
   (match ast
     (('append ('glob "cd") arg) `(apply chdir ,arg))
     (('append ('glob "echo") args ...) `(apply stdout ,@args))
+    (('glob "jobs") `(jobs))
     (('for-each rest ...) ast)
     (('if rest ...) ast)
     (_ #f)))
