@@ -8,7 +8,7 @@
   :use-module (srfi srfi-9)
   :use-module (srfi srfi-26)
 
-  :export (pipeline job-control-init jobs))
+  :export (pipeline job-control-init jobs fg))
 
 (define (stdout . o)
   (map display o)
@@ -33,6 +33,12 @@
   (processes job-processes set-job-processes!))
 
 (define job-table '()) ;; list of <job>
+
+(define (job-index index)
+  (let ((index (- (length job-table) index)))
+    (if (<= 0 index)
+        (list-ref job-table index)
+        #f)))
 
 (define (status->state status)
   (cond ((status:exit-val status) 'Completed)
@@ -143,8 +149,9 @@
 ;;   remove reported terminated or completed jobs
 
 (define (pipeline . commands)
-  (let ((interactive? (isatty? (current-error-port)))
-        (job (make-job (length job-table) #f '())))
+  (let* ((interactive? (isatty? (current-error-port)))
+         (index (+ 1 (length job-table)))
+         (job (make-job index #f '())))
     (set! job-table (cons job job-table))
     (if (> (length commands) 1)
         (let loop ((src (spawn-source job interactive? (car commands)))
@@ -154,16 +161,7 @@
               (loop (spawn-filter job interactive? src (car commands))
                     (cdr commands))))
         (spawn-sink job interactive? #f (car commands)))
-    (let loop ()
-      (let* ((pid-status (waitpid WAIT_ANY WUNTRACED))
-             (pid (car pid-status))
-             (status (cdr pid-status)))
-        (job-update job pid status)
-        (if (job-running? job) (loop))))
-    (tcsetpgrp (current-error-port) (getpid))
-    ;;(pretty-print job-table)
-    (job-status job)
-    (reap-jobs)))
+    (wait job)))
 
 (define (disjoin . predicates)
   (lambda (. arguments)
@@ -171,6 +169,27 @@
 
 (define (reap-jobs)
   (set! job-table (filter (disjoin job-running? job-stopped?) job-table)))
+
+(define (wait job)
+  (let ((index (job-id job)))
+    (let loop ()
+      (let* ((pid-status (waitpid WAIT_ANY WUNTRACED))
+             (pid (car pid-status))
+             (status (cdr pid-status)))
+        (job-update job pid status)
+        (if (job-running? job) (loop))))
+    (tcsetpgrp (current-error-port) (getpid))
+    (stdout "\n[" index "] " (status->state (job-status job)) "\t\t" (string-join (append-map process-command (job-processes job))))
+    (reap-jobs)))
+
+(define (fg index)
+  (let ((job (job-index index)))
+    (cond (job
+           (tcsetpgrp (current-error-port) (job-pgid job))
+           (kill (- (job-pgid job)) SIGCONT)
+           (wait job))
+          (#t
+           (stderr "fg: no such job " index)))))
 
 ;;(pipeline (list "ls" "/")
 ;;(pipeline (list "ls" "/") (list "grep" "o") (list "tr" "o" "e"))
