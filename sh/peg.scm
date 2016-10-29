@@ -14,12 +14,11 @@
 
 (define (parse input)
   (let ((tree (parse- input)))
-    (and tree
-         (cond ((error? tree)
-                (format (current-error-port) "error: ~a\n" tree)
-                #f)
-               (#t
-                tree)))))
+    (cond ((error? tree)
+           (format (current-error-port) "error: ~a\n" tree)
+           #f)
+          (#t
+           tree))))
 
 (define (parse- input)
   (define label "")

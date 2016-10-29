@@ -8,7 +8,7 @@
   :use-module (srfi srfi-9)
   :use-module (srfi srfi-26)
 
-  :export (pipeline job-control-init jobs fg bg))
+  :export (pipeline job-control-init jobs report-jobs fg bg))
 
 (define (stdout . o)
   (map display o)
@@ -42,33 +42,40 @@
 
 (define (status->state status)
   (cond ((not status) 'Running)
-        ((status:exit-val status) 'Completed)
+        ((status:exit-val status) 'Done)
         ((status:term-sig status) 'Terminated)
         ((status:stop-sig status) 'Stopped)))
 
-(define (display-job job index)
-  (stdout "[" index "] " (status->state (job-status job)) "\t\t"
-          (string-join (append-map process-command (job-processes job)))))
+(define (job-command job)
+  (string-join (map (compose string-join process-command) (reverse (job-processes job))) " | "))
+
+(define (display-job job)
+  (stdout "[" (job-id job) "] " (status->state (job-status job)) "\t\t"
+          (job-command job)))
 
 (define (jobs)
-  (map (lambda (job index)
-         (display-job job index))
-       (reverse job-table)
-       (iota (length job-table) 1 1)))
+  (map (lambda (job)
+         (display-job job))
+       (reverse job-table)))
 
 (define (job-status job)
-  (process-status (car (job-processes job))))
+  (process-status (last (job-processes job))))
 
 (define (job-update job pid status)
   (unless (= 0 pid)
     (let ((proc (find (compose (cut eqv? pid <>) process-pid) (job-processes job))))
-      (set-process-status! proc status))))
+      (when proc
+        (set-process-status! proc status)))))
 
 (define (job-running? job)
   (find (compose not process-status) (job-processes job)))
 
 (define (job-stopped? job)
-  (find (compose status:stop-sig process-status) (job-processes job)))
+  (find status:stop-sig (filter-map process-status (job-processes job))))
+
+(define (job-completed? job)
+  (let ((state (map (compose status->state process-status) (job-processes job))))
+    (every (cut member <> '(Done Terminated)) state)))
 
 (define (add-to-process-group job pid)
   (let* ((pgid (job-pgid job))
@@ -147,15 +154,11 @@
            (job-add-process job pid command)
            (and src (close src))))))
 
-;; TODO:
-;;   report job status: before prompt or by calling jobs
-;;   remove reported terminated or completed jobs
 
 (define (pipeline . commands)
   (let* ((interactive? (isatty? (current-error-port)))
          (index (+ 1 (length job-table)))
          (job (make-job index #f '())))
-    (set! job-table (cons job job-table))
     (if (> (length commands) 1)
         (let loop ((src (spawn-source job interactive? (car commands)))
                    (commands (cdr commands)))
@@ -164,40 +167,53 @@
               (loop (spawn-filter job interactive? src (car commands))
                     (cdr commands))))
         (spawn-sink job interactive? #f (car commands)))
+    (set! job-table (cons job job-table))
     (wait job)))
 
 (define (disjoin . predicates)
   (lambda (. arguments)
-   (any (cut apply <> arguments) predicates)))
+    (any (cut apply <> arguments) predicates)))
 
 (define (reap-jobs)
   (set! job-table (filter (disjoin job-running? job-stopped?) job-table)))
 
+(define (report-jobs)
+  (when (not (null? job-table))
+    (let* ((pid-status (waitpid WAIT_ANY (logior WUNTRACED WNOHANG)))
+           (pid (car pid-status))
+           (status (cdr pid-status)))
+      (unless (= 0 pid)
+        (map (cut job-update <> pid status) job-table)
+        (map display-job (filter job-completed? job-table))
+        (reap-jobs)))))
+
 (define (wait job)
-  (let ((index (job-id job)))
-    (let loop ()
-      (let* ((pid-status (waitpid WAIT_ANY WUNTRACED))
-             (pid (car pid-status))
-             (status (cdr pid-status)))
-        (job-update job pid status)
-        (if (job-running? job) (loop))))
-    (tcsetpgrp (current-error-port) (getpid))
-    (display-job job index)
-    (reap-jobs)))
+  (let loop ()
+    (let* ((pid-status (waitpid (- (job-pgid job)) WUNTRACED))
+           (pid (car pid-status))
+           (status (cdr pid-status)))
+      (job-update job pid status)
+      (if (job-running? job) (loop))))
+  (tcsetpgrp (current-error-port) (getpid))
+  (unless (job-completed? job)
+    (newline) (display-job job))
+  (reap-jobs)
+  (job-status job))
 
 (define (fg index)
   (let ((job (job-index index)))
     (cond (job
            (tcsetpgrp (current-error-port) (job-pgid job))
            (kill (- (job-pgid job)) SIGCONT)
+           (stdout (job-command job))
            (wait job))
           (#t
            (stderr "fg: no such job " index)))))
 
 (define (bg index)
   (let ((job (job-index index)))
-    (kill (- (job-pgid job)) SIGCONT)
-    (map (cut set-process-status! <>  #f) (job-processes job))))
+    (map (cut set-process-status! <>  #f) (job-processes job))
+    (kill (- (job-pgid job)) SIGCONT)))
 
 ;;(pipeline (list "ls" "/")
 ;;(pipeline (list "ls" "/") (list "grep" "o") (list "tr" "o" "e"))

@@ -82,7 +82,8 @@ copyleft.
                            (if (not (eof-object? line))
                                (begin
                                  (let ((ast (string-to-ast line)))
-                                   (add-history line)
+                                   (if (not (string-null? line))
+                                       (add-history line))
                                    (run ast))
                                  (loop (readline (prompt)))))))))
            (activate-readline)
@@ -158,8 +159,6 @@ copyleft.
     (_ #f)))
 
 
-;; TODO: add globbing
-
 (define (transform ast)
   (match ast
     (('script terms ...) (list (transform terms)))
@@ -209,6 +208,7 @@ copyleft.
          (cwd (if (string-prefix? HOME CWD)
                   (string-replace CWD "~" 0 (string-length HOME))
                   CWD)))
+    (report-jobs)
     (string-append esc "[01;34m" cwd esc "[00m$ ")))
 
 (define (redraw-current-line)
