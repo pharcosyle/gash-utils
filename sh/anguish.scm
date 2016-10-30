@@ -17,7 +17,8 @@
 
 (define (stdout . o)
   (map (lambda (o) (display o (current-output-port))) o)
-  (newline)
+  (newline (current-output-port))
+  (force-output (current-output-port))
   o)
 
 (define (stderr . o)
@@ -50,7 +51,8 @@
                                  (cond (parse?
                                         (let ((ast- (transform ast)))
                                           (format (current-output-port) "parsed  : ~s\n\n" ast)
-                                          (map (cut format (current-output-port) "prepared: ~s\n\n" <>) ast-)
+                                          (format (current-output-port) "prepared  : ~s\n\n" ast-)
+                                          ;(map (cut format (current-output-port) "prepared: ~s\n\n" <>) ast-)
                                           #t))
                                        (#t
                                         (sh-exec ast)))))))
@@ -150,7 +152,8 @@ copyleft.
     (('append ('glob "cd") arg) `(apply chdir ,arg))
     (('append ('glob "fg") ('glob arg)) `(fg ,(string->number arg)))
     (('append ('glob "bg") ('glob arg)) `(bg ,(string->number arg)))
-    (('append ('glob "echo") args ...) `(apply stdout ,@args))
+    (('append ('glob "echo") args ...) `(stdout (string-join ,@args " ")))
+    (('glob "echo") `(stdout))
     (('glob "fg") `(fg 1))
     (('glob "bg") `(bg 1))
     (('glob "jobs") `(jobs))
@@ -158,20 +161,29 @@ copyleft.
     (('if rest ...) ast)
     (_ #f)))
 
+;; transform ast -> list of expr
+;; such that (map eval expr)
+
+;; (define (background ast)
+;;   (match ast
+;;     (('pipeline fg rest ...) `(pipeline #f ,@rest))
+;;     (_ ast)))
 
 (define (transform ast)
   (match ast
-    (('script terms ...) (list (transform terms)))
-    (('script term separator) (transform term))
-    (('if-clause "if" (expression "then" consequent "fi")) `(if (equal? 0 (status:exit-val ,(transform expression))) ,(transform consequent)))
-    (('if-clause "if" (expression "then" consequent ('else-part "else" alternative) "fi")) `(if (equal? 0 (status:exit-val ,(transform expression))) ,(transform consequent) ,(transform alternative)))
-    (('for-clause "for" ((identifier "in" lst sep) do-group)) `(for-each (lambda (,(string->symbol identifier)) ,(expand identifier (transform do-group))) (glob ,(transform lst))))
+    ;(('script term "&") (background (transform term)))
+    (('script term) (list (transform term)))
+    (('script terms ...) (transform terms))
+    ((('term command)) (list (transform command)))
+    ((('term command) ...) (map transform command))
+    ((('term command) (('term commands) ...)) (map transform (cons command commands)))
+    (('compound-list terms ...) (transform terms))
+    (('if-clause "if" (expression "then" consequent "fi")) `(if (equal? 0 (status:exit-val (begin ,@(transform expression)))) (begin ,@(transform consequent))))
+    (('if-clause "if" (expression "then" consequent ('else-part "else" alternative) "fi")) `(if (equal? 0 (status:exit-val ,@(transform expression))) (begin ,@(transform consequent)) (begin ,@(transform alternative))))
+    (('for-clause "for" ((identifier "in" lst sep) do-group)) `(for-each (lambda (,(string->symbol identifier)) (begin ,@(expand identifier (transform do-group)))) (glob ,(transform lst))))
     (('do-group "do" (command "done")) (transform command))
     (('pipeline command) (let* ((command (transform command))) (or (builtin command) `(pipeline ,command))))
     (('pipeline command piped-commands) `(pipeline ,(transform command) ,@(transform piped-commands)))
-    (('compound-list terms ...) (transform terms))
-    ((('term command)) (transform command))
-    ((('term ('pipeline command)) (('term ('pipeline commands)) ...)) `(map pipeline ,(cons 'list (cons (transform command) (map transform commands)))))
     (('simple-command ('word s)) `(glob ,(transform s)))
     (('simple-command ('word s1) ('word s2)) `(append (glob ,(transform s1)) (glob ,(transform s2))))
     (('simple-command ('word s1) (('word s2) ...)) `(append (glob ,(transform s1)) (append-map glob (list ,@(map transform s2)))))
@@ -189,12 +201,11 @@ copyleft.
 
 (define (sh-exec ast)
   (define (exec cmd)
-    ;(format (current-output-port) "eval: ~s\n" cmd)
     (local-eval cmd (the-environment)))
 
-  (let* (;(print (format (current-error-port) "parsed: ~a\n" ast))
+  (let* (;(print (format (current-error-port) "parsed: ~s\n" ast))
          (ast (transform ast))
-         ;(print (format (current-error-port) "transformed: ~a\n" ast))
+         ;(print (format (current-error-port) "transformed: ~s\n" ast))
          )
     (match ast
       ('script #t) ;; skip

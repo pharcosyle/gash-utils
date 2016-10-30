@@ -90,10 +90,10 @@
      singlequotes     <-- sq  ((doublequotes / backticks / (!sq .))* sq)
      doublequotes     <-- dq ((singlequotes / backticks / (!dq .))* dq)
      backticks        <-- bt  ((singlequotes / doublequotes / (!bt .))* bt)
-     separator        <   (sp* break ws*) / ws+
-     break            <-- amp / semi !semi
+     separator        <-  (sp* break ws*) / ws+
+     break            <-  amp / semi !semi
      sequential-sep   <-- (semi !semi ws*) / ws+
-     amp              <   '&'
+     amp              <-  '&'
      semi             <   ';'
      nl               <   '\n'
      sp               <   [\t ]
