@@ -52,7 +52,6 @@
                                         (let ((ast- (transform ast)))
                                           (format (current-output-port) "parsed  : ~s\n\n" ast)
                                           (format (current-output-port) "prepared  : ~s\n\n" ast-)
-                                          ;(map (cut format (current-output-port) "prepared: ~s\n\n" <>) ast-)
                                           #t))
                                        (#t
                                         (sh-exec ast)))))))
@@ -88,7 +87,6 @@ copyleft.
                                        (add-history line))
                                    (run ast))
                                  (loop (readline (prompt)))))))))
-           (activate-readline)
            (clear-history)
            (read-history HOME)
            (with-readline-completion-function completion thunk)
@@ -114,7 +112,7 @@ copyleft.
   (map foo o))
 
 
-;; TODO: add braces and pattern ending with /
+;; TODO: add braces
 
 (define (glob pattern) ;; pattern -> list of path
   (define (glob? pattern)
@@ -161,17 +159,17 @@ copyleft.
     (('if rest ...) ast)
     (_ #f)))
 
+(define (background ast)
+  (match ast
+    (('pipeline fg rest ...) `(pipeline #f ,@rest))
+    (_ ast)))
+
 ;; transform ast -> list of expr
 ;; such that (map eval expr)
 
-;; (define (background ast)
-;;   (match ast
-;;     (('pipeline fg rest ...) `(pipeline #f ,@rest))
-;;     (_ ast)))
-
 (define (transform ast)
   (match ast
-    ;(('script term "&") (background (transform term)))
+    (('script term "&") (list (background (transform term))))
     (('script term) (list (transform term)))
     (('script terms ...) (transform terms))
     ((('term command)) (list (transform command)))
@@ -182,8 +180,8 @@ copyleft.
     (('if-clause "if" (expression "then" consequent ('else-part "else" alternative) "fi")) `(if (equal? 0 (status:exit-val ,@(transform expression))) (begin ,@(transform consequent)) (begin ,@(transform alternative))))
     (('for-clause "for" ((identifier "in" lst sep) do-group)) `(for-each (lambda (,(string->symbol identifier)) (begin ,@(expand identifier (transform do-group)))) (glob ,(transform lst))))
     (('do-group "do" (command "done")) (transform command))
-    (('pipeline command) (let* ((command (transform command))) (or (builtin command) `(pipeline ,command))))
-    (('pipeline command piped-commands) `(pipeline ,(transform command) ,@(transform piped-commands)))
+    (('pipeline command) (let* ((command (transform command))) (or (builtin command) `(pipeline #t ,command))))
+    (('pipeline command piped-commands) `(pipeline #t ,(transform command) ,@(transform piped-commands)))
     (('simple-command ('word s)) `(glob ,(transform s)))
     (('simple-command ('word s1) ('word s2)) `(append (glob ,(transform s1)) (glob ,(transform s2))))
     (('simple-command ('word s1) (('word s2) ...)) `(append (glob ,(transform s1)) (append-map glob (list ,@(map transform s2)))))
@@ -202,7 +200,6 @@ copyleft.
 (define (sh-exec ast)
   (define (exec cmd)
     (local-eval cmd (the-environment)))
-
   (let* (;(print (format (current-error-port) "parsed: ~s\n" ast))
          (ast (transform ast))
          ;(print (format (current-error-port) "transformed: ~s\n" ast))
