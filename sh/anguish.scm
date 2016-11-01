@@ -145,7 +145,6 @@ copyleft.
 
 
 (define (builtin ast)
-  ;;(format (current-error-port) "builtin: ~s\n" ast)
   (match ast
     (('append ('glob "cd") arg) `(apply chdir ,arg))
     (('append ('glob "fg") ('glob arg)) `(fg ,(string->number arg)))
@@ -208,6 +207,7 @@ copyleft.
       ('script #t) ;; skip
       (_ (begin (map exec ast) #t)))))
 
+;;TODO add colors
 
 (define (prompt)
   (let* ((esc (string #\033))
@@ -217,7 +217,7 @@ copyleft.
                   (string-replace CWD "~" 0 (string-length HOME))
                   CWD)))
     (report-jobs)
-    (string-append esc "[01;34m" cwd esc "[00m$ ")))
+    (string-append cwd "$ ")))
 
 (define (redraw-current-line)
   (dynamic-call (dynamic-func "rl_refresh_line"
