@@ -103,13 +103,14 @@ copyleft.
                 (string-split s #\newline)) "\n"))
 
 (define (expand identifier o) ;;identifier-string -> symbol
-  (define (foo o)
+  (define (expand- o)
     (let ((dollar-identifier (string-append "$" identifier)))
       (match o
         ((? symbol?) o)
         ((? string?) (if (string=? o dollar-identifier) (string->symbol identifier) o))
-        ((? list?) (map foo o)))))
-  (map foo o))
+        ((? list?) (map expand- o))
+        (_ o))))
+  (map expand- o))
 
 
 ;; TODO: add braces
@@ -119,10 +120,11 @@ copyleft.
     (string-match "\\?|\\*" pattern))
 
   (define (glob2regex pattern)
-    (let* ((pattern (regexp-substitute/global #f "\\." pattern 'pre "\\." 'post))
-           (pattern (regexp-substitute/global #f "\\?" pattern 'pre "." 'post))
-           (pattern (regexp-substitute/global #f "\\*" pattern 'pre ".*" 'post)))
-      (make-regexp (string-append pattern "$"))))
+    (let* ((regex (regexp-substitute/global #f "\\." pattern 'pre "\\." 'post))
+           (regex (regexp-substitute/global #f "\\?" pattern 'pre "." 'post))
+           (regex (regexp-substitute/global #f "\\*" pattern 'pre ".*" 'post)))
+      (stdout "glob pattern: " pattern "regex pattern: " regex)
+      (make-regexp (string-append "^" regex "$"))))
 
   (define (glob-match pattern path) ;; pattern path -> bool
     (regexp-match? (regexp-exec (glob2regex pattern) path)))
@@ -199,9 +201,9 @@ copyleft.
 (define (sh-exec ast)
   (define (exec cmd)
     (local-eval cmd (the-environment)))
-  (let* (;(print (format (current-error-port) "parsed: ~s\n" ast))
+  (let* (;;(print (format (current-error-port) "parsed: ~s\n" ast))
          (ast (transform ast))
-         ;(print (format (current-error-port) "transformed: ~s\n" ast))
+         ;;(print (format (current-error-port) "transformed: ~s\n" ast))
          )
     (match ast
       ('script #t) ;; skip
