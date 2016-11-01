@@ -1,4 +1,6 @@
 (define-module (sh anguish)
+  :use-module (statprof)
+
   :use-module (srfi srfi-1)
   :use-module (srfi srfi-26)
   :use-module (ice-9 ftw)
@@ -36,35 +38,36 @@
   ((compose string-to-ast file-to-string) filename))
 
 (define (main args)
-  (job-control-init)
-  (let* ((option-spec '((debug (single-char #\d) (value #f))
-                        (help (single-char #\h) (value #f))
-                        (parse (single-char #\p) (value #f))
-                        (version (single-char #\v) (value #f))))
-         (options (getopt-long args option-spec
-                               #:stop-at-first-non-option #t ))
-         (help? (option-ref options 'help #f))
-         (parse? (option-ref options 'parse (null? #f)))
-         (version? (option-ref options 'version #f))
-         (files (option-ref options '() '()))
-         (run (lambda (ast) (and ast
-                                 (cond (parse?
-                                        (let ((ast- (transform ast)))
-                                          (format (current-output-port) "parsed  : ~s\n\n" ast)
-                                          (format (current-output-port) "prepared  : ~s\n\n" ast-)
-                                          #t))
-                                       (#t
-                                        (sh-exec ast)))))))
-    (cond
-     (help?
-      (display "\
+  (let ((thunk (lambda ()
+                 (job-control-init)
+                 (let* ((option-spec '((debug (single-char #\d) (value #f))
+                                       (help (single-char #\h) (value #f))
+                                       (parse (single-char #\p) (value #f))
+                                       (version (single-char #\v) (value #f))))
+                        (options (getopt-long args option-spec
+                                              #:stop-at-first-non-option #t ))
+                        (help? (option-ref options 'help #f))
+                        (parse? (option-ref options 'parse (null? #f)))
+                        (version? (option-ref options 'version #f))
+                        (files (option-ref options '() '()))
+                        (run (lambda (ast) (and ast
+                                                (cond (parse?
+                                                       (let ((ast- (transform ast)))
+                                                         (format (current-output-port) "parsed  : ~s\n\n" ast)
+                                                         (format (current-output-port) "prepared  : ~s\n\n" ast-)
+                                                         #t))
+                                                      (#t
+                                                       (sh-exec ast)))))))
+                   (cond
+                    (help?
+                     (display "\
 anguish [options]
   -h, --help       Display this help
   -p, --parse      Parse the shell script and print the parse tree
   -v, --version    Display the version
 "))
-     (version?
-      (display "
+                    (version?
+                     (display "
 Anguish 0.1
 Copryright (C) 2016 R.E.W. van Beusekom, rutger.van.beusekom@gmail.com.
 
@@ -73,26 +76,27 @@ when your shell lacks a real programming language. Anguish is free
 software and is covered by the GNU Public License, see COPYING for the
 copyleft.
 "))
-     ((pair? files)
-      (let* ((asts (map file-to-ast files))
-             (status (map run asts)))
-        (quit (every identity status))))
-     (#t (let* ((HOME (string-append (getenv "HOME") "/.anguishistory"))
-                (thunk (lambda ()
-                         (let loop ((line (readline (prompt))))
-                           (if (not (eof-object? line))
-                               (begin
-                                 (let ((ast (string-to-ast line)))
-                                   (if (not (string-null? line))
-                                       (add-history line))
-                                   (run ast))
-                                 (loop (readline (prompt)))))))))
-           (clear-history)
-           (read-history HOME)
-           (with-readline-completion-function completion thunk)
-           (write-history HOME))
-         (newline)))))
-
+                    ((pair? files)
+                     (let* ((asts (map file-to-ast files))
+                            (status (map run asts)))
+                       (quit (every identity status))))
+                    (#t (let* ((HOME (string-append (getenv "HOME") "/.anguishistory"))
+                               (thunk (lambda ()
+                                        (let loop ((line (readline (prompt))))
+                                          (if (not (eof-object? line))
+                                              (begin
+                                                (let ((ast (string-to-ast line)))
+                                                  (if (not (string-null? line))
+                                                      (add-history line))
+                                                  (run ast))
+                                                (loop (readline (prompt)))))))))
+                          (clear-history)
+                          (read-history HOME)
+                          (with-readline-completion-function completion thunk)
+                          (write-history HOME))
+                        (newline)))))))
+    ;;(statprof thunk #:hz 100 #:count-calls? #t)
+    (thunk)))
 
 (define (remove-shell-comments s)
   (string-join (map
@@ -123,18 +127,17 @@ copyleft.
     (let* ((regex (regexp-substitute/global #f "\\." pattern 'pre "\\." 'post))
            (regex (regexp-substitute/global #f "\\?" pattern 'pre "." 'post))
            (regex (regexp-substitute/global #f "\\*" pattern 'pre ".*" 'post)))
-      (stdout "glob pattern: " pattern "regex pattern: " regex)
       (make-regexp (string-append "^" regex "$"))))
 
-  (define (glob-match pattern path) ;; pattern path -> bool
-    (regexp-match? (regexp-exec (glob2regex pattern) path)))
+  (define (glob-match regex path) ;; pattern path -> bool
+    (regexp-match? (regexp-exec regex path)))
 
   (define (glob- pattern paths)
     (append-map (lambda (path)
                   (let ((empty? (string=? "" path)))
                     (map (lambda (extension) (if empty? extension (string-join (list path "/" extension) "")))
-                         (filter (cute glob-match pattern <>)
-                                 (filter (negate (cute string-any #\. <> 0 1)) (scandir (if empty? (getcwd) path)))))))
+                         (filter (cute glob-match (glob2regex pattern) <>)
+                                 (filter (negate (cut string-any #\. <> 0 1)) (scandir (if empty? (getcwd) path)))))))
                 paths))
 
   (if (glob? pattern)
@@ -209,17 +212,23 @@ copyleft.
       ('script #t) ;; skip
       (_ (begin (map exec ast) #t)))))
 
-;;TODO add colors
 
-(define (prompt)
-  (let* ((esc (string #\033))
-         (CWD (getcwd))
-         (HOME (getenv "HOME"))
-         (cwd (if (string-prefix? HOME CWD)
-                  (string-replace CWD "~" 0 (string-length HOME))
-                  CWD)))
-    (report-jobs)
-    (string-append cwd "$ ")))
+(define prompt
+  (let* ((l (string #\001))
+         (r (string #\002))
+         (e (string #\033))
+         (user (getenv "USER"))
+         (host (gethostname))
+         (home (getenv "HOME")))
+    (lambda ()
+      (let* ((cwd (getcwd))
+             (cwd (if (string-prefix? home cwd)
+                      (string-replace cwd "~" 0 (string-length home))
+                      cwd)))
+        (report-jobs)
+        (string-append
+         l e "[01;32m" r user "@" host l e "[00m" r ":"
+         l e "[01;34m" r cwd l e "[00m" r "$ ")))))
 
 (define (redraw-current-line)
   (dynamic-call (dynamic-func "rl_refresh_line"
@@ -228,7 +237,7 @@ copyleft.
 
 (define (filename-completion text state)
   (if (not state)
-      (let ((completions (filter (cute string-prefix? text <>)
+      (let ((completions (filter (cut string-prefix? text <>)
                                  (scandir (getcwd)))))
         (cond ((< 1 (length completions)) (begin (newline)
                                                  (display (string-join completions " ")) (newline)
@@ -240,7 +249,7 @@ copyleft.
 
 (define (search-binary-in-path-completion text state)
   (if (not state)
-      (let ((completions (filter (cute string-prefix? text <>)
+      (let ((completions (filter (cut string-prefix? text <>)
                                  (scandir "/bin"))))
         (cond ((< 1 (length completions)) (begin (newline)
                                                  (display (string-join completions " ")) (newline)

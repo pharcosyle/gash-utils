@@ -15,7 +15,7 @@
   (newline))
 
 (define (stderr . o)
-  (map (cut display <> (current-error-port)) o)
+  (map (cute display <> (current-error-port)) o)
   (newline))
 
 (define-record-type <process>
