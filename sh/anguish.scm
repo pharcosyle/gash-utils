@@ -38,6 +38,7 @@
   ((compose string-to-ast file-to-string) filename))
 
 (define (main args)
+  (setenv "PATH" "/bin:/usr/bin:/sbin:/usr/sbin:.")
   (let ((thunk (lambda ()
                  (job-control-init)
                  (let* ((option-spec '((debug (single-char #\d) (value #f))
@@ -230,35 +231,66 @@ copyleft.
          l e "[01;32m" r user "@" host l e "[00m" r ":"
          l e "[01;34m" r cwd l e "[00m" r "$ ")))))
 
-(define (redraw-current-line)
-  (dynamic-call (dynamic-func "rl_refresh_line"
-                              (dynamic-link "libreadline.so"))
-                #f))
+(define (string-prefix s1 s2)
+  (substring/read-only s1 0 (string-prefix-length s1 s2)))
 
-(define (filename-completion text state)
-  (if (not state)
-      (let ((completions (filter (cut string-prefix? text <>)
-                                 (scandir (getcwd)))))
-        (cond ((< 1 (length completions)) (begin (newline)
-                                                 (display (string-join completions " ")) (newline)
-                                                 (redraw-current-line)
-                                                 #f))
-              ((= 1 (length completions)) (car completions))
-              (#t #f)))
-      #f))
+(define next->file-completion (lambda () #f))
+(define next->binary-completion (lambda () #f))
 
-(define (search-binary-in-path-completion text state)
-  (if (not state)
-      (let ((completions (filter (cut string-prefix? text <>)
-                                 (scandir "/bin"))))
-        (cond ((< 1 (length completions)) (begin (newline)
-                                                 (display (string-join completions " ")) (newline)
-                                                 (redraw-current-line)
-                                                 #f))
-              ((= 1 (length completions)) (car completions))
-              (#t #f)))
-      #f))
+(define (isdir? path)
+  (and (access? path F_OK) (eq? 'directory (stat:type (stat path)))))
 
-(define (completion text state)
-  (or (filename-completion text state)
-      (search-binary-in-path-completion text state)))
+(define (ls dir)
+  (map (lambda (path)
+         (if (isdir? (string-append dir path))
+             (string-append path "/")
+             path))
+       (sort (filter (negate (cut string-every #\. <>))
+                     (scandir (if (string-null? dir) (getcwd) dir))) string<?)))
+
+(define (complete prefix list)
+  (if (string-null? prefix) list
+      (filter (cut string-prefix? prefix <>) list)))
+
+(define (slash dir)
+  (if (string-suffix? "/" dir) dir
+      (string-append dir "/")))
+
+(define (after-slash path)
+  (let ((at (string-index-right path #\/)))
+    (if at (string-drop path (+ 1 at))
+        path)))
+
+
+(define (filename-completion text continue?)
+  (if continue?
+      (next->file-completion)
+      (let* ((dir (slash (if (isdir? text) text (dirname text))))
+             (listing (ls dir))
+             (dir (if (string=? "./" dir) "" dir))
+             (completions (complete (after-slash text) listing)))
+        (set! next->file-completion
+          (lambda ()
+            (if (null? completions)
+                #f
+                (let ((completion (car completions)))
+                  (set! completions (cdr completions))
+                  (string-append dir completion)))))
+        (next->file-completion))))
+
+(define (search-binary-in-path-completion text continue?)
+  (if (not continue?)
+      (let* ((paths (string-split (getenv "PATH") #\:))
+             (binaries (apply append (filter identity (map scandir paths))))
+             (completions (sort (filter (cut string-prefix? text <>) binaries) string<?)))
+        (set! next->binary-completion (lambda ()
+                                        (if (null? completions)
+                                            #f
+                                            (let ((completion (car completions)))
+                                              (set! completions (cdr completions))
+                                              completion))))
+        (next->binary-completion))
+      (next->binary-completion)))
+
+(define (completion text continue?)
+  (or (filename-completion text continue?) (search-binary-in-path-completion text continue?)))
