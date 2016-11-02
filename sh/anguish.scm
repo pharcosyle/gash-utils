@@ -83,6 +83,7 @@ copyleft.
                        (quit (every identity status))))
                     (#t (let* ((HOME (string-append (getenv "HOME") "/.anguishistory"))
                                (thunk (lambda ()
+                                        ;;set-buffered-input-continuation?!
                                         (let loop ((line (readline (prompt))))
                                           (if (not (eof-object? line))
                                               (begin
@@ -121,6 +122,7 @@ copyleft.
 ;; TODO: add braces
 
 (define (glob pattern) ;; pattern -> list of path
+
   (define (glob? pattern)
     (string-match "\\?|\\*" pattern))
 
@@ -134,18 +136,21 @@ copyleft.
     (regexp-match? (regexp-exec regex path)))
 
   (define (glob- pattern paths)
-    (append-map (lambda (path)
-                  (let ((empty? (string=? "" path)))
-                    (map (lambda (extension) (if empty? extension (string-join (list path "/" extension) "")))
-                         (filter (cute glob-match (glob2regex pattern) <>)
-                                 (filter (negate (cut string-any #\. <> 0 1)) (scandir (if empty? (getcwd) path)))))))
-                paths))
+    (map (lambda (path)
+           (if (string-prefix? "./" path) (string-drop path 2) path))
+         (append-map (lambda (path)
+                       (map (cute string-append (if (string=? "/" path) "" path) "/" <>)
+                            (filter (conjoin (negate (cut string-prefix? "." <>))
+                                             (cute glob-match (glob2regex pattern) <>))
+                                    (or (scandir path) '()))))
+                     paths)))
 
   (if (glob? pattern)
-      (let ((absolute? (char=? #\/ (string-ref pattern 0))))
-        (let loop ((patterns (string-split pattern #\/))
-                   (paths (if absolute? '("/") `(""))))
-          (if (null? patterns) paths
+      (let* ((absolute? (string-prefix? "/" pattern)))
+        (let loop ((patterns (filter (negate string-null?) (string-split pattern #\/)))
+                   (paths (if absolute? '("/") '("."))))
+          (if (null? patterns)
+              paths
               (loop (cdr patterns) (glob- (car patterns) paths)))))
       (list pattern)))
 

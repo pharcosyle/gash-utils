@@ -8,7 +8,7 @@
   :use-module (srfi srfi-9)
   :use-module (srfi srfi-26)
 
-  :export (pipeline job-control-init jobs report-jobs fg bg))
+  :export (pipeline job-control-init jobs report-jobs fg bg disjoin conjoin))
 
 (define (stdout . o)
   (map display o)
@@ -173,6 +173,10 @@
 (define (disjoin . predicates)
   (lambda (. arguments)
     (any (cut apply <> arguments) predicates)))
+
+(define (conjoin . predicates)
+  (lambda (. arguments)
+    (every (cut apply <> arguments) predicates)))
 
 (define (reap-jobs)
   (set! job-table (filter (disjoin job-running? job-stopped?) job-table)))
