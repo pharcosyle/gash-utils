@@ -63,8 +63,9 @@
      function-def     <-- name sp* '(' sp* ')' ws* (function-body / error)
      function-body    <-- compound-command io-redirect*
      brace-group      <-- '{' (sp* (compound-list / error) sp* '}' / error)
-     simple-command   <-- (io-redirect sp+)* !(reserved ws+) word (sp+ (io-redirect / (!(reserved ws+) word)))*
+     simple-command   <-- (io-redirect sp+)* nonreserved (sp+ (io-redirect / nonreserved))*
      reserved         <   ('case' / 'esac' / 'if' / 'fi' / 'then' / 'else' / 'elif' / 'for' / 'done' / 'do' / 'until' / 'while')
+     nonreserved      <-  reserved word / !reserved word
      io-redirect      <-- [0-9]* sp* (io-here / io-file)
      io-file          <-- ('<&' /  '>&' / '>>' / '>' / '<>'/ '<' / '>|') sp* ([0-9]+ / filename)
      io-here          <-  ('<<' / '<<-') io-suffix here-document
@@ -73,7 +74,7 @@
      filename         <-- word
      name             <-- identifier
      identifier       <-  [_a-zA-Z][_a-zA-Z0-9]*
-     word             <-- test / substitution / assignment / literal / number
+     word             <-- test / substitution / assignment / number / literal
      number           <-- [0-9]+
      test             <-- ltest (!rtest .)* rtest
      ltest            <   '[ '
@@ -81,8 +82,8 @@
      substitution     <-- ('$(' (script ')' / error)) / ('`' (script '`' / error))
      assignment       <-- name assign word?
      assign           <   '='
-     literal          <-- (subst / delim / (![0-9] (![()] !io-op !sp !nl !break !pipe !assign .)+) / ([0-9]+ &separator)) literal*
-     subst            <-- '$' ('$' / '*' / '@' / [0-9] / identifier / ([{] (![}] .)+ [}]))
+     literal          <-- (variable / delim / (![0-9] (![()] !io-op !sp !nl !break !pipe !assign .)+) / ([0-9]+ &separator)) literal*
+     variable         <-- '$' ('$' / '*' / '@' / [0-9] / identifier / ([{] (![}] .)+ [}]))
      delim            <-- singlequotes / doublequotes / backticks
      sq               <   [']
      dq               <   [\"]
