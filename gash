@@ -1,0 +1,1 @@
+guile -L . -e '(@ (sh anguish) main)' -s sh/anguish.scm $*
