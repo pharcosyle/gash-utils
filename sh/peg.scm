@@ -54,7 +54,8 @@
      case-item        <-- pattern (ne-compound-list? case-sep ws* / error)
      case-sep         <   ';;'
      pattern          <-- sp* word (sp* '|' sp* word)* sp* ')' sp*
-     for-clause       <-- 'for' (sp+ identifier ws+ ('in' (sp+ word)* sp* sequential-sep)? do-group / error)
+     for-clause       <-- 'for' (sp+ identifier ws+ ('in' expression sequential-sep)? do-group / error)
+     expression       <-- sp+ substitution sp* / (sp+ word)* sp*
      do-group         <-- 'do' (ne-compound-list 'done' / error)
      if-clause        <-- 'if' (ne-compound-list 'then' ne-compound-list else-part? 'fi' / error)
      else-part        <-- 'elif' (ne-compound-list 'then' ne-compound-list else-part? / error) / 'else' (ne-compound-list / error)
@@ -65,7 +66,7 @@
      brace-group      <-- '{' (sp* (compound-list / error) sp* '}' / error)
      simple-command   <-- (io-redirect sp+)* nonreserved (sp+ (io-redirect / nonreserved))*
      reserved         <   ('case' / 'esac' / 'if' / 'fi' / 'then' / 'else' / 'elif' / 'for' / 'done' / 'do' / 'until' / 'while')
-     nonreserved      <-  reserved word / !reserved word
+     nonreserved      <-  &(reserved word) word / !reserved word
      io-redirect      <-- [0-9]* sp* (io-here / io-file)
      io-file          <-- ('<&' /  '>&' / '>>' / '>' / '<>'/ '<' / '>|') sp* ([0-9]+ / filename)
      io-here          <-  ('<<' / '<<-') io-suffix here-document
