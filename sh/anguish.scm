@@ -10,6 +10,7 @@
   :use-module (ice-9 pretty-print)
   :use-module (ice-9 rdelim)
   :use-module (ice-9 readline)
+  :use-module (ice-9 buffered-input)
   :use-module (ice-9 regex)
 
   :use-module (sh pipe)
@@ -83,15 +84,18 @@ copyleft.
                        (quit (every identity status))))
                     (#t (let* ((HOME (string-append (getenv "HOME") "/.anguishistory"))
                                (thunk (lambda ()
-                                        ;;set-buffered-input-continuation?!
+                                        (set-readline-prompt! (prompt) "...")
                                         (let loop ((line (readline (prompt))))
                                           (if (not (eof-object? line))
                                               (begin
                                                 (let ((ast (string-to-ast line)))
-                                                  (if (not (string-null? line))
-                                                      (add-history line))
-                                                  (run ast))
-                                                (loop (readline (prompt)))))))))
+                                                  (when ast
+                                                    (if (not (string-null? line))
+                                                        (add-history line))
+                                                    (run ast))
+                                                  (loop (string-append
+                                                         (if ast "" (string-append line ";"))
+                                                         (readline (if ast (prompt) "> ")))))))))))
                           (clear-history)
                           (read-history HOME)
                           (with-readline-completion-function completion thunk)
