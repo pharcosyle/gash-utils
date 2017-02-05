@@ -1,13 +1,14 @@
 (define-module (sh anguish)
-  :use-module (statprof)
+
+  ;;:use-module (statprof)
 
   :use-module (srfi srfi-1)
   :use-module (srfi srfi-26)
+
   :use-module (ice-9 ftw)
   :use-module (ice-9 getopt-long)
   :use-module (ice-9 local-eval)
   :use-module (ice-9 match)
-  :use-module (ice-9 pretty-print)
   :use-module (ice-9 rdelim)
   :use-module (ice-9 readline)
   :use-module (ice-9 buffered-input)
@@ -84,18 +85,17 @@ copyleft.
                        (quit (every identity status))))
                     (#t (let* ((HOME (string-append (getenv "HOME") "/.anguishistory"))
                                (thunk (lambda ()
-                                        (set-readline-prompt! (prompt) "...")
                                         (let loop ((line (readline (prompt))))
-                                          (if (not (eof-object? line))
-                                              (begin
-                                                (let ((ast (string-to-ast line)))
-                                                  (when ast
-                                                    (if (not (string-null? line))
-                                                        (add-history line))
-                                                    (run ast))
-                                                  (loop (string-append
-                                                         (if ast "" (string-append line ";"))
-                                                         (readline (if ast (prompt) "> ")))))))))))
+                                          (when (not (eof-object? line))
+                                              (let ((ast (string-to-ast line)))
+                                                (when ast
+                                                  (if (not (string-null? line))
+                                                      (add-history line))
+                                                  (run ast))
+                                                (loop (let ((previous (if ast "" (string-append line "\n")))
+                                                            (next (readline (if ast (prompt) "> "))))
+                                                        (if (eof-object? next) next
+                                                            (string-append previous next))))))))))
                           (clear-history)
                           (read-history HOME)
                           (with-readline-completion-function completion thunk)
@@ -124,17 +124,16 @@ copyleft.
 
 
 ;; TODO: add braces
-
 (define (glob pattern) ;; pattern -> list of path
 
   (define (glob? pattern)
     (string-match "\\?|\\*" pattern))
 
   (define (glob2regex pattern)
-    (let* ((regex (regexp-substitute/global #f "\\." pattern 'pre "\\." 'post))
-           (regex (regexp-substitute/global #f "\\?" pattern 'pre "." 'post))
-           (regex (regexp-substitute/global #f "\\*" pattern 'pre ".*" 'post)))
-      (make-regexp (string-append "^" regex "$"))))
+    (let* ((pattern (regexp-substitute/global #f "\\." pattern 'pre "\\." 'post))
+           (pattern (regexp-substitute/global #f "\\?" pattern 'pre "." 'post))
+           (pattern (regexp-substitute/global #f "\\*" pattern 'pre ".*" 'post)))
+      (make-regexp (string-append "^" pattern "$"))))
 
   (define (glob-match regex path) ;; pattern path -> bool
     (regexp-match? (regexp-exec regex path)))

@@ -1,7 +1,7 @@
 (define-module (sh peg)
   :use-module (ice-9 peg)
   :use-module (ice-9 peg codegen)
-  :use-module (ice-9 pretty-print)
+
   :export (parse))
 
 (define (error? x)
@@ -56,7 +56,7 @@
      pattern          <-- sp* word (sp* '|' sp* word)* sp* ')' sp*
      for-clause       <-- 'for' (sp+ identifier ws+ ('in' expression sequential-sep)? do-group / error)
      expression       <-- sp+ substitution sp* / (sp+ word)* sp*
-     do-group         <-- 'do' (ne-compound-list 'done' / error)
+     do-group         <-- 'do' ws* (ne-compound-list 'done' / error)
      if-clause        <-- 'if' (ne-compound-list 'then' ne-compound-list else-part? 'fi' / error)
      else-part        <-- 'elif' (ne-compound-list 'then' ne-compound-list else-part? / error) / 'else' (ne-compound-list / error)
      while-clause     <-- 'while' (ne-compound-list do-group / error)

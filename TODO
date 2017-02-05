@@ -1,0 +1,13 @@
+* setup test driven development: done
+* execute tests using anguish: done
+* parsing posix shell: nested "'""'": done
+* globbing: done
+* job control: done
+* readline: prompt2: done?
+* pipe: almost done: mix built-in with process
+* compound: case, while, until
+* expansion
+* substitution
+* alias
+* redirection:
+* posix compliance:
