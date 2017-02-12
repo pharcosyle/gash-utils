@@ -1,7 +1,4 @@
 (define-module (sh anguish)
-
-  ;;:use-module (statprof)
-
   :use-module (srfi srfi-1)
   :use-module (srfi srfi-26)
 
@@ -101,7 +98,6 @@ copyleft.
                           (with-readline-completion-function completion thunk)
                           (write-history HOME))
                         (newline)))))))
-    ;;(statprof thunk #:hz 100 #:count-calls? #t)
     (thunk)))
 
 (define (remove-shell-comments s)
@@ -158,6 +154,11 @@ copyleft.
       (list pattern)))
 
 
+(define (background ast)
+  (match ast
+    (('pipeline fg rest ...) `(pipeline #f ,@rest))
+    (_ ast)))
+
 (define (builtin ast)
   (match ast
     (('append ('glob "cd") arg) `(apply chdir ,arg))
@@ -170,12 +171,8 @@ copyleft.
     (('glob "jobs") `(jobs))
     (('for-each rest ...) ast)
     (('if rest ...) ast)
+    (#t #t)
     (_ #f)))
-
-(define (background ast)
-  (match ast
-    (('pipeline fg rest ...) `(pipeline #f ,@rest))
-    (_ ast)))
 
 ;; transform ast -> list of expr
 ;; such that (map eval expr)
@@ -189,9 +186,18 @@ copyleft.
     ((('term command) ...) (map transform command))
     ((('term command) (('term commands) ...)) (map transform (cons command commands)))
     (('compound-list terms ...) (transform terms))
-    (('if-clause "if" (expression "then" consequent "fi")) `(if (equal? 0 (status:exit-val (begin ,@(transform expression)))) (begin ,@(transform consequent))))
-    (('if-clause "if" (expression "then" consequent ('else-part "else" alternative) "fi")) `(if (equal? 0 (status:exit-val ,@(transform expression))) (begin ,@(transform consequent)) (begin ,@(transform alternative))))
-    (('for-clause "for" ((identifier "in" lst sep) do-group)) `(for-each (lambda (,(string->symbol identifier)) (begin ,@(expand identifier (transform do-group)))) (glob ,(transform lst))))
+    (('if-clause "if" (expression "then" consequent "fi"))
+     `(if (equal? 0 (status:exit-val ,@(transform expression)))
+          (begin ,@(transform consequent))))
+    (('if-clause "if" (expression "then" consequent ('else-part "else" alternative) "fi"))
+     `(if (equal? 0 (status:exit-val ,@(transform expression)))
+          (begin ,@(transform consequent))
+          (begin ,@(transform alternative))))
+    (('for-clause ("for" identifier sep do-group)) #t)
+    (('for-clause "for" ((identifier "in" lst sep) do-group))
+     `(for-each (lambda (,(string->symbol identifier))
+                  (begin ,@(expand identifier (transform do-group))))
+                (glob ,(transform lst))))
     (('do-group "do" (command "done")) (transform command))
     (('pipeline command) (let* ((command (transform command))) (or (builtin command) `(pipeline #t ,command))))
     (('pipeline command piped-commands) `(pipeline #t ,(transform command) ,@(transform piped-commands)))

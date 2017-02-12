@@ -40,9 +40,7 @@
     "script           <-- ws* (term (separator term)* separator?)? eof
      eof              <   !. / error
      error            <-- .*
-     term             <-- pipeline (sp* (and / or) ws* pipeline)*
-     and              <-- '&&'
-     or               <-- '||'
+     term             <-- pipeline (sp* ('&&' / '||') ws* pipeline)*
      pipeline         <-- '!'? sp* command (sp* pipe ws* command)*
      pipe             <-- '|'
      command          <-- simple-command / (compound-command (sp+ io-redirect)*) / function-def
@@ -54,7 +52,7 @@
      case-item        <-- pattern (ne-compound-list? case-sep ws* / error)
      case-sep         <   ';;'
      pattern          <-- sp* word (sp* '|' sp* word)* sp* ')' sp*
-     for-clause       <-- 'for' (sp+ identifier ws+ ('in' expression sequential-sep)? do-group / error)
+     for-clause       <-- 'for' (sp+ identifier (ws+ 'in' expression sequential-sep / sp* sequential-sep) do-group / error)
      expression       <-- sp+ substitution sp* / (sp+ word)* sp*
      do-group         <-- 'do' ws* (ne-compound-list 'done' / error)
      if-clause        <-- 'if' (ne-compound-list 'then' ne-compound-list else-part? 'fi' / error)
