@@ -36,68 +36,76 @@
 (define (file-to-ast filename)
   ((compose string-to-ast file-to-string) filename))
 
-(define (main args)
-  (setenv "PATH" "/bin:/usr/bin:/sbin:/usr/sbin:.")
-  (let ((thunk (lambda ()
-                 (job-control-init)
-                 (let* ((option-spec '((debug (single-char #\d) (value #f))
-                                       (help (single-char #\h) (value #f))
-                                       (parse (single-char #\p) (value #f))
-                                       (version (single-char #\v) (value #f))))
-                        (options (getopt-long args option-spec
-                                              #:stop-at-first-non-option #t ))
-                        (help? (option-ref options 'help #f))
-                        (parse? (option-ref options 'parse (null? #f)))
-                        (version? (option-ref options 'version #f))
-                        (files (option-ref options '() '()))
-                        (run (lambda (ast) (and ast
-                                                (cond (parse?
-                                                       (let ((ast- (transform ast)))
-                                                         (format (current-output-port) "parsed  : ~s\n\n" ast)
-                                                         (format (current-output-port) "prepared  : ~s\n\n" ast-)
-                                                         #t))
-                                                      (#t
-                                                       (sh-exec ast)))))))
-                   (cond
-                    (help?
-                     (display "\
+(define (display-help)
+  (display "\
 anguish [options]
   -h, --help       Display this help
   -p, --parse      Parse the shell script and print the parse tree
   -v, --version    Display the version
 "))
-                    (version?
-                     (display "
+
+(define (display-version)
+  (display "
 Anguish 0.1
+
 Copryright (C) 2016 R.E.W. van Beusekom, rutger.van.beusekom@gmail.com.
 
 This is anguish, ANother GUIle SHell, or the feeling you might have
 when your shell lacks a real programming language. Anguish is free
 software and is covered by the GNU Public License, see COPYING for the
 copyleft.
+
 "))
-                    ((pair? files)
-                     (let* ((asts (map file-to-ast files))
-                            (status (map run asts)))
-                       (quit (every identity status))))
-                    (#t (let* ((HOME (string-append (getenv "HOME") "/.anguishistory"))
-                               (thunk (lambda ()
-                                        (let loop ((line (readline (prompt))))
-                                          (when (not (eof-object? line))
-                                              (let ((ast (string-to-ast line)))
-                                                (when ast
-                                                  (if (not (string-null? line))
-                                                      (add-history line))
-                                                  (run ast))
-                                                (loop (let ((previous (if ast "" (string-append line "\n")))
-                                                            (next (readline (if ast (prompt) "> "))))
-                                                        (if (eof-object? next) next
-                                                            (string-append previous next))))))))))
-                          (clear-history)
-                          (read-history HOME)
-                          (with-readline-completion-function completion thunk)
-                          (write-history HOME))
-                        (newline)))))))
+
+(define (main args)
+  (setenv "PATH" "/bin:/usr/bin:/sbin:/usr/sbin:.")
+  (let ((thunk
+         (lambda ()
+           (job-control-init)
+           (let* ((option-spec '((debug (single-char #\d) (value #f))
+                                 (help (single-char #\h) (value #f))
+                                 (parse (single-char #\p) (value #f))
+                                 (version (single-char #\v) (value #f))))
+                  (options (getopt-long args option-spec
+                                        #:stop-at-first-non-option #t ))
+                  (help? (option-ref options 'help #f))
+                  (parse? (option-ref options 'parse (null? #f)))
+                  (version? (option-ref options 'version #f))
+                  (files (option-ref options '() '()))
+                  (run
+                   (lambda (ast)
+                     (cond (parse?
+                            (let ((ast- (transform ast)))
+                              (format (current-output-port) "parsed  : ~s\n\n" ast)
+                              (format (current-output-port) "prepared  : ~s\n\n" ast-)
+                              #t))
+                           (#t
+                            (sh-exec ast))))))
+             (cond
+              (help? (display-help))
+              (version? (display-version))
+              ((pair? files)
+               (let* ((asts (map file-to-ast files))
+                      (status (map run asts)))
+                 (quit (every identity status))))
+              (#t (let* ((HOME (string-append (getenv "HOME") "/.anguishistory"))
+                         (thunk (lambda ()
+                                  (let loop ((line (readline (prompt))))
+                                    (when (not (eof-object? line))
+                                      (let ((ast (string-to-ast line)))
+                                        (when ast
+                                          (if (not (string-null? line))
+                                              (add-history line))
+                                          (run ast))
+                                        (loop (let ((previous (if ast "" (string-append line "\n")))
+                                                    (next (readline (if ast (prompt) "> "))))
+                                                (if (eof-object? next) next
+                                                    (string-append previous next))))))))))
+                    (clear-history)
+                    (read-history HOME)
+                    (with-readline-completion-function completion thunk)
+                    (write-history HOME))
+                  (newline)))))))
     (thunk)))
 
 (define (remove-shell-comments s)
@@ -180,9 +188,9 @@ copyleft.
 (define (transform ast)
   (match ast
     (('script term "&") (list (background (transform term))))
-    (('script term) (list (transform term)))
+    (('script term) `(,(transform term)))
     (('script terms ...) (transform terms))
-    ((('term command)) (list (transform command)))
+    ((('term command)) `(,(transform command)))
     ((('term command) ...) (map transform command))
     ((('term command) (('term commands) ...)) (map transform (cons command commands)))
     (('compound-list terms ...) (transform terms))
@@ -205,9 +213,9 @@ copyleft.
     (('simple-command ('word s1) ('word s2)) `(append (glob ,(transform s1)) (glob ,(transform s2))))
     (('simple-command ('word s1) (('word s2) ...)) `(append (glob ,(transform s1)) (append-map glob (list ,@(map transform s2)))))
     (('literal s) (transform s))
-    (('singlequotes s) (string-concatenate (list "'" s "'")))
-    (('doublequotes s) (string-concatenate (list "\"" s "\"")))
-    (('backticks s) (string-concatenate (list "`" s "`")))
+    (('singlequotes s) (string-concatenate `("'" ,s "'")))
+    (('doublequotes s) (string-concatenate `("\"" ,s "\"")))
+    (('backticks s) (string-concatenate `("`" ,s "`")))
     (('delim ('singlequotes s ...)) (string-concatenate (map transform s)))
     (('delim ('doublequotes s ...)) (string-concatenate (map transform s)))
     (('delim ('backticks s ...)) (string-concatenate (map transform s)))
