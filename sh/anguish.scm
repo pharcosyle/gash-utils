@@ -151,16 +151,14 @@ copyleft.
                                              (cute glob-match (glob2regex pattern) <>))
                                     (or (scandir path) '()))))
                      paths)))
-
   (if (glob? pattern)
-      (let* ((absolute? (string-prefix? "/" pattern)))
+      (let ((absolute? (string-prefix? "/" pattern)))
         (let loop ((patterns (filter (negate string-null?) (string-split pattern #\/)))
                    (paths (if absolute? '("/") '("."))))
           (if (null? patterns)
               paths
               (loop (cdr patterns) (glob- (car patterns) paths)))))
       (list pattern)))
-
 
 (define (background ast)
   (match ast
@@ -207,11 +205,12 @@ copyleft.
                   (begin ,@(expand identifier (transform do-group))))
                 (glob ,(transform lst))))
     (('do-group "do" (command "done")) (transform command))
-    (('pipeline command) (let* ((command (transform command))) (or (builtin command) `(pipeline #t ,command))))
-    (('pipeline command piped-commands) `(pipeline #t ,(transform command) ,@(transform piped-commands)))
-    (('simple-command ('word s)) `(glob ,(transform s)))
-    (('simple-command ('word s1) ('word s2)) `(append (glob ,(transform s1)) (glob ,(transform s2))))
-    (('simple-command ('word s1) (('word s2) ...)) `(append (glob ,(transform s1)) (append-map glob (list ,@(map transform s2)))))
+    (('pipeline command) (let* ((command (transform command))) (or (builtin command) `(pipeline #t ,@command))))
+    (('pipeline command piped-commands) `(pipeline #t ,@(transform command) ,@(transform piped-commands)))
+    (('simple-command ('word s)) `((glob ,(transform s))))
+    (('simple-command ('word s1) ('io-redirect "<<" ('here-document s2))) `((append (glob "echo") (cons "-n" (glob ,s2))) (glob ,(transform s1))))
+    (('simple-command ('word s1) ('word s2)) `((append (glob ,(transform s1)) (glob ,(transform s2)))))
+    (('simple-command ('word s1) (('word s2) ...)) `((append (glob ,(transform s1)) (append-map glob (list ,@(map transform s2))))))
     (('literal s) (transform s))
     (('singlequotes s) (string-concatenate `("'" ,s "'")))
     (('doublequotes s) (string-concatenate `("\"" ,s "\"")))
@@ -219,8 +218,8 @@ copyleft.
     (('delim ('singlequotes s ...)) (string-concatenate (map transform s)))
     (('delim ('doublequotes s ...)) (string-concatenate (map transform s)))
     (('delim ('backticks s ...)) (string-concatenate (map transform s)))
-    ((('pipe _) command ...) (map transform command))
-    (((('pipe _) command) ...) (map transform command))
+    ((('pipe _) command) (transform command))
+    (((('pipe _) command) ...) (map (compose car transform) command))
     ((_ o) (transform o)) ;; peel the onion: (symbol (...)) -> (...)
     (_ ast))) ;; done
 
