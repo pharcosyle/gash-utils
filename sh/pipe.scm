@@ -8,15 +8,9 @@
   :use-module (srfi srfi-9)
   :use-module (srfi srfi-26)
 
+  :use-module (sh io)
+
   :export (pipeline job-control-init jobs report-jobs fg bg disjoin conjoin))
-
-(define (stdout . o)
-  (map display o)
-  (newline))
-
-(define (stderr . o)
-  (map (cute display <> (current-error-port)) o)
-  (newline))
 
 (define-record-type <process>
   (make-process pid command status)

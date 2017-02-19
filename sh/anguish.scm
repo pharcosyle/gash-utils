@@ -13,19 +13,9 @@
 
   :use-module (sh pipe)
   :use-module (sh peg)
+  :use-module (sh io)
 
   :export (main))
-
-(define (stdout . o)
-  (map (lambda (o) (display o (current-output-port))) o)
-  (newline (current-output-port))
-  (force-output (current-output-port))
-  o)
-
-(define (stderr . o)
-  (map (lambda (o) (display o (current-error-port))) o)
-  (newline)
-  o)
 
 (define (file-to-string filename)
   ((compose read-string open-input-file)  filename))
