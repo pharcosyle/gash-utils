@@ -1,4 +1,4 @@
-(define-module (sh util)
+(define-module (gash util)
   :use-module (srfi srfi-1)
   :use-module (srfi srfi-26)
 

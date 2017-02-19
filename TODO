@@ -1,5 +1,5 @@
 * setup test driven development: done
-* execute tests using anguish: done
+* execute tests using gash: done
 * parsing posix shell: nested "'""'": done
 * globbing: done
 * job control: done

@@ -1,4 +1,4 @@
-(define-module (sh io)
+(define-module (gash io)
 
   :export (stdout stderr))
 

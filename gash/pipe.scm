@@ -1,4 +1,4 @@
-(define-module (sh pipe)
+(define-module (gash pipe)
 
   :use-module (ice-9 popen)
 
@@ -7,7 +7,7 @@
   :use-module (srfi srfi-9)
   :use-module (srfi srfi-26)
 
-  :use-module (sh job)
+  :use-module (gash job)
 
   :export (pipeline))
 

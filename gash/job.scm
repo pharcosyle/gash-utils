@@ -1,11 +1,11 @@
-(define-module (sh job)
+(define-module (gash job)
   :use-module (srfi srfi-1)
   :use-module (srfi srfi-8)
   :use-module (srfi srfi-9)
   :use-module (srfi srfi-26)
 
-  :use-module (sh io)
-  :use-module (sh util)
+  :use-module (gash io)
+  :use-module (gash util)
 
   :export (job-control-init jobs report-jobs fg bg new-job job-add-process add-to-process-group wait))
 

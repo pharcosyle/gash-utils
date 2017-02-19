@@ -1,4 +1,5 @@
-(define-module (sh anguish)
+(define-module (gash gash)
+
   :use-module (srfi srfi-1)
   :use-module (srfi srfi-26)
 
@@ -11,11 +12,11 @@
   :use-module (ice-9 buffered-input)
   :use-module (ice-9 regex)
 
-  :use-module (sh job)
-  :use-module (sh pipe)
-  :use-module (sh peg)
-  :use-module (sh io)
-  :use-module (sh util)
+  :use-module (gash job)
+  :use-module (gash pipe)
+  :use-module (gash peg)
+  :use-module (gash io)
+  :use-module (gash util)
 
   :export (main))
 
@@ -30,7 +31,7 @@
 
 (define (display-help)
   (display "\
-anguish [options]
+gash [options]
   -h, --help       Display this help
   -p, --parse      Parse the shell script and print the parse tree
   -v, --version    Display the version
@@ -38,14 +39,12 @@ anguish [options]
 
 (define (display-version)
   (display "
-Anguish 0.1
+GASH 0.1
 
 Copryright (C) 2016 R.E.W. van Beusekom, rutger.van.beusekom@gmail.com.
 
-This is anguish, ANother GUIle SHell, or the feeling you might have
-when your shell lacks a real programming language. Anguish is free
-software and is covered by the GNU Public License, see COPYING for the
-copyleft.
+This is gash, Guile As SHell. Gash is free software and is covered by
+the GNU Public License, see COPYING for the copyleft.
 
 "))
 
@@ -80,7 +79,7 @@ copyleft.
                (let* ((asts (map file-to-ast files))
                       (status (map run asts)))
                  (quit (every identity status))))
-              (#t (let* ((HOME (string-append (getenv "HOME") "/.anguishistory"))
+              (#t (let* ((HOME (string-append (getenv "HOME") "/.gash_history"))
                          (thunk (lambda ()
                                   (let loop ((line (readline (prompt))))
                                     (when (not (eof-object? line))

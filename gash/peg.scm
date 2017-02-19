@@ -1,4 +1,4 @@
-(define-module (sh peg)
+(define-module (gash peg)
   :use-module (ice-9 peg)
   :use-module (ice-9 peg codegen)
 

@@ -1,11 +1,3 @@
-ANGUISH: that which you might experience when your shell
-falls short of expressing your programming solution
-
-or
-
-AN[other] GUIle SHell
-Anguish is Not a GUIle SHell
-
 This project aims to produce at least a POSIX compliant sh replacement
 or even implement GNU bash.  On top of that it also intends to make
 scheme available for interactive and scripting application.  The
@@ -22,8 +14,6 @@ dependencies change (source, compiler options, linker, etc.)
 I feel that the shell has been instrumental on my path to embracing
 functional programming, however now I mostly experience that the
 language itselfs folds on functional expression, pun intended.
-
-
 
 
 * history flattened vs full, i.e. navigate interactively without
