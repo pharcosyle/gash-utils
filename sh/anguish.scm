@@ -14,6 +14,7 @@
   :use-module (sh pipe)
   :use-module (sh peg)
   :use-module (sh io)
+  :use-module (sh util)
 
   :export (main))
 

@@ -9,8 +9,9 @@
   :use-module (srfi srfi-26)
 
   :use-module (sh io)
+  :use-module (sh util)
 
-  :export (pipeline job-control-init jobs report-jobs fg bg disjoin conjoin))
+  :export (pipeline job-control-init jobs report-jobs fg bg))
 
 (define-record-type <process>
   (make-process pid command status)
@@ -163,14 +164,6 @@
         (spawn-sink fg? job #f (car commands)))
     (set! job-table (cons job job-table))
     (if fg? (wait job))))
-
-(define (disjoin . predicates)
-  (lambda (. arguments)
-    (any (cut apply <> arguments) predicates)))
-
-(define (conjoin . predicates)
-  (lambda (. arguments)
-    (every (cut apply <> arguments) predicates)))
 
 (define (reap-jobs)
   (set! job-table (filter (disjoin job-running? job-stopped?) job-table)))
