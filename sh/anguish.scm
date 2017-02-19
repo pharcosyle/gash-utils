@@ -11,6 +11,7 @@
   :use-module (ice-9 buffered-input)
   :use-module (ice-9 regex)
 
+  :use-module (sh job)
   :use-module (sh pipe)
   :use-module (sh peg)
   :use-module (sh io)
