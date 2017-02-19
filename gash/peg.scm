@@ -37,8 +37,7 @@
   (define-peg-pattern here-document all (and (+ (and (not-followed-by here-delim) peg-any)) here-delim))
 
   (define-peg-string-patterns
-    "script           <-- ws* (term (separator term)* separator?)? eof
-     eof              <   !. / error
+    "script           <-- ws* (term (separator term)* separator?)?
      error            <-- .*
      term             <-- pipeline (sp* ('&&' / '||') ws* pipeline)*
      pipeline         <-- '!'? sp* command (sp* pipe ws* command)*

@@ -179,6 +179,7 @@ the GNU Public License, see COPYING for the copyleft.
     (('script term "&") (list (background (transform term))))
     (('script term) `(,(transform term)))
     (('script terms ...) (transform terms))
+    (('substitution "$(" (script) ")") (stderr "FOO: " (transform script)) (transform script))
     ((('term command)) `(,(transform command)))
     ((('term command) ...) (map transform command))
     ((('term command) (('term commands) ...)) (map transform (cons command commands)))
