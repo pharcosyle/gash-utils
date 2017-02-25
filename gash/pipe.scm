@@ -1,6 +1,7 @@
 (define-module (gash pipe)
 
   :use-module (ice-9 popen)
+  :use-module (ice-9 rdelim)
 
   :use-module (srfi srfi-1)
   :use-module (srfi srfi-8)
@@ -9,7 +10,7 @@
 
   :use-module (gash job)
 
-  :export (pipeline))
+  :export (pipeline substitute))
 
 (define (pipe*)
   (let ((p (pipe)))
@@ -45,7 +46,7 @@
     (let ((pid (primitive-fork)))
       (cond ((= 0 pid)
              (setup-process fg? job)
-             (move->fdes src 0)
+             (if src (move->fdes src 0))
              (close r)
              (move->fdes w 1)
              (exec* command))
@@ -77,5 +78,28 @@
         (spawn-sink fg? job #f (car commands)))
     (if fg? (wait job))))
 
-;;(pipeline (list "ls" "/")
-;;(pipeline (list "ls" "/") (list "grep" "o") (list "tr" "o" "e"))
+;;(pipeline #f (list "ls" "/"))
+;;(pipeline #f (list "ls" "/") (list "grep" "o") (list "tr" "o" "e"))
+
+(define (read-n-format r)
+  (string-trim (string-map (lambda (c)
+                             (if (eq? #\newline c) #\space c))
+                           (read-string r))
+               #\space))
+
+(define (substitute . commands)
+  (let* ((fg? #f)
+         (job (new-job))
+         (output (read-n-format
+                  (if (> (length commands) 1)
+                      (let loop ((src (spawn-source fg? job (car commands)))
+                                 (commands (cdr commands)))
+                        (if (null? (cdr commands))
+                            (spawn-filter fg? job src (car commands))
+                            (loop (spawn-filter fg? job src (car commands))
+                                  (cdr commands))))
+                      (spawn-filter fg? job #f (car commands))))))
+    (wait job)
+    output))
+
+;;(display (substitute '("ls") '("cat"))) (newline)
