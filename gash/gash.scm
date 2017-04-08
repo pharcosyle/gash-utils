@@ -20,11 +20,27 @@
 
   :export (main))
 
+(define (remove-shell-comments s)
+  (string-join (map
+                (lambda (s)
+                  (let* ((n (string-index s #\#)))
+                    (if n (string-pad-right s (string-length s) #\space  0 n)
+                        s)))
+                (string-split s #\newline)) "\n"))
+
+(define (remove-escaped-newlines s)
+  (reduce (lambda (next prev)
+            (let* ((escaped? (string-suffix? "\\" next))
+                   (next (if escaped? (string-drop-right next 1) next))
+                   (sep (if escaped? "" "\n")))
+              (string-append prev sep next)))
+          "" (string-split s #\newline)))
+
 (define (file-to-string filename)
-  ((compose read-string open-input-file)  filename))
+  ((compose read-string open-input-file) filename))
 
 (define (string-to-ast string)
-  ((compose parse remove-shell-comments) string))
+  ((compose parse remove-escaped-newlines remove-shell-comments) string))
 
 (define (file-to-ast filename)
   ((compose string-to-ast file-to-string) filename))
@@ -48,8 +64,16 @@ the GNU Public License, see COPYING for the copyleft.
 
 "))
 
+(define global-variables '())
+
 (define (main args)
   (setenv "PATH" "/bin:/usr/bin:/sbin:/usr/sbin:.")
+  (map (lambda (key-value)
+         (let* ((key-value (string-split key-value #\=))
+                (key (car key-value))
+                (value (cadr key-value)))
+           (set! global-variables (assoc-set! global-variables key value))))
+       (environ))
   (let ((thunk
          (lambda ()
            (job-control-init)
@@ -98,14 +122,6 @@ the GNU Public License, see COPYING for the copyleft.
                     (write-history HOME))
                   (newline)))))))
     (thunk)))
-
-(define (remove-shell-comments s)
-  (string-join (map
-                (lambda (s)
-                  (let* ((n (string-index s #\#)))
-                    (if n (string-pad-right s (string-length s) #\space  0 n)
-                        s)))
-                (string-split s #\newline)) "\n"))
 
 (define (expand identifier o) ;;identifier-string -> symbol
   (define (expand- o)
@@ -199,10 +215,12 @@ the GNU Public License, see COPYING for the copyleft.
     (('do-group "do" (command "done")) (transform command))
     (('pipeline command) (let* ((command (transform command))) (or (builtin command) `(pipeline #t ,@command))))
     (('pipeline command piped-commands) `(pipeline #t ,@(transform command) ,@(transform piped-commands)))
+    (('simple-command ('word (assignment name value))) (set! global-variables (assoc-set! global-variables (transform name) (transform value))) #t)
     (('simple-command ('word s)) `((glob ,(transform s))))
     (('simple-command ('word s1) ('io-redirect "<<" ('here-document s2))) `((append (glob "echo") (cons "-n" (glob ,s2))) (glob ,(transform s1))))
     (('simple-command ('word s1) ('word s2)) `((append (glob ,(transform s1)) (glob ,(transform s2)))))
     (('simple-command ('word s1) (('word s2) ...)) `((append (glob ,(transform s1)) (append-map glob (list ,@(map transform s2))))))
+    (('variable s) (assoc-ref global-variables (string-drop s 1)))
     (('literal s) (transform s))
     (('singlequotes s) (string-concatenate `("'" ,s "'")))
     (('doublequotes s) (string-concatenate `("\"" ,s "\"")))

@@ -2,7 +2,7 @@
 
   :export (stdout stderr))
 
-(define (output port . o)
+(define (output port o)
   (map (lambda (o) (display o port)) o)
   (newline port)
   (force-output port))

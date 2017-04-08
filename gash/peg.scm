@@ -54,8 +54,8 @@
      for-clause       <-- 'for' (sp+ identifier (ws+ 'in' expression sequential-sep / sp* sequential-sep) do-group / error)
      expression       <-- sp+ substitution sp* / (sp+ word)* sp*
      do-group         <-- 'do' ws* (ne-compound-list 'done' / error)
-     if-clause        <-- 'if' (ne-compound-list 'then' ne-compound-list else-part? 'fi' / error)
-     else-part        <-- 'elif' (ne-compound-list 'then' ne-compound-list else-part? / error) / 'else' (ne-compound-list / error)
+     if-clause        <-- 'if' (ne-compound-list 'then' ws* ne-compound-list else-part? 'fi' / error)
+     else-part        <-- 'elif' (ne-compound-list 'then' ws* ne-compound-list else-part? / error) / 'else' (ne-compound-list / error)
      while-clause     <-- 'while' (ne-compound-list do-group / error)
      until-clause     <-- 'until' (ne-compound-list do-group / error)
      function-def     <-- name sp* '(' sp* ')' ws* (function-body / error)
@@ -78,7 +78,7 @@
      ltest            <   '[ '
      rtest            <   ' ]'
      substitution     <-- ('$(' (script ')' / error)) / ('`' (script '`' / error))
-     assignment       <-- name assign word?
+     assignment       <-- name assign (substitution / word)?
      assign           <   '='
      literal          <-- (variable / delim / (![0-9] (![()] !io-op !sp !nl !break !pipe !assign .)+) / ([0-9]+ &separator)) literal*
      variable         <-- '$' ('$' / '*' / '@' / [0-9] / identifier / ([{] (![}] .)+ [}]))

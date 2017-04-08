@@ -3,11 +3,11 @@
 * parsing posix shell: nested "'""'": done
 * globbing: done
 * job control: done
-* readline: prompt2: done?
-* pipe: almost done: mix built-in with process
+* substitution: done
+* readline: prompt2: in progress
+* pipe: in progress: mix built-in with process
 * compound: case, while, until
-* expansion
-* substitution
-* alias
+* expansion: done
+* alias:
 * redirection:
 * posix compliance:
