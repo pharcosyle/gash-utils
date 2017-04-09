@@ -20,7 +20,9 @@
 ;; [source] w -> r [filter] w -> r [sink]
 
 (define (exec* command) ;; list of strings
-  (apply execlp (cons (car command) command)))
+  (catch #t (lambda () (apply execlp (cons (car command) command)))
+    (lambda (key . args) (display (string-append (caaddr args) "\n"))
+            (exit #f))))
 
 (define (setup-process fg? job)
   (when (isatty? (current-error-port))
