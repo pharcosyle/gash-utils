@@ -2,7 +2,7 @@
   :use-module (ice-9 peg)
   :use-module (ice-9 peg codegen)
 
-  :export (parse))
+  :export (parse peg-trace?))
 
 (define (error? x)
   (let loop ((x x))
@@ -62,7 +62,7 @@
      function-body    <-- compound-command io-redirect*
      brace-group      <-- '{' (sp* (compound-list / error) sp* '}' / error)
      simple-command   <-- (io-redirect sp+)* nonreserved (sp+ (io-redirect / nonreserved))*
-     reserved         <   ('case' / 'esac' / 'if' / 'fi' / 'then' / 'else' / 'elif' / 'for' / 'done' / 'do' / 'until' / 'while')
+     reserved         <   'case' / 'esac' / 'if' / 'fi' / 'then' / 'else' / 'elif' / 'for' / 'done' / 'do' / 'until' / 'while'
      nonreserved      <-  &(reserved word) word / !reserved word
      io-redirect      <-- [0-9]* sp* (io-here / io-file)
      io-file          <-- ('<&' /  '>&' / '>>' / '>' / '<>'/ '<' / '>|') sp* ([0-9]+ / filename)
@@ -77,18 +77,17 @@
      test             <-- ltest (!rtest .)* rtest
      ltest            <   '[ '
      rtest            <   ' ]'
-     substitution     <-- ('$(' (script ')' / error)) / ('`' (script '`' / error))
+     substitution     <-- ('$(' script ')') / ('`' script '`')
      assignment       <-- name assign (substitution / word)?
      assign           <   '='
-     literal          <-- (variable / delim / (![0-9] (![()] !io-op !sp !nl !break !pipe !assign .)+) / ([0-9]+ &separator)) literal*
+     literal          <-- (variable / delim / (![0-9] (![()] !io-op !sp !nl !break !pipe !assign !bt !sq !dq .)+) / ([0-9]+ &separator)) literal*
      variable         <-- '$' ('$' / '*' / '@' / [0-9] / identifier / ([{] (![}] .)+ [}]))
-     delim            <-- singlequotes / doublequotes / backticks
+     delim            <-- singlequotes / doublequotes / substitution
      sq               <   [']
      dq               <   [\"]
      bt               <   [`]
-     singlequotes     <-- sq  ((doublequotes / backticks / (!sq .))* sq)
-     doublequotes     <-- dq ((singlequotes / backticks / (!dq .))* dq)
-     backticks        <-- bt  ((singlequotes / doublequotes / (!bt .))* bt)
+     singlequotes     <-- sq  (doublequotes / substitution / (!sq .))* sq
+     doublequotes     <-- dq (singlequotes / substitution / (!dq .))* dq
      separator        <-  (sp* break ws*) / ws+
      break            <-  amp / semi !semi
      sequential-sep   <-- (semi !semi ws*) / ws+

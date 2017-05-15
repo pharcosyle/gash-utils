@@ -48,6 +48,7 @@
 (define (display-help)
   (display "\
 gash [options]
+  -d, --debug      Enable PEG tracing
   -h, --help       Display this help
   -p, --parse      Parse the shell script and print the parse tree
   -v, --version    Display the version
@@ -195,7 +196,8 @@ the GNU Public License, see COPYING for the copyleft.
     (('script term "&") (list (background (transform term))))
     (('script term) `(,(transform term)))
     (('script terms ...) (transform terms))
-    (('substitution "$(" (script ")"))  (local-eval (cons 'substitute (cddr (car (transform script)))) (the-environment)))
+    (('substitution "$(" script ")") (local-eval (cons 'substitute (cddr (car (transform script)))) (the-environment)))
+    (('substitution "`" script "`") (local-eval (cons 'substitute (cddr (car (transform script)))) (the-environment)))
     ((('term command)) `(,(transform command)))
     ((('term command) ...) (map transform command))
     ((('term command) (('term commands) ...)) (map transform (cons command commands)))

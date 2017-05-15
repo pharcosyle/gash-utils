@@ -83,16 +83,10 @@
 ;;(pipeline #f (list "ls" "/"))
 ;;(pipeline #f (list "ls" "/") (list "grep" "o") (list "tr" "o" "e"))
 
-(define (read-n-format r)
-  (string-trim (string-map (lambda (c)
-                             (if (eq? #\newline c) #\space c))
-                           (read-string r))
-               #\space))
-
-(define (substitute . commands)
+(define (pipeline->string . commands)
   (let* ((fg? #f)
          (job (new-job))
-         (output (read-n-format
+         (output (read-string
                   (if (> (length commands) 1)
                       (let loop ((src (spawn-source fg? job (car commands)))
                                  (commands (cdr commands)))
@@ -104,4 +98,12 @@
     (wait job)
     output))
 
-;;(display (substitute '("ls") '("cat"))) (newline)
+(define (substitute . commands)
+  (string-trim-right
+   (string-map (lambda (c)
+                 (if (eq? #\newline c) #\space c))
+               (apply pipeline->string commands))
+   #\space))
+
+;; (display (pipeline->string '("ls") '("cat"))) (newline)
+;; (display (substitute '("ls") '("cat"))) (newline)
