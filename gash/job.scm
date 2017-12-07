@@ -46,7 +46,7 @@
   (string-join (map (compose string-join process-command) (reverse (job-processes job))) " | "))
 
 (define (display-job job)
-  (stdout "[" (job-id job) "] " (status->state (job-status job)) "\t\t"
+  (stdout "[" (job-id job) "] " (map status->state (job-status job)) "\t\t"
           (job-command job)))
 
 (define (jobs)
@@ -55,7 +55,7 @@
        (reverse job-table)))
 
 (define (job-status job)
-  (process-status (last (job-processes job))))
+  (map process-status (job-processes job)))
 
 (define (job-update job pid status)
   (unless (= 0 pid)
@@ -122,7 +122,7 @@
   (unless (job-completed? job)
     (newline) (display-job job))
   (reap-jobs)
-  (job-status job))
+  (last (job-status job)))
 
 (define (fg index)
   (let ((job (job-index index)))

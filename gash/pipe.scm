@@ -21,7 +21,7 @@
 
 (define (exec* command) ;; list of strings
   (catch #t (lambda () (apply execlp (cons (car command) command)))
-    (lambda (key . args) (display (string-append (caaddr args) "\n"))
+    (lambda (key . args) (format (current-error-port) "~a\n" (caaddr args))
             (exit #f))))
 
 (define (setup-process fg? job)
