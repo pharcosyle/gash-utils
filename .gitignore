@@ -1,0 +1,16 @@
+*.go
+*.log
+Makefile
+Makefile.in
+aclocal.m4
+autom4te.cache/*
+build-aux/*
+config.log
+config.status
+configure
+coverage/*
+lcov.info
+pre-inst-env
+scripts/geesh
+tests/*.trs
+tools/coverage
