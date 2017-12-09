@@ -37,12 +37,14 @@ endif # HAVE_GENHTML
 test-list: ; @echo $(TESTS)
 
 MODULES =                                       \
+  geesh/lexer.scm                               \
   geesh/repl.scm
 
 bin_SCRIPTS =                                   \
   scripts/geesh
 
 TESTS =                                         \
+  tests/lexer.scm                               \
   tests/repl.scm
 
 CLEANFILES =                                    \
