@@ -38,6 +38,7 @@ test-list: ; @echo $(TESTS)
 
 MODULES =                                       \
   geesh/lexer.scm                               \
+  geesh/parser.scm                              \
   geesh/repl.scm
 
 bin_SCRIPTS =                                   \
@@ -45,6 +46,7 @@ bin_SCRIPTS =                                   \
 
 TESTS =                                         \
   tests/lexer.scm                               \
+  tests/parser.scm                              \
   tests/repl.scm
 
 CLEANFILES =                                    \
