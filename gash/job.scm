@@ -7,7 +7,15 @@
   :use-module (gash io)
   :use-module (gash util)
 
-  :export (job-control-init jobs report-jobs fg bg new-job job-add-process add-to-process-group wait))
+  :export (job-control-init
+	   jobs report-jobs
+	   new-job
+	   job-add-process
+	   add-to-process-group
+	   wait
+	   fg
+	   bg
+	   setup-process))
 
 (define-record-type <process>
   (make-process pid command status)
@@ -82,7 +90,7 @@
 (define (job-add-process fg? job pid command)
   (let ((pgid (add-to-process-group job pid)))
     (set-job-pgid! job pgid)
-    (if fg? (tcsetpgrp (current-error-port) pgid))
+    (when fg? (tcsetpgrp (current-error-port) pgid))
     (set-job-processes! job (cons (make-process pid command #f) (job-processes job)))))
 
 (define (job-control-init)
@@ -127,8 +135,9 @@
 (define (fg index)
   (let ((job (job-index index)))
     (cond (job
-           (tcsetpgrp (current-error-port) (job-pgid job))
-           (kill (- (job-pgid job)) SIGCONT)
+           (let ((pgid (job-pgid job)))
+	     (tcsetpgrp (current-error-port) pgid)
+	     (kill (- (job-pgid job)) SIGCONT))
            (stdout (job-command job))
            (wait job))
           (#t
@@ -136,5 +145,15 @@
 
 (define (bg index)
   (let ((job (job-index index)))
-    (map (cut set-process-status! <>  #f) (job-processes job))
-    (kill (- (job-pgid job)) SIGCONT)))
+    (cond (job
+	   (map (cut set-process-status! <>  #f) (job-processes job))
+	   (kill (- (job-pgid job)) SIGCONT))
+	  (#t
+	   (stderr "fg: no such job " index)))))
+
+(define (setup-process fg? job)
+  (when (isatty? (current-error-port))
+    (when fg? (tcsetpgrp (current-error-port) (add-to-process-group job (getpid))))
+    (map (cut sigaction <> SIG_DFL)
+         (list SIGINT SIGQUIT SIGTSTP SIGTTIN SIGTTOU SIGCHLD)))
+  (fdes->inport 0) (map fdes->outport '(1 2))) ;; reset stdin/stdout/stderr
