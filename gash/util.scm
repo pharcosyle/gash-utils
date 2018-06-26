@@ -1,8 +1,8 @@
 (define-module (gash util)
-  :use-module (srfi srfi-1)
-  :use-module (srfi srfi-26)
+  #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-26)
 
-  :export (disjoin conjoin))
+  #:export (disjoin conjoin))
 
 (define (disjoin . predicates)
   (lambda (. arguments)

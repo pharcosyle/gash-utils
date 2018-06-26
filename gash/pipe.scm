@@ -1,173 +1,176 @@
 (define-module (gash pipe)
 
-  :use-module (ice-9 popen)
-  :use-module (ice-9 rdelim)
+  #:use-module (ice-9 curried-definitions)
+  #:use-module (ice-9 popen)
+  #:use-module (ice-9 rdelim)
 
-  :use-module (srfi srfi-1)
-  :use-module (srfi srfi-8)
-  :use-module (srfi srfi-9)
-  :use-module (srfi srfi-26)
+  #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-8)
+  #:use-module (srfi srfi-9)
+  #:use-module (srfi srfi-26)
 
-  :use-module (gash job)
+  #:use-module (gash job)
+  #:use-module (gash io)
 
-  :export (pipeline substitute))
+  #:export (handle-error pipeline pipeline->string substitute))
+
+;; TODO
+(define %debug-level 0)
+
+(define (handle-error job error)
+  (let ((status (wait job)))
+    (when (not (zero? status))
+      (format (current-error-port) "ERROR: exit: ~a: ~s" status error)
+      (exit status))
+    status))
 
 (define (pipe*)
   (let ((p (pipe)))
     (values (car p) (cdr p))))
 
 ;;              lhs        rhs
-;; [source] w -> r [filter] w -> r [sink]
+;; [source] w[1] -> r[0] [filter] w[1] -> r[0] [sink]
+;;          w[2]            ->            r[3] [sink]
 
 (define (exec* command) ;; list of strings
   (catch #t (lambda () (apply execlp (cons (car command) command)))
     (lambda (key . args) (format (current-error-port) "~a\n" (caaddr args))
             (exit #f))))
 
-(define (spawn-source fg? job command)
-  (receive (r w) (pipe*)
-    (let ((pid (primitive-fork)))
-      (cond ((= 0 pid)
-	     (close r)
-	     (setup-process fg? job)
-	     (move->fdes w 1)
-             (if (procedure? command)
-		 (begin
-		   (close-port (current-output-port))
-		   (set-current-output-port w)
-		   (command)
-		   (exit 0))
-		 (exec* command)))
-            (#t
-             (job-add-process fg? job pid command)
-             (close w)
-             r)))))
+(define ((tee-n file-names) inputs outputs)
+  (let* ((files  (map open-output-file file-names))
+         (tees (zip files inputs outputs)))
+    (let loop ((tees tees))
+      (loop (filter-map (lambda (tee)
+                          (let ((file (first tee))
+                                (input (second tee))
+                                (output (third tee)))
+                            (when (char-ready? input)
+                              (let ((char (read-char input)))
+                                (if (not (eof-object? char))
+                                    (begin (display char file)
+                                           (display char output)
+                                           (list file input output))
+                                    #f)))))
+                        tees)))
+    (map close outputs)))
 
-(define (spawn-filter fg? job src command)
-  (receive (r w) (pipe*)
-    (let ((pid (primitive-fork)))
-      (cond ((= 0 pid)
-             (setup-process fg? job)
-             (if src (move->fdes src 0))
-             (close r)
-             (move->fdes w 1)
-	     (if (procedure? command)
-		 (begin
-		   (close-port (current-input-port))
-		   (close-port (current-output-port))
-		   (set-current-input-port src)
-		   (set-current-output-port w)
-		   (command)
-		   (exit 0))
-		 (exec* command)))
-            (#t
-             (job-add-process fg? job pid command)
-             (close w)
-             r)))))
-
-(define (spawn-sink fg? job src command)
-  (let ((pid (primitive-fork)))
+(define* (spawn fg? job command #:optional (input '()))
+  ;;(format #t "spawn: ~a\n" (length input))
+  (let* ((ofd '(1 2)) ;; output file descriptors 1, ...
+         (ifd (cond
+               ((= (length input) 0) '())
+               ((= (length input) 1) '(0))))
+         (pipes (map (lambda (. _) (pipe)) ofd))
+         (r (map car pipes))
+         (w (map cdr pipes))
+         (pid (primitive-fork)))
+    ;;(format (current-error-port) "INPUT: ~a\n" (length input))
+    ;;(format (current-error-port) "OUTPUT: ~a\n" (length w))
     (cond ((= 0 pid)
-           (setup-process fg? job)
-           (if src (move->fdes src 0))
-	   (if (procedure? command)
-	       (begin
-		   (close-port (current-input-port))
-		   (set-current-input-port src)
-		   (command)
-		   (exit 0))
-	       (exec* command)))
+           (job-setup-process fg? job)
+           (map close r)
+           (if (procedure? command)
+               (begin
+                 (when (pair? input)
+                   (close-port (current-input-port))
+                   (set-current-input-port (car input)))
+                 (when (pair? w)
+                   (close-port (current-output-port))
+                   (set-current-output-port (car w)))
+                 ;;(format (current-error-port) "INPUT: ~a\n" (length input))
+                 ;;(format (current-error-port) "OUTPUT: ~a\n" (length w))
+                 (if (thunk? command) (command)
+                     (command input w))
+                 (exit 0))
+               (begin
+                 (map dup->fdes w ofd)
+                 (map dup->fdes input ifd)
+                 (exec* command))))
           (#t
            (job-add-process fg? job pid command)
-           (and src (close src))))))
-
-
-(define* (spawn fg? job command #:optional (input '()) (output 0))
-  ;;(format #t "spawn: ~a ~a\n" (length input) output)
-  (let* ((ofd (iota output 1)) ;; output file descriptors 1, ...
-	 (count (length input))
-	 (start (1+ output))
-	 (ifd (cond
-	       ((= count 0) '())
-	       ((= count 1) '(0))
-	       ((#t (cons 0 (iota (1- count) start))))))
-	 (ifd (if (pair? input) (cons 0 ifd) ifd))
-	 ;;(foo (format #t "ifd: ~a\n" ifd))
-	 ;;(foo (format #t "ofd: ~a\n" ofd))
-	 (pipes (map (lambda (. _) (pipe)) ofd))
-	 (r (map car pipes))
-	 (w (map cdr pipes))
-	 (pid (primitive-fork)))
-      (cond ((= 0 pid)
-	     (setup-process fg? job)
-	     (map close r)
-	     (map move->fdes w ofd)
-	     (map move->fdes input ifd)
-             (if (procedure? command)
-		 (begin
-		   (when (pair? input)
-		     (close-port (current-input-port))
-		     (set-current-input-port (car input)))
-		   (when (pair? w)
-		     (close-port (current-output-port))
-		     (set-current-output-port (car w)))
-		   (command)
-		   (exit 0))
-		 (exec* command)))
-            (#t
-             (job-add-process fg? job pid command)
-             (map close w)
-             r))))
-
-(define (pipeline+ fg? open? . commands)
-  (let* ((job (new-job))
-	 (ports (if (> (length commands) 1)
-		   (let loop ((input (spawn fg? job (car commands) '() 1)) ;; spawn-source
-			      (commands (cdr commands)))
-		     (if (null? (cdr commands))
-			 (spawn fg? job (car commands) input (if open? 1 0)) ;; spawn-sink
-			 (loop (spawn fg? job (car commands) input 1) ;; spawn-filter
-			       (cdr commands))))
-		   (spawn fg? job (car commands) `((current-input-port))))))
-    (if fg? (wait job) (values job ports))))
+           (map close w)
+           r))))
 
 (define (pipeline fg? . commands)
-  (apply pipeline+ (cons* fg? #f commands)))
+  (when (> %debug-level 0)
+    (format (current-error-port) "pipeline[~a]: COMMANDS: ~s\n" fg? commands))
+  (receive (r w)
+      (pipe*)
+    (move->fdes w 2)
+    (let* ((error-port (set-current-error-port w))
+           (job (new-job))
+           (debug-id (job-debug-id job))
+           (commands
+            (if (zero? %debug-level) commands
+                (fold-right (lambda (command id lst)
+                              (let ((file (string-append debug-id "." id)))
+                                (cons* command `("tee" ,file) lst)))
+                            '() commands (map number->string (iota (length commands))))))
+           (foo (when (> %debug-level 0) (with-output-to-file debug-id (cut format #t "COMMANDS: ~s\n" commands))))
+           (ports (if (> (length commands) 1)
+                      (let loop ((input (spawn fg? job (car commands) '())) ;; spawn-source
+                                 (commands (cdr commands)))
+                        (if (null? (cdr commands))
+                            (spawn fg? job (car commands) input) ;; spawn-sink
+                            (loop (spawn fg? job (car commands) input) ;; spawn-filter
+                                  (cdr commands))))
+                      (spawn fg? job (car commands) '())))) ;; spawn-sink
+      (when fg?
+        (let loop ((input ports)
+                   (output (list (current-output-port) error-port)))
+          (let ((line (map read-line input)))
+            (let* ((input-available? (lambda (o ln) (and (not (eof-object? ln)) o)))
+                   (line (filter-map input-available? line line))
+                   (output (filter-map input-available? output line))
+                   (input (filter-map input-available? input line)))
+              (when (pair? input)
+                (map display line output)
+                (map newline output)
+                (loop input output)))))
+        (wait job))
+      (move->fdes error-port 2)
+      (set-current-error-port error-port)
+      (close w)
+      (values job (append ports (list r))))))
+
+(define (pipeline->string . commands)
+  (receive (job ports)
+      (apply pipeline #f commands)
+    (let ((output (read-string (car ports))))
+      (wait job)
+      output)))
 
 ;;(pipeline #f '("head" "-c128" "/dev/urandom") '("tr" "-dc" "A-Z0-9") (lambda () (display (read-string))))
 ;;(pipeline #f '("head" "-c128" "/dev/urandom") '("tr" "-dc" "A-Z0-9") '("cat"))
 ;;(pipeline #f (lambda () (display 'foo)) '("grep" "o") '("tr" "o" "e"))
 
 ;; (pipeline #f
-;; 	  (lambda () (display "\nbin\nboot\nroot\nusr\nvar"))
-;; 	  '("tr" "u" "a")
-;; 	  (lambda () (display (string-map (lambda (c) (if (eq? c #\o) #\e c)) (read-string))))
-;; 	  '("cat")
-;; 	  (lambda () (display (read-string))))
+;;    (lambda () (display "\nbin\nboot\nroot\nusr\nvar"))
+;;    '("tr" "u" "a")
+;;    (lambda () (display (string-map (lambda (c) (if (eq? c #\o) #\e c)) (read-string))))
+;;    '("cat")
+;;    (lambda () (display (read-string))))
 
 ;; (receive (job ports)
-;;     (pipeline+ #f #t
-;; 	      (lambda () (display "\nbin\nboot\nroot\nusr\nvar"))
-;; 	      '("tr" "u" "a")
-;; 	      (lambda () (display (string-map (lambda (c) (if (eq? c #\o) #\e c)) (read-string))))
-;; 	      '("cat"))
-;;   (display (read-string (car ports))))
+;;     (pipeline #f
+;;               (lambda ()
+;;                 (display "foo")
+;;                 (display "bar" (current-error-port)))
+;;               '("tr" "o" "e"))
+;;   (map (compose display read-string) ports))
 
+;; _
+;;  \
+;;   -
+;; _/
 
-(define (pipeline->string . commands)
-  (let* ((fg? #f)
-         (job (new-job))
-         (output (read-string
-                  (if (> (length commands) 1)
-                      (let loop ((src (spawn-source fg? job (car commands)))
-                                 (commands (cdr commands)))
-                        (if (null? (cdr commands))
-                            (spawn-filter fg? job src (car commands))
-                            (loop (spawn-filter fg? job src (car commands))
-                                  (cdr commands))))
-                      (spawn-filter fg? job #f (car commands))))))
-    (wait job)
-    output))
+;; (display (pipeline->string
+;;   (lambda () (display "\nbin\nboot\nroot\nusr\nvar"))
+;;   '("tr" "u" "a")
+;;   (lambda () (display (string-map (lambda (c) (if (eq? c #\o) #\e c)) (read-string))))
+;;   '("cat")
+;;   (lambda () (display (read-string)) (newline))))
 
 ;; _
 ;;  \

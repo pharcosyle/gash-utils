@@ -1,6 +1,6 @@
 (define-module (gash io)
 
-  :export (stdout stderr))
+  #:export (stdout stderr))
 
 (define (output port o)
   (map (lambda (o) (display o port)) o)
