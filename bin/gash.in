@@ -1,0 +1,5 @@
+#!@GUILE@ \
+-L . --no-auto-compile -s
+!#
+(setenv "SHELL" ((compose canonicalize-path car command-line)))
+((@ (gash gash) main) (command-line))
