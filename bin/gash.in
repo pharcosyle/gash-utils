@@ -1,5 +1,13 @@
-#!@GUILE@ \
--L . --no-auto-compile -s
+#! /bin/sh
+# -*-scheme-*-
+exec ${GUILE-guile} -L $(pwd)/bin -L $(pwd) -C $(pwd)/bin -C $(pwd) --no-auto-compile -e '(gash)' -s $0 $@
 !#
-(setenv "SHELL" ((compose canonicalize-path car command-line)))
-((@ (gash gash) main) (command-line))
+(define-module (gash)
+  #:export (main))
+
+(set! %load-path (append '("@GUILE_SITE_DIR@") %load-path))
+(set! %load-compiled-path (append '("@GUILE_SITE_CCACHE_DIR@") %load-compiled-path))
+
+(define (main args)
+  (setenv "SHELL" ((compose canonicalize-path car command-line)))
+  ((@ (gash gash) main) (command-line)))

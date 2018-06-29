@@ -1,0 +1,39 @@
+#! /bin/sh
+
+# parse --prefix=PREFIX, mainly for GuixSD/Debian
+cmdline=$(echo "$@")
+PREFIX=${cmdline##*--prefix=}
+PREFIX=${PREFIX% *}
+PREFIX=${PREFIX% -*}
+if [ -z "$PREFIX" ]; then
+   PREFIX=/usr/local
+fi
+
+GUILE=$(command -v guile)
+GUILE_TOOLS=$(command -v guile-tools)
+GUILE_SITE_DIR=$PREFIX/share/guile/site/$GUILE_EFFECTIVE_VERSION
+GUILE_SITE_CCACHE_DIR=$PREFIX/lib/guile/$GUILE_EFFECTIVE_VERSION/site-ccache
+GUILE_EFFECTIVE_VERSION=$(guile -c '(display (effective-version))')
+
+sed \
+    -e s,@GUILE@,$GUILE,\
+    -e s,@GUILE_SITE_DIR@,$GUILE_SITE_DIR,\
+    -e s,@GUILE_SITE_CCACHE_DIR@,$GUILE_SITE_CCACHE_DIR,\
+    bin/gash.in > bin/gash
+chmod +x bin/gash
+cat > .config.make <<EOF
+GUILE=$GUILE
+GUILE_TOOLS=$GUILE_TOOLS
+PREFIX=$PREFIX
+BINDIR=$PREFIX/bin
+DOCDIR=$PREFIX/share/doc/gash
+GUILE_EFFECTIVE_VERSION=$GUILE_EFFECTIVE_VERSION
+GUILE_SITE_DIR=$GUILE_SITE_DIR
+GUILE_SITE_CCACHE_DIR=$GUILE_SITE_CCACHE_DIR
+EOF
+
+cat <<EOF
+Run:
+  make            to build gash
+  make help       for help on other targets
+EOF
