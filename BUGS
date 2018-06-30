@@ -1,0 +1,13 @@
+                                                              -*- org -*-
+* TODO
+** gash -c STRING
+** bin/gash --debug --parse <(echo done)
+** bin/gash <(echo 'echo "$foo"')
+prints: $bar
+** bin/gash <(echo 'echo "foo=$bar"')
+prints: foo=$bar
+** bin/gash <(echo 'echo "foo:$bar"')
+prints: foo:$bar
+
+* DONE
+** bin/gash --debug --parse <(echo 'foo=`eval echo $bar`')

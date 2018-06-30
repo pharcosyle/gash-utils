@@ -158,14 +158,15 @@ the GNU Public License, see COPYING for the copyleft.
                                              (cute glob-match (glob2regex pattern) <>))
                                     (or (scandir path) '()))))
                      paths)))
-  (if (glob? pattern)
-      (let ((absolute? (string-prefix? "/" pattern)))
-        (let loop ((patterns (filter (negate string-null?) (string-split pattern #\/)))
-                   (paths (if absolute? '("/") '("."))))
-          (if (null? patterns)
-              paths
-              (loop (cdr patterns) (glob- (car patterns) paths)))))
-      (list pattern)))
+  (if (not pattern) '("")
+      (if (glob? pattern)
+          (let ((absolute? (string-prefix? "/" pattern)))
+            (let loop ((patterns (filter (negate string-null?) (string-split pattern #\/)))
+                       (paths (if absolute? '("/") '("."))))
+              (if (null? patterns)
+                  paths
+                  (loop (cdr patterns) (glob- (car patterns) paths)))))
+          (list pattern))))
 
 (define (background ast)
   (match ast
