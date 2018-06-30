@@ -1,8 +1,9 @@
 (define-module (gash peg)
-  :use-module (ice-9 peg)
-  :use-module (ice-9 peg codegen)
+  #:use-module (ice-9 pretty-print)
+  #:use-module (ice-9 peg)
+  #:use-module (ice-9 peg codegen)
 
-  :export (parse peg-trace?))
+  #:export (parse peg-trace?))
 
 (define (error? x)
   (let loop ((x x))
@@ -15,7 +16,8 @@
 (define (parse input)
   (let ((tree (parse- input)))
     (cond ((error? tree)
-           (format (current-error-port) "error: ~a\n" tree)
+           (format (current-error-port) "error:\n")
+           (pretty-print tree (current-error-port))
            #f)
           (#t
            tree))))
@@ -104,7 +106,8 @@
         tree
         (if match
             (begin
-              (format (current-error-port) "parse error: at offset: ~a\n~s\n" end tree)
+              (format (current-error-port) "parse error: at offset: ~a\n" end)
+              (pretty-print tree (current-error-port))
               #f)
             (begin
               (format (current-error-port) "parse error: no match\n")
