@@ -97,9 +97,10 @@
                 (sha256
                  (base32 "11708vl2f04xpgs57mac4z7illx6wf4ybb32mh9ajfwimlkvwl4f"))))
       (build-system gnu-build-system)
+      (propagated-inputs
+       `(("guile-readline" ,guile-readline)))
       (inputs
-       `(("guile" ,guile-2.2)
-         ("guile-readline" ,guile-readline)))
+       `(("guile" ,guile-2.2)))
       (synopsis "A POSIX compliant sh replacement for Guile.")
       (description
        "Gash [Guile As Shell] aims to produce at least a POSIX compliant sh replacement
