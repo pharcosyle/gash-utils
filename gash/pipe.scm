@@ -56,17 +56,14 @@
     (map close outputs)))
 
 (define* (spawn fg? job command #:optional (input '()))
-  ;;(format #t "spawn: ~a\n" (length input))
-  (let* ((ofd '(1 2)) ;; output file descriptors 1, ...
+  (let* ((ofd '(1 2)) ;; output file descriptors 1 & 2
          (ifd (cond
-               ((= (length input) 0) '())
-               ((= (length input) 1) '(0))))
+               ((null? input) '())
+               (#t '(0)))) ;;support no input or 1 input, TODO multiple inputs
          (pipes (map (lambda (. _) (pipe)) ofd))
          (r (map car pipes))
          (w (map cdr pipes))
          (pid (primitive-fork)))
-    ;;(format (current-error-port) "INPUT: ~a\n" (length input))
-    ;;(format (current-error-port) "OUTPUT: ~a\n" (length w))
     (cond ((= 0 pid)
            (job-setup-process fg? job)
            (map close r)
@@ -78,8 +75,6 @@
                  (when (pair? w)
                    (close-port (current-output-port))
                    (set-current-output-port (car w)))
-                 ;;(format (current-error-port) "INPUT: ~a\n" (length input))
-                 ;;(format (current-error-port) "OUTPUT: ~a\n" (length w))
                  (if (thunk? command) (command)
                      (command input w))
                  (exit 0))
