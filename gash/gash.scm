@@ -165,15 +165,17 @@ the GNU Public License, see COPYING for the copyleft.
                                              (cute glob-match (glob2regex pattern) <>))
                                     (or (scandir path) '()))))
                      paths)))
-  (if (not pattern) '("")
-      (if (glob? pattern)
-          (let ((absolute? (string-prefix? "/" pattern)))
-            (let loop ((patterns (filter (negate string-null?) (string-split pattern #\/)))
-                       (paths (if absolute? '("/") '("."))))
-              (if (null? patterns)
-                  paths
-                  (loop (cdr patterns) (glob- (car patterns) paths)))))
-          (list pattern))))
+  (pk 'pattern: pattern 'glob:
+      (cond
+       ((not pattern) '(""))
+       ((string=? "$?" pattern) (pk 'status: (list (assoc-ref global-variables '?))))
+       ((glob? pattern) (let ((absolute? (string-prefix? "/" pattern)))
+                          (let loop ((patterns (filter (negate string-null?) (string-split pattern #\/)))
+                                     (paths (if absolute? '("/") '("."))))
+                            (if (null? patterns)
+                                paths
+                                (loop (cdr patterns) (glob- (car patterns) paths))))))
+       (#t (list pattern)))))
 
 (define (background ast)
   (match ast
@@ -194,8 +196,8 @@ the GNU Public License, see COPYING for the copyleft.
 (define (echo-command . args)
   (match args
     (() (newline))
-    (("-n" args ...) (display (string-join args)))
-    (_ (stdout (string-join args)))))
+    (("-n" args ...) (map display args))
+    (_ (map display args) (newline))))
 
 (define (bg-command . args)
   (match args
