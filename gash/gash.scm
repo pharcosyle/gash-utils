@@ -209,6 +209,10 @@ the GNU Public License, see COPYING for the copyleft.
 
 (define pwd-command (lambda _ (stdout (getcwd))))
 
+(define (set-command . args) ;; TODO export; env vs set
+  (define (display-var o)
+    (format #t "~a=~a\n" (car o) (cdr o)))
+  (for-each display-var global-variables))
 
 (define %commands
   ;; Built-in commands.
@@ -219,6 +223,7 @@ the GNU Public License, see COPYING for the copyleft.
     ("jobs" . ,jobs-command)
     ("bg"   . ,bg-command)
     ("fg"   . ,fg-command)
+    ("set"  . ,set-command)
 
     ;; Bournish
     ;; ("echo"   ,(lambda strings `(list ,@strings)))
@@ -308,12 +313,22 @@ the GNU Public License, see COPYING for the copyleft.
 
 (define (sh-exec ast)
   (define (exec cmd)
+    (format (current-error-port) "sh-exec:exec cmd=~s\n" cmd)
     (local-eval cmd (the-environment)))
   (let ((ast (transform ast)))
     (match ast
       ('script #t) ;; skip
-      (_ (begin (map exec ast) #t)))))
-
+      (_ (let* ((job (map exec ast))
+                (stati (append-map (lambda (o)
+                                     (cond ((job? o) (job-status o))
+                                           ((boolean? o) (list (if o 0 1)))
+                                           (else (list 0)))) ; some commands return a string?
+                                   job))
+                (status (or (find (negate zero?) stati) 0)))
+           (set! global-variables (assoc-set! global-variables '$pipe? stati))
+           (set! global-variables (assoc-set! global-variables '? status))
+           (set! global-variables (assoc-set! global-variables 'fubar status))
+           #t)))))
 
 (define prompt
   (let* ((l (string #\001))

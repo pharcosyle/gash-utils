@@ -15,7 +15,7 @@
   #:export (handle-error pipeline pipeline->string substitute))
 
 ;; TODO
-(define %debug-level 0)
+(define %debug-level 1)
 
 (define (handle-error job error)
   (let ((status (wait job)))

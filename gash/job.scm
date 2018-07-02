@@ -7,16 +7,18 @@
   #:use-module (gash io)
   #:use-module (gash util)
 
-  :export (bg
-           fg
-           job-add-process
-           job-control-init
-           job-debug-id
-           job-setup-process
-           jobs-command
-           new-job
-           report-jobs
-           wait))
+  #:export (bg
+            fg
+            job?
+            job-add-process
+            job-control-init
+            job-debug-id
+            job-setup-process
+            job-status
+            jobs-command
+            new-job
+            report-jobs
+            wait))
 
 (define-record-type <process>
   (make-process pid command status)
@@ -146,7 +148,8 @@
   (unless (job-completed? job)
     (newline) (display-job job))
   (reap-jobs)
-  (or (and (every zero? (job-status job)) 0) 1))
+  (or (find (negate zero?) (job-status job))
+      0))
 
 (define (fg index)
   (let ((job (job-index index)))
