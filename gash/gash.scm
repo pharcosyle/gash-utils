@@ -77,28 +77,31 @@ the GNU Public License, see COPYING for the copyleft.
   (let ((thunk
          (lambda ()
            (job-control-init)
-           (let* ((option-spec '((debug (single-char #\d) (value #f))
+           (let* ((option-spec '((command (single-char #\c) (value #t))
+                                 (debug (single-char #\d) (value #f))
                                  (help (single-char #\h) (value #f))
                                  (parse (single-char #\p) (value #f))
                                  (version (single-char #\v) (value #f))))
-                  (options (getopt-long args option-spec
-                                        #:stop-at-first-non-option #t ))
+                  (options (getopt-long args option-spec #:stop-at-first-non-option #t ))
+                  (command? (option-ref options 'command #f))
                   (help? (option-ref options 'help #f))
-                  (parse? (option-ref options 'parse (null? #f)))
+                  (parse? (option-ref options 'parse #f))
                   (version? (option-ref options 'version #f))
                   (files (option-ref options '() '()))
                   (run
                    (lambda (ast)
                      (cond (parse?
                             (let ((ast- (transform ast)))
-                              (format (current-output-port) "parsed  : ~s\n\n" ast)
-                              (format (current-output-port) "prepared  : ~s\n\n" ast-)
+                              (stdout "parsed: " ast)
+                              (stdout "prepared: " ast-)
                               #t))
                            (#t
                             (sh-exec ast))))))
              (cond
               (help? (display-help))
               (version? (display-version))
+              (command? (let ((ast (string-to-ast command?)))
+                          (when ast (run ast))))
               ((pair? files)
                (let* ((asts (map file-to-ast files))
                       (status (map run asts)))
