@@ -326,7 +326,7 @@ the GNU Public License, see COPYING for the copyleft.
                                            ((boolean? o) (list (if o 0 1)))
                                            (else (list 0)))) ; some commands return a string?
                                    job))
-                (status (or (find (negate zero?) stati) 0)))
+                (status (or (find (negate zero?) (map status:exit-val stati)) 0)))
            (set! global-variables (assoc-set! global-variables '$pipe? stati))
            (set! global-variables (assoc-set! global-variables '? status))
            (set! global-variables (assoc-set! global-variables 'fubar status))
