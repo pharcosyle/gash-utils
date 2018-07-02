@@ -65,7 +65,7 @@
      brace-group      <-- '{' (sp* (compound-list / error) sp* '}' / error)
      simple-command   <-- (io-redirect sp+)* nonreserved (sp+ (io-redirect / nonreserved))*
      reserved         <   'case' / 'esac' / 'if' / 'fi' / 'then' / 'else' / 'elif' / 'for' / 'done' / 'do' / 'until' / 'while'
-     nonreserved      <-  &(reserved word) word / !reserved word
+     nonreserved      <-  &(reserved word) word / !reserved word / word
      io-redirect      <-- [0-9]* sp* (io-here / io-file)
      io-file          <-- ('<&' /  '>&' / '>>' / '>' / '<>'/ '<' / '>|') sp* ([0-9]+ / filename)
      io-here          <-  ('<<' / '<<-') io-suffix here-document
