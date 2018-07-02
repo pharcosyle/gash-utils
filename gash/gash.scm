@@ -10,6 +10,7 @@
   #:use-module (ice-9 rdelim)
   #:use-module (ice-9 readline)
   #:use-module (ice-9 buffered-input)
+  #:use-module (ice-9 receive)
   #:use-module (ice-9 regex)
 
   #:use-module (gash job)
@@ -48,10 +49,11 @@
 (define (display-help)
   (display "\
 gash [options]
-  -d, --debug      Enable PEG tracing
-  -h, --help       Display this help
-  -p, --parse      Parse the shell script and print the parse tree
-  -v, --version    Display the version
+  -d, --debug        Enable PEG tracing
+  -h, --help         Display this help
+  -p, --parse        Parse the shell script and print the parse tree
+  --prefer-builtins  Use builtins, even if command is available in PATH
+  -v, --version      Display the version
 "))
 
 (define (display-version)
@@ -81,6 +83,7 @@ the GNU Public License, see COPYING for the copyleft.
                                  (debug (single-char #\d) (value #f))
                                  (help (single-char #\h) (value #f))
                                  (parse (single-char #\p) (value #f))
+                                 (prefer-builtins)
                                  (version (single-char #\v) (value #f))))
                   (options (getopt-long args option-spec #:stop-at-first-non-option #t ))
                   (command? (option-ref options 'command #f))
@@ -97,6 +100,7 @@ the GNU Public License, see COPYING for the copyleft.
                               #t))
                            (#t
                             (sh-exec ast))))))
+             (set! %prefer-builtins? (option-ref options 'prefer-builtins #f))
              (cond
               (help? (display-help))
               (version? (display-version))
@@ -176,21 +180,84 @@ the GNU Public License, see COPYING for the copyleft.
     (('pipeline fg rest ...) `(pipeline #f ,@rest))
     (_ ast)))
 
+(define (PATH-search-path program)
+  (search-path (string-split (getenv "PATH") #\:) program))
+
+(define (cd-command . args)
+  (match args
+    (() (chdir (getenv "HOME")))
+    ((dir)
+     (chdir dir))
+    ((args ...)
+     (format (current-error-port) "cd: too many arguments: ~a\n" (string-join args)))))
+
+(define (echo-command . args)
+  (match args
+    (() (newline))
+    (("-n" args ...) (display (string-join args)))
+    (_ (stdout (string-join args)))))
+
+(define (bg-command . args)
+  (match args
+    (() (bg 1))
+    ((job x ...) (bg (string->number (car job))))))
+
+(define (fg-command . args)
+  (match args
+    (() (fg 1))
+    ((job x ...) (fg (string->number (car job))))))
+
+(define pwd-command (lambda _ (stdout (getcwd))))
+
+
+(define %commands
+  ;; Built-in commands.
+  `(
+    ("echo" . ,echo-command)
+    ("cd"   . ,cd-command)
+    ("pwd"  . ,pwd-command)
+    ("jobs" . ,jobs-command)
+    ("bg"   . ,bg-command)
+    ("fg"   . ,fg-command)
+
+    ;; Bournish
+    ;; ("echo"   ,(lambda strings `(list ,@strings)))
+    ;; ("cd"     ,(lambda (dir) `(chdir ,dir)))
+    ;; ("pwd"    ,(lambda () `(getcwd)))
+    ;; ("rm"     ,rm-command)
+    ;; ("cp"     ,(lambda (source dest) `(copy-file ,source ,dest)))
+    ;; ("help"   ,help-command)
+    ;; ("ls"     ,ls-command)
+    ;; ("which"  ,which-command)
+    ;; ("cat"    ,cat-command)
+    ;; ("wc"     ,wc-command)
+    ;; ("reboot" ,reboot-command)
+
+    ))
+
+(define %prefer-builtins? #t) ; use builtin, even if COMMAND is available in PATH?
 (define (builtin ast)
-  ;;(stdout "builtin: " ast "\n")
-  (match ast
-    ((('append ('glob "cd") arg)) `(apply chdir ,arg))
-    ((('append ('glob "fg") ('glob arg))) `(fg ,(string->number arg)))
-    ((('append ('glob "bg") ('glob arg))) `(bg ,(string->number arg)))
-    ((('append ('glob "echo") args ...)) `(stdout (string-join ,@args " ")))
-    ((('glob "echo")) `(stdout))
-    ((('glob "fg")) `(fg 1))
-    ((('glob "bg")) `(bg 1))
-    ((('glob "jobs")) `(jobs))
-    (('for-each rest ...) ast)
-    (('if rest ...) ast)
-    (#t #t)
-    (_ #f)))
+  (receive (command args)
+      (match ast
+        ((('append ('glob command) args ...)) (values command args))
+        ((('glob command)) (values command #f))
+        (_ (values #f #f)))
+    (let ((program (and command (PATH-search-path command))))
+      (format (current-error-port) "command ~a => ~s ~s\n" program command args)
+      (cond ((and program (not %prefer-builtins?))
+             #f)
+            ((and command (assoc-ref %commands command))
+             =>
+             (lambda (command)
+               (if args
+                   `(,apply ,command ,@args)
+                   `(,command))))
+            (else
+             (match ast
+               (('for-each rest ...) ast)
+               (('if rest ...) ast)
+               (#t #t)
+               (_ #f)))))))
 
 ;; transform ast -> list of expr
 ;; such that (map eval expr)

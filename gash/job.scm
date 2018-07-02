@@ -13,7 +13,7 @@
            job-control-init
            job-debug-id
            job-setup-process
-           jobs
+           jobs-command
            new-job
            report-jobs
            wait))
@@ -65,10 +65,8 @@
   (stdout "[" (job-id job) "] " (map status->state (job-status job)) "\t\t"
           (job-command job)))
 
-(define (jobs)
-  (map (lambda (job)
-         (display-job job))
-       (reverse job-table)))
+(define (jobs-command)
+  (for-each (lambda (job) (display-job job)) (reverse job-table)))
 
 (define (job-status job)
   (map process-status (job-processes job)))
