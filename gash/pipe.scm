@@ -33,9 +33,10 @@
 ;;          w[2]            ->            r[3] [sink]
 
 (define (exec* command) ;; list of strings
-  (catch #t (lambda () (apply execlp (cons (car command) command)))
-    (lambda (key . args) (format (current-error-port) "~a\n" (caaddr args))
-            (exit #f))))
+  (let ((command (map (compose with-output-to-string (lambda (c) (lambda () (display c)))) command)))
+   (catch #t (lambda () (apply execlp (cons (car command) command)))
+     (lambda (key . args) (format (current-error-port) "~a\n" (caaddr args))
+             (exit #f)))))
 
 (define ((tee-n file-names) inputs outputs)
   (let* ((files  (map open-output-file file-names))
