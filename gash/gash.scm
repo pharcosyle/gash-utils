@@ -49,11 +49,12 @@
 (define (display-help)
   (display "\
 gash [options]
-  -d, --debug        Enable PEG tracing
-  -h, --help         Display this help
-  -p, --parse        Parse the shell script and print the parse tree
-  --prefer-builtins  Use builtins, even if command is available in PATH
-  -v, --version      Display the version
+  -c, --command=STRING Evaluate STRING and exit
+  -d, --debug          Enable PEG tracing
+  -h, --help           Display this help
+  -p, --parse          Parse the shell script and print the parse tree
+  --prefer-builtins    Use builtins, even if command is available in PATH
+  -v, --version        Display the version
 "))
 
 (define (display-version)
@@ -105,7 +106,8 @@ the GNU Public License, see COPYING for the copyleft.
               (help? (display-help))
               (version? (display-version))
               (command? (let ((ast (string-to-ast command?)))
-                          (when ast (run ast))))
+                          (exit (if ast (run ast)
+                                    0))))
               ((pair? files)
                (let* ((asts (map file-to-ast files))
                       (status (map run asts)))
@@ -330,7 +332,7 @@ the GNU Public License, see COPYING for the copyleft.
            (set! global-variables (assoc-set! global-variables '$pipe? stati))
            (set! global-variables (assoc-set! global-variables '? status))
            (set! global-variables (assoc-set! global-variables 'fubar status))
-           #t)))))
+           status)))))
 
 (define prompt
   (let* ((l (string #\001))
