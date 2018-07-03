@@ -20,7 +20,10 @@
   #:use-module (gash util)
 
   #:export (main
+            %debug-level
             shell-opt?))
+
+(define %debug-level 0)
 
 (define (remove-shell-comments s)
   (string-join (map
@@ -89,6 +92,8 @@ the GNU Public License, see COPYING for the copyleft.
                                  (version (single-char #\v) (value #f))))
                   (options (getopt-long args option-spec #:stop-at-first-non-option #t ))
                   (command? (option-ref options 'command #f))
+                  (opt? (lambda (name) (lambda (o) (and (eq? (car o) name) (cdr o)))))
+                  (debug (length (filter-map (opt? 'debug) options)))
                   (help? (option-ref options 'help #f))
                   (parse? (option-ref options 'parse #f))
                   (version? (option-ref options 'version #f))
@@ -103,6 +108,8 @@ the GNU Public License, see COPYING for the copyleft.
                            (#t
                             (sh-exec ast))))))
              (set! %prefer-builtins? (option-ref options 'prefer-builtins #f))
+             (if (option-ref options 'debug #f)
+                 (set! %debug-level debug))
              (cond
               (help? (display-help))
               (version? (display-version))
@@ -168,17 +175,16 @@ the GNU Public License, see COPYING for the copyleft.
                                              (cute glob-match (glob2regex pattern) <>))
                                     (or (scandir path) '()))))
                      paths)))
-  (pk 'pattern: pattern 'glob:
-      (cond
-       ((not pattern) '(""))
-       ((string=? "$?" pattern) (list (assoc-ref global-variables "?")))
-       ((glob? pattern) (let ((absolute? (string-prefix? "/" pattern)))
-                          (let loop ((patterns (filter (negate string-null?) (string-split pattern #\/)))
-                                     (paths (if absolute? '("/") '("."))))
-                            (if (null? patterns)
-                                paths
-                                (loop (cdr patterns) (glob- (car patterns) paths))))))
-       (#t (list pattern)))))
+  (cond
+   ((not pattern) '(""))
+   ((string=? "$?" pattern) (list (assoc-ref global-variables "?")))
+   ((glob? pattern) (let ((absolute? (string-prefix? "/" pattern)))
+                      (let loop ((patterns (filter (negate string-null?) (string-split pattern #\/)))
+                                 (paths (if absolute? '("/") '("."))))
+                        (if (null? patterns)
+                            paths
+                            (loop (cdr patterns) (glob- (car patterns) paths))))))
+   (#t (list pattern))))
 
 (define (background ast)
   (match ast
@@ -279,7 +285,8 @@ the GNU Public License, see COPYING for the copyleft.
         ((('glob command)) (values command #f))
         (_ (values #f #f)))
     (let ((program (and command (PATH-search-path command))))
-      (format (current-error-port) "command ~a => ~s ~s\n" program command args)
+      (when (> %debug-level 0)
+        (format (current-error-port) "command ~a => ~s ~s\n" program command args))
       (cond ((and program (not %prefer-builtins?))
              #f)
             ((and command (assoc-ref %commands command))
@@ -344,7 +351,8 @@ the GNU Public License, see COPYING for the copyleft.
 
 (define (sh-exec ast)
   (define (exec cmd)
-    (format (current-error-port) "sh-exec:exec cmd=~s\n" cmd)
+    (when (> %debug-level 0)
+      (format (current-error-port) "sh-exec:exec cmd=~s\n" cmd))
     (local-eval cmd (the-environment)))
   (let ((ast (transform ast)))
     (match ast
