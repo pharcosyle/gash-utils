@@ -9,6 +9,7 @@ if [ -z "$PREFIX" ]; then
    PREFIX=/usr/local
 fi
 
+BASH=$(command -v bash)
 GUILE=$(command -v guile)
 GUILE_TOOLS=$(command -v guile-tools)
 GUILE_SITE_DIR=$PREFIX/share/guile/site/$GUILE_EFFECTIVE_VERSION
@@ -22,6 +23,7 @@ sed \
     bin/gash.in > bin/gash
 chmod +x bin/gash
 cat > .config.make <<EOF
+BASH=$BASH
 GUILE=$GUILE
 GUILE_TOOLS=$GUILE_TOOLS
 PREFIX=$PREFIX

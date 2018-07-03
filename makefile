@@ -1,4 +1,4 @@
-.PHONY: all all-go clean install
+.PHONY: all all-go check clean install
 -include .config.make
 
 default: all
@@ -20,8 +20,15 @@ clean:
 clean-go:
 	rm -f $(shell find . -name '*.go')
 
-check: all
-	echo TODO
+check: all check-bash check-gash
+
+check-bash: all
+ifneq ($(BASH),)
+	SHELL=$(BASH) ./test.sh
+endif
+
+check-gash: all
+	./test.sh
 
 install: all
 	mkdir -p $(DESTDIR)$(BINDIR)
@@ -40,6 +47,7 @@ Usage: make [OPTION]... [TARGET]...
 Targets:
   all             update everything
   all-go          update .go files
+  check           run ./test.sh
   clean           run git clean -dfx
   clean-go        clean .go files
   install         install in $(PREFIX)
@@ -48,8 +56,10 @@ export HELP_TOP
 help:
 	@echo "$$HELP_TOP"
 
+export BUILD_DEBUG
 export GUILE
 export GUILE_TOOLS
 export GUILE_LOAD_PATH
 export GUILE_LOAD_COMPILED_PATH
+
 
