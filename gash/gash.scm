@@ -68,7 +68,7 @@ the GNU Public License, see COPYING for the copyleft.
 
 "))
 
-(define global-variables '())
+(define global-variables (list '("SHELLOPTS" . "")))
 
 (define (main args)
   (map (lambda (key-value)
@@ -216,7 +216,24 @@ the GNU Public License, see COPYING for the copyleft.
 (define (set-command . args) ;; TODO export; env vs set
   (define (display-var o)
     (format #t "~a=~a\n" (car o) (cdr o)))
-  (for-each display-var global-variables))
+  (match args
+    (() (for-each display-var global-variables))
+    (("-e") (set-shell-opt "errexit" #t))
+    (("+e") (set-shell-opt "errexit" #f))
+    (("-x") (set-shell-opt "xtrace" #t))
+    (("+x") (set-shell-opt "xtrace" #f))))
+
+(define (set-shell-opt name set?)
+  (let* ((shell-opts (assoc-ref global-variables "SHELLOPTS"))
+         (options (if (string-null? shell-opts) '()
+                      (string-split shell-opts #\:)))
+         (new-options (if set? (delete-duplicates (sort (cons name options) string<))
+                          (filter (negate (cut equal? <> name)) options)))
+         (new-shell-opts (string-join new-options ":")))
+    (set! global-variables (assoc-set! global-variables "SHELLOPTS" new-shell-opts))))
+
+(define (shell-opt? name)
+  (member name (string-split (assoc-ref global-variables "SHELLOPTS") #\:)))
 
 (define %commands
   ;; Built-in commands.
@@ -341,6 +358,9 @@ the GNU Public License, see COPYING for the copyleft.
                              ")")))
            (set! global-variables (assoc-set! global-variables "PIPESTATUS" pipestatus))
            (set! global-variables (assoc-set! global-variables "?" (number->string status)))
+           (when (and (not (zero? status))
+                      (shell-opt? "errexit"))
+             (exit status))
            status)))))
 
 (define prompt
