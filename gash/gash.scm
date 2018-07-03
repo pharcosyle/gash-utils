@@ -170,7 +170,7 @@ the GNU Public License, see COPYING for the copyleft.
   (pk 'pattern: pattern 'glob:
       (cond
        ((not pattern) '(""))
-       ((string=? "$?" pattern) (pk 'status: (list (assoc-ref global-variables '?))))
+       ((string=? "$?" pattern) (list (assoc-ref global-variables "?")))
        ((glob? pattern) (let ((absolute? (string-prefix? "/" pattern)))
                           (let loop ((patterns (filter (negate string-null?) (string-split pattern #\/)))
                                      (paths (if absolute? '("/") '("."))))
@@ -328,10 +328,19 @@ the GNU Public License, see COPYING for the copyleft.
                                            ((boolean? o) (list (if o 0 1)))
                                            (else (list 0)))) ; some commands return a string?
                                    job))
-                (status (or (find (negate zero?) (map status:exit-val stati)) 0)))
-           (set! global-variables (assoc-set! global-variables '$pipe? stati))
-           (set! global-variables (assoc-set! global-variables '? status))
-           (set! global-variables (assoc-set! global-variables 'fubar status))
+                (stati (map status:exit-val stati))
+                (status (or (find (negate zero?) stati) 0))
+                ;; mimick BASH for now
+                (pipestatus (string-append
+                             "("
+                             (string-join
+                              (map (lambda (s i)
+                                     (format #f "[~a]=\"~a\"" s i))
+                                   stati
+                                   (iota (length stati))))
+                             ")")))
+           (set! global-variables (assoc-set! global-variables "PIPESTATUS" pipestatus))
+           (set! global-variables (assoc-set! global-variables "?" (number->string status)))
            status)))))
 
 (define prompt
