@@ -19,7 +19,8 @@
   #:use-module (gash io)
   #:use-module (gash util)
 
-  #:export (main))
+  #:export (main
+            shell-opt?))
 
 (define (remove-shell-comments s)
   (string-join (map

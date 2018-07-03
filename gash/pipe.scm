@@ -9,6 +9,7 @@
   #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-26)
 
+  #:use-module (gash gash)
   #:use-module (gash job)
   #:use-module (gash io)
 
@@ -90,6 +91,11 @@
 (define (pipeline fg? . commands)
   (when (> %debug-level 0)
     (format (current-error-port) "pipeline[~a]: COMMANDS: ~s\n" fg? commands))
+  (when (shell-opt? "xtrace")
+    (for-each
+     (lambda (o)
+       (format (current-error-port) "+ ~a\n" (string-join o)))
+     (reverse commands)))
   (receive (r w)
       (pipe*)
     (move->fdes w 2)
