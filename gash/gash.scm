@@ -223,6 +223,14 @@ the GNU Public License, see COPYING for the copyleft.
     (("-x") (set-shell-opt "xtrace" #t))
     (("+x") (set-shell-opt "xtrace" #f))))
 
+(define (exit-command . args)
+  (match args
+    (() (exit 0))
+    ((status)
+     (exit (string->number status)))
+    ((args ...)
+     (format (current-error-port) "exit: too many arguments: ~a\n" (string-join args)))))
+
 (define (set-shell-opt name set?)
   (let* ((shell-opts (assoc-ref global-variables "SHELLOPTS"))
          (options (if (string-null? shell-opts) '()
@@ -245,6 +253,7 @@ the GNU Public License, see COPYING for the copyleft.
     ("bg"   . ,bg-command)
     ("fg"   . ,fg-command)
     ("set"  . ,set-command)
+    ("exit" . ,exit-command)
 
     ;; Bournish
     ;; ("echo"   ,(lambda strings `(list ,@strings)))
