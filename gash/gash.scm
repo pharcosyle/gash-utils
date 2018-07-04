@@ -257,8 +257,8 @@ some redirections work.
     (display "\nIt features the following, somewhat naive builtin commands\n")
     (display-tabulated (map car %commands))))
 
-(define (cp-command source dest)
-  `(copy-file ,source ,dest))
+(define (cp-command source dest . rest)
+  (copy-file source dest))
 
 (define (set-shell-opt! name set?)
   (let* ((shell-opts (assoc-ref global-variables "SHELLOPTS"))
