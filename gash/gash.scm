@@ -250,8 +250,12 @@ copyleft.
   (display "\
 Hello, this is gash, Guile As SHell.
 
-TODO
-"))
+Gash is work in progress; many language constructs work, pipes work,
+some redirections work.
+")
+  (when (or %prefer-builtins? (not (PATH-search-path "ls")))
+    (display "\nIt features the following, somewhat naive builtin commands\n")
+    (display-tabulated (map car %commands))))
 
 (define (cp-command source dest)
   `(copy-file ,source ,dest))
@@ -405,7 +409,7 @@ TODO
         (report-jobs)
         (string-append
          l e "[01;32m" r user "@" host l e "[00m" r ":"
-         l e "[01;34m" r cwd l e "[00m" r "$ ")))))
+         l e "[01;34m" r cwd l e "[00m" r (if (zero? (getuid)) "# " "$ "))))))
 
 (define (string-prefix s1 s2)
   (substring/read-only s1 0 (string-prefix-length s1 s2)))

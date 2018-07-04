@@ -29,6 +29,7 @@
   #:use-module (gash guix-build-utils)
   #:use-module (gash io)
   #:export (
+            display-tabulated
             cat-command
             ls-command
             reboot-command
