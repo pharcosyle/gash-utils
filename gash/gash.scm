@@ -359,33 +359,30 @@ the GNU Public License, see COPYING for the copyleft.
   (define (exec cmd)
     (when (> %debug-level 0)
       (format (current-error-port) "sh-exec:exec cmd=~s\n" cmd))
-    (local-eval cmd (the-environment)))
+    (let* ((job (local-eval cmd (the-environment)))
+           (stati (cond ((job? job) (job-status job))
+                        ((boolean? job) (list (if job 0 1)))
+                        (else (list 0))))
+           (stati (map status:exit-val stati))
+           (status (if (shell-opt? "pipefail") (or (find (negate zero?) stati) 0)
+                       (car stati)))
+           (pipestatus (string-append
+                        "("
+                        (string-join
+                         (map (lambda (s i)
+                                (format #f "[~a]=\"~a\"" s i))
+                              stati
+                              (iota (length stati))))
+                        ")")))
+      (set! global-variables (assoc-set! global-variables "PIPESTATUS" pipestatus))
+      (set! global-variables (assoc-set! global-variables "?" (number->string status)))
+      (when (and (not (zero? status))
+                 (shell-opt? "errexit"))
+        (exit status))))
   (let ((ast (transform ast)))
     (match ast
       ('script #t) ;; skip
-      (_ (let* ((job (map exec ast))
-                (stati (append-map (lambda (o)
-                                     (cond ((job? o) (job-status o))
-                                           ((boolean? o) (list (if o 0 1)))
-                                           (else (list 0)))) ; some commands return a string?
-                                   job))
-                (stati (map status:exit-val stati))
-                (status (if (shell-opt? "pipefail") (or (find (negate zero?) (reverse stati)) 0)
-                            (last stati)))
-                (pipestatus (string-append
-                             "("
-                             (string-join
-                              (map (lambda (s i)
-                                     (format #f "[~a]=\"~a\"" s i))
-                                   stati
-                                   (iota (length stati))))
-                             ")")))
-           (set! global-variables (assoc-set! global-variables "PIPESTATUS" pipestatus))
-           (set! global-variables (assoc-set! global-variables "?" (number->string status)))
-           (when (and (not (zero? status))
-                      (shell-opt? "errexit"))
-             (exit status))
-           status)))))
+      (_ (for-each exec ast)))))
 
 (define prompt
   (let* ((l (string #\001))
