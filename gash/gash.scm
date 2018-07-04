@@ -250,8 +250,8 @@ copyleft.
   (display "\
 Hello, this is gash, Guile As SHell.
 
-Gash is work in progress; many language constructs work, pipes work,
-some redirections work.
+Gash is work in progress; many language constructs work, globbing
+mostly works, pipes work, some redirections work.
 ")
   (when (or %prefer-builtins? (not (PATH-search-path "ls")))
     (display "\nIt features the following, somewhat naive builtin commands\n")
