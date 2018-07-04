@@ -18,6 +18,7 @@
   #:use-module (gash peg)
   #:use-module (gash io)
   #:use-module (gash util)
+  #:use-module (gash bournish-commands)
 
   #:export (main
             %debug-level
@@ -67,10 +68,11 @@ gash [options]
   (display "
 GASH 0.1
 
-Copryright (C) 2016 R.E.W. van Beusekom, rutger.van.beusekom@gmail.com.
+Copryright (C) 2016,2017,2018 R.E.W. van Beusekom, rutger.van.beusekom@gmail.com.
 
-This is gash, Guile As SHell. Gash is free software and is covered by
-the GNU Public License, see COPYING for the copyleft.
+This is gash, Guile As SHell.  Gash is free software and is covered by
+the GNU General Public License version 3 or later, see COPYING for the
+copyleft.
 
 "))
 
@@ -244,6 +246,16 @@ the GNU Public License, see COPYING for the copyleft.
     ((args ...)
      (format (current-error-port) "exit: too many arguments: ~a\n" (string-join args)))))
 
+(define (help-command . _)
+  (display "\
+Hello, this is gash, Guile As SHell.
+
+TODO
+"))
+
+(define (cp-command source dest)
+  `(copy-file ,source ,dest))
+
 (define (set-shell-opt! name set?)
   (let* ((shell-opts (assoc-ref global-variables "SHELLOPTS"))
          (options (if (string-null? shell-opts) '()
@@ -259,28 +271,22 @@ the GNU Public License, see COPYING for the copyleft.
 (define %commands
   ;; Built-in commands.
   `(
-    ("echo" . ,echo-command)
-    ("cd"   . ,cd-command)
-    ("pwd"  . ,pwd-command)
-    ("jobs" . ,jobs-command)
-    ("bg"   . ,bg-command)
-    ("fg"   . ,fg-command)
-    ("set"  . ,set-command)
-    ("exit" . ,exit-command)
-
-    ;; Bournish
-    ;; ("echo"   ,(lambda strings `(list ,@strings)))
-    ;; ("cd"     ,(lambda (dir) `(chdir ,dir)))
-    ;; ("pwd"    ,(lambda () `(getcwd)))
-    ;; ("rm"     ,rm-command)
-    ;; ("cp"     ,(lambda (source dest) `(copy-file ,source ,dest)))
-    ;; ("help"   ,help-command)
-    ;; ("ls"     ,ls-command)
-    ;; ("which"  ,which-command)
-    ;; ("cat"    ,cat-command)
-    ;; ("wc"     ,wc-command)
-    ;; ("reboot" ,reboot-command)
-
+    ("bg"     . ,bg-command)
+    ("cat"    . ,cat-command)
+    ("cd"     . ,cd-command)
+    ("cp"     . ,cp-command)
+    ("echo"   . ,echo-command)
+    ("exit"   . ,exit-command)
+    ("fg"     . ,fg-command)
+    ("help"   . ,help-command)
+    ("jobs"   . ,jobs-command)
+    ("ls"     . ,ls-command)
+    ("pwd"    . ,pwd-command)
+    ("reboot" . ,reboot-command)
+    ("rm"     . ,rm-command)
+    ("set"    . ,set-command)
+    ("wc"     . ,wc-command)
+    ("which"  . ,which-command)
     ))
 
 (define %prefer-builtins? #t) ; use builtin, even if COMMAND is available in PATH?

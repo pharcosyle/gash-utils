@@ -36,6 +36,8 @@ GUILE_AUTO_COMPILE=0
 set -e
 
 SCM_FILES="
+gash/bournish-commands.scm
+gash/guix-build-utils.scm
 gash/gash.scm
 gash/io.scm
 gash/job.scm
