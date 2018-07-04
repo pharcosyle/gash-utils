@@ -54,11 +54,13 @@
   (display "\
 gash [options]
   -c, --command=STRING Evaluate STRING and exit
+  -e, --errexit        Exit upon error
   -d, --debug          Enable PEG tracing
   -h, --help           Display this help
   -p, --parse          Parse the shell script and print the parse tree
   --prefer-builtins    Use builtins, even if command is available in PATH
   -v, --version        Display the version
+  -x, --xtrace         Print simple command trace
 "))
 
 (define (display-version)
@@ -72,7 +74,7 @@ the GNU Public License, see COPYING for the copyleft.
 
 "))
 
-(define global-variables (list '("SHELLOPTS" . "")))
+(define global-variables (list (cons "SHELLOPTS" "")))
 
 (define (main args)
   (map (lambda (key-value)
@@ -85,11 +87,13 @@ the GNU Public License, see COPYING for the copyleft.
          (lambda ()
            (job-control-init)
            (let* ((option-spec '((command (single-char #\c) (value #t))
-                                 (debug (single-char #\d) (value #f))
-                                 (help (single-char #\h) (value #f))
-                                 (parse (single-char #\p) (value #f))
+                                 (debug (single-char #\d))
+                                 (errexit (single-char #\e))
+                                 (help (single-char #\h))
+                                 (parse (single-char #\p))
                                  (prefer-builtins)
-                                 (version (single-char #\v) (value #f))))
+                                 (version (single-char #\v))
+                                 (xtrace (single-char #\x))))
                   (options (getopt-long args option-spec #:stop-at-first-non-option #t ))
                   (command? (option-ref options 'command #f))
                   (opt? (lambda (name) (lambda (o) (and (eq? (car o) name) (cdr o)))))
@@ -108,6 +112,8 @@ the GNU Public License, see COPYING for the copyleft.
                            (#t
                             (sh-exec ast))))))
              (set! %prefer-builtins? (option-ref options 'prefer-builtins #f))
+             (set-shell-opt! "errexit" (option-ref options 'errexit #f))
+             (set-shell-opt! "xtrace" (option-ref options 'xtrace #f))
              (if (option-ref options 'debug #f)
                  (set! %debug-level debug))
              (cond
@@ -225,10 +231,10 @@ the GNU Public License, see COPYING for the copyleft.
     (format #t "~a=~a\n" (car o) (cdr o)))
   (match args
     (() (for-each display-var global-variables))
-    (("-e") (set-shell-opt "errexit" #t))
-    (("+e") (set-shell-opt "errexit" #f))
-    (("-x") (set-shell-opt "xtrace" #t))
-    (("+x") (set-shell-opt "xtrace" #f))))
+    (("-e") (set-shell-opt! "errexit" #t))
+    (("+e") (set-shell-opt! "errexit" #f))
+    (("-x") (set-shell-opt! "xtrace" #t))
+    (("+x") (set-shell-opt! "xtrace" #f))))
 
 (define (exit-command . args)
   (match args
@@ -238,7 +244,7 @@ the GNU Public License, see COPYING for the copyleft.
     ((args ...)
      (format (current-error-port) "exit: too many arguments: ~a\n" (string-join args)))))
 
-(define (set-shell-opt name set?)
+(define (set-shell-opt! name set?)
   (let* ((shell-opts (assoc-ref global-variables "SHELLOPTS"))
          (options (if (string-null? shell-opts) '()
                       (string-split shell-opts #\:)))
@@ -364,8 +370,8 @@ the GNU Public License, see COPYING for the copyleft.
                                            (else (list 0)))) ; some commands return a string?
                                    job))
                 (stati (map status:exit-val stati))
-                (status (or (find (negate zero?) stati) 0))
-                ;; mimick BASH for now
+                (status (if (shell-opt? "pipefail") (or (find (negate zero?) (reverse stati)) 0)
+                            (last stati)))
                 (pipestatus (string-append
                              "("
                              (string-join

@@ -5,7 +5,7 @@ SHELL=${SHELL-bin/gash}
 for f in test/*.sh; do
     echo -n "$f: "
     b=test/$(basename $f .sh)
-    $SHELL $f
+    $SHELL -e $f
     r=$?
     if [ -f $b.exit ]; then
         e=$(cat $b.exit)
