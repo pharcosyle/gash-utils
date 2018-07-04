@@ -258,7 +258,13 @@ some redirections work.
     (display-tabulated (map car %commands))))
 
 (define (cp-command source dest . rest)
-  (copy-file source dest))
+  (catch #t
+    (lambda _
+      (copy-file source dest)
+      0)
+    (lambda (key . args)
+      (format (current-error-port) "cp: ~a ~a\n" key args)
+      1)))
 
 (define (set-shell-opt! name set?)
   (let* ((shell-opts (assoc-ref global-variables "SHELLOPTS"))
@@ -370,10 +376,10 @@ some redirections work.
     (when (> %debug-level 0)
       (format (current-error-port) "sh-exec:exec cmd=~s\n" cmd))
     (let* ((job (local-eval cmd (the-environment)))
-           (stati (cond ((job? job) (job-status job))
+           (stati (cond ((job? job) (map status:exit-val (job-status job)))
                         ((boolean? job) (list (if job 0 1)))
+                        ((number? job) (list job))
                         (else (list 0))))
-           (stati (map status:exit-val stati))
            (status (if (shell-opt? "pipefail") (or (find (negate zero?) stati) 0)
                        (car stati)))
            (pipestatus (string-append

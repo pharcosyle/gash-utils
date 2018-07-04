@@ -139,11 +139,16 @@ TERMINAL-WIDTH.  Use COLUMN-GAP spaces between two subsequent columns."
 
 (define (rm-command . args)
   "Emit code for the 'rm' command."
-  (cond ((member "-r" args)
-         (for-each delete-file-recursively
-                   (apply delete (cons "-r" args))))
-        (else
-         (for-each delete-file args))))
+  (catch #t
+       (lambda _
+         (cond ((member "-r" args)
+                (for-each delete-file-recursively
+                          (apply delete (cons "-r" args))))
+               (else
+                (for-each delete-file args))))
+    (lambda (key . args)
+      (format (current-error-port) "rm: ~a ~a\n" key args)
+      1)))
 
 (define (lines+chars port)
   "Return the number of lines and number of chars read from PORT."
