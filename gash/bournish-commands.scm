@@ -36,6 +36,7 @@
             rm-command
             wc-command
             which-command
+            wrap-command
             ))
 
 ;;; Commentary:
@@ -49,13 +50,13 @@
 ;;;
 ;;; Code:
 
-(define (expand-variable str)
-  "Return STR or code to obtain the value of the environment variable STR
-refers to."
-  ;; XXX: No support for "${VAR}".
-  (if (string-prefix? "$" str)
-      `(or (getenv ,(string-drop str 1)) "")
-      str))
+(define (wrap-command command name)
+  (lambda args
+    (catch #t
+      (cut apply command args)
+      (lambda (key . args)
+        (format (current-error-port) "~a: ~a ~a\n" name key args)
+        1))))
 
 (define* (display-tabulated lst
                             #:key
@@ -125,30 +126,30 @@ TERMINAL-WIDTH.  Use COLUMN-GAP spaces between two subsequent columns."
                               files)))
        (display-tabulated files)))))
 
-(define (ls-command . files)
-  (apply ls-command-implementation files))
+(define ls-command (wrap-command ls-command-implementation "ls"))
 
 (define (which-command program . rest)
   (stdout (search-path (executable-path) program)))
 
-(define (cat-command file . rest)
-  (call-with-input-file file
-    (lambda (port)
-      (dump-port port (current-output-port))
-      *unspecified*)))
+(define (cat-command-implementation . args)
+  (fold (lambda (file p)
+          (if (string=? file "-") (dump-port (current-input-port) (current-output-port))
+            (call-with-input-file file
+              (lambda (port)
+                (dump-port port (current-output-port))))))
+        0 args))
 
-(define (rm-command . args)
+(define cat-command (wrap-command cat-command-implementation "cat"))
+
+(define (rm-command-implementation . args)
   "Emit code for the 'rm' command."
-  (catch #t
-       (lambda _
-         (cond ((member "-r" args)
-                (for-each delete-file-recursively
-                          (apply delete (cons "-r" args))))
-               (else
-                (for-each delete-file args))))
-    (lambda (key . args)
-      (format (current-error-port) "rm: ~a ~a\n" key args)
-      1)))
+  (cond ((member "-r" args)
+         (for-each delete-file-recursively
+                   (apply delete (cons "-r" args))))
+        (else
+         (for-each delete-file args))))
+
+(define rm-command (wrap-command rm-command-implementation "rm"))
 
 (define (lines+chars port)
   "Return the number of lines and number of chars read from PORT."

@@ -257,14 +257,10 @@ mostly works, pipes work, some redirections work.
     (display "\nIt features the following, somewhat naive builtin commands\n")
     (display-tabulated (map car %commands))))
 
-(define (cp-command source dest . rest)
-  (catch #t
-    (lambda _
-      (copy-file source dest)
-      0)
-    (lambda (key . args)
-      (format (current-error-port) "cp: ~a ~a\n" key args)
-      1)))
+(define (cp-command-implementation source dest . rest)
+  (copy-file source dest))
+
+(define cp-command (wrap-command cp-command-implementation "cp"))
 
 (define (set-shell-opt! name set?)
   (let* ((shell-opts (assoc-ref global-variables "SHELLOPTS"))
