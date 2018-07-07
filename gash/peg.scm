@@ -5,6 +5,42 @@
 
   #:export (parse peg-trace?))
 
+(define (wrap-parser-for-users for-syntax parser accumsym s-syn)
+  #`(lambda (str strlen pos)
+      (when (> (@ (gash gash) %debug-level) 0)
+        (format (current-error-port) "~a ~a : ~s\n"
+                (make-string (- pos (or (string-rindex str #\newline 0 pos) 0)) #\space)
+                '#,s-syn
+                (substring str pos (min (+ pos 40) strlen))))
+
+      (let* ((res (#,parser str strlen pos)))
+        ;; Try to match the nonterminal.
+        (if res
+            ;; If we matched, do some post-processing to figure out
+            ;; what data to propagate upward.
+            (let ((at (car res))
+                  (body (cadr res)))
+              #,(cond
+                 ((eq? accumsym 'name)
+                  #`(list at '#,s-syn))
+                 ((eq? accumsym 'all)
+                  #`(list (car res)
+                          (cond
+                           ((not (list? body))
+                            (list '#,s-syn body))
+                           ((null? body) '#,s-syn)
+                           ((symbol? (car body))
+                            (list '#,s-syn body))
+                           (else (cons '#,s-syn body)))))
+                 ((eq? accumsym 'none) #`(list (car res) '()))
+                 (else #`(begin res))))
+            ;; If we didn't match, just return false.
+            #f))))
+
+(module-define! (resolve-module '(ice-9 peg codegen))
+                'wrap-parser-for-users
+                wrap-parser-for-users)
+
 (define (error? x)
   (let loop ((x x))
     (if (null? x) #f
@@ -83,13 +119,13 @@
      assignment       <-- name assign (substitution / word)?
      assign           <   '='
      literal          <-- (variable / delim / (![0-9] (![()] !io-op !sp !nl !break !pipe !assign !bt !sq !dq .)+) / ([0-9]+ &separator)) literal*
-     variable         <-- '$' ('$' / '*' / '@' / [0-9] / identifier / ([{] (![}] .)+ [}]))
+     variable         <-- '$' ('$' / '*' / '?' / '@' / [0-9] / identifier / ([{] (![}] .)+ [}]))
      delim            <-- singlequotes / doublequotes / substitution
      sq               <   [']
      dq               <   [\"]
      bt               <   [`]
-     singlequotes     <-- sq  (doublequotes / substitution / (!sq .))* sq
-     doublequotes     <-- dq (singlequotes / substitution / (!dq .))* dq
+     singlequotes     <-- sq  (doublequotes / (!sq .))* sq
+     doublequotes     <-- dq (singlequotes / substitution / variable / (!dq .))* dq
      separator        <-  (sp* break ws*) / ws+
      break            <-  amp / semi !semi
      sequential-sep   <-- (semi !semi ws*) / ws+

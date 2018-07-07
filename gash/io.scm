@@ -1,5 +1,7 @@
 (define-module (gash io)
 
+  #:use-module (srfi srfi-1)
+
   #:export (stdout stderr))
 
 (define (output port o)
@@ -9,8 +11,8 @@
 
 (define (stdout . o)
   (output (current-output-port) o)
-  o)
+  (last o))
 
 (define (stderr . o)
   (output (current-error-port) o)
-  o)
+  (last o))
