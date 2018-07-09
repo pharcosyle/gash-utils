@@ -1,5 +1,7 @@
 #! /bin/sh
 
+VERSION=0.1
+
 # parse --prefix=PREFIX, mainly for GuixSD/Debian
 cmdline=$(echo "$@")
 PREFIX=${cmdline##*--prefix=}
@@ -15,6 +17,7 @@ GUILE_TOOLS=$(command -v guile-tools)
 GUILE_SITE_DIR=$PREFIX/share/guile/site/$GUILE_EFFECTIVE_VERSION
 GUILE_SITE_CCACHE_DIR=$PREFIX/lib/guile/$GUILE_EFFECTIVE_VERSION/site-ccache
 GUILE_EFFECTIVE_VERSION=$(guile -c '(display (effective-version))')
+MAKEINFO=$(command -v makeinfo)
 
 sed \
     -e s,@GUILE@,$GUILE,\
@@ -32,6 +35,9 @@ DOCDIR=$PREFIX/share/doc/gash
 GUILE_EFFECTIVE_VERSION=$GUILE_EFFECTIVE_VERSION
 GUILE_SITE_DIR=$GUILE_SITE_DIR
 GUILE_SITE_CCACHE_DIR=$GUILE_SITE_CCACHE_DIR
+MAKEINFO=$MAKEINFO
+SHELL=$BASH
+VERSION=$VERSION
 EOF
 
 cat <<EOF

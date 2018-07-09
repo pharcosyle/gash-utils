@@ -46,13 +46,11 @@
              (ice-9 rdelim)
              (gnu packages)
              (gnu packages base)
-             (gnu packages commencement)
-             (gnu packages cross-base)
-             (gnu packages gcc)
+             (gnu packages bash)
              (gnu packages guile)
              (gnu packages mes)
              (gnu packages package-management)
-             (gnu packages perl)
+             (gnu packages texinfo)
              ((guix build utils) #:select (with-directory-excursion))
              (guix build-system gnu)
              (guix build-system trivial)
@@ -101,6 +99,8 @@
        `(("guile-readline" ,guile-readline)))
       (inputs
        `(("guile" ,guile-2.2)))
+      (native-inputs
+       `(("texinfo" ,texinfo)))
       (synopsis "A POSIX compliant sh replacement for Guile.")
       (description
        "Gash [Guile As Shell] aims to produce at least a POSIX compliant sh replacement

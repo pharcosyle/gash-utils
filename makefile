@@ -40,6 +40,24 @@ install: all
 	tar -cf- gash/*.go | tar -C $(DESTDIR)$(GUILE_SITE_CCACHE_DIR) -xf-
 	mkdir -p $(DESTDIR)$(DOCDIR)
 	cp -f COPYING README TODO $(DOCDIR)
+	$(MAKE) install-info
+
+install-info: info
+	mkdir -p $(DESTDIR)$(PREFIX)/share/info
+	tar -cf- doc/gash.info* | tar -xf- --strip-components=1 -C $(DESTDIR)$(PREFIX)/share/info
+	install-info --info-dir=$(DESTDIR)$(PREFIX)/share/info doc/gash.info
+
+doc/version.texi: doc/gash.texi makefile
+	(set `LANG= date -r $< +'%d %B %Y'`;\
+	echo "@set UPDATED $$1 $$2 $$3"; \
+	echo "@set UPDATED-MONTH $$2 $$3"; \
+	echo "@set EDITION $(VERSION)"; \
+	echo "@set VERSION $(VERSION)") > $@
+
+info: doc/gash.info
+
+doc/gash.info: doc/gash.texi doc/version.texi makefile
+	$(MAKEINFO) -o $@ -I doc $<
 
 define HELP_TOP
 Usage: make [OPTION]... [TARGET]...
