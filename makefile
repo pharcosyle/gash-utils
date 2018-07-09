@@ -28,7 +28,7 @@ ifneq ($(BASH),)
 endif
 
 check-gash: all
-	./test.sh
+	SHELL=bin/gash ./test.sh
 
 install: all
 	mkdir -p $(DESTDIR)$(BINDIR)
