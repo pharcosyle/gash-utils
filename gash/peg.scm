@@ -1,7 +1,10 @@
 (define-module (gash peg)
+  #:use-module (ice-9 match)
   #:use-module (ice-9 pretty-print)
   #:use-module (ice-9 peg)
   #:use-module (ice-9 peg codegen)
+
+  #:use-module (srfi srfi-26)
 
   #:export (parse peg-trace?))
 
@@ -76,41 +79,63 @@
 
   (define-peg-string-patterns
     "script           <-- ws* (term (separator term)* separator?)?
-     error            <-- .*
-     term             <-- pipeline (sp* ('&&' / '||') ws* pipeline)*
+     term             <-  pipeline (sp* ('&&' / '||') ws* pipeline)*
+     pipe             <   '|'
      pipeline         <-- '!'? sp* command (sp* pipe ws* command)*
-     pipe             <-- '|'
-     command          <-- simple-command / (compound-command (sp+ io-redirect)*) / function-def
-     compound-command <-- brace-group / subshell / for-clause / case-clause / if-clause / while-clause / until-clause
-     subshell         <-- '(' ne-compound-list ')'
-     compound-list    <-- term (separator term)*
-     ne-compound-list <-- compound-list separator / error
-     case-clause      <-- 'case' sp+ word ws+ 'in' ws+ case-item* 'esac'
-     case-item        <-- pattern (ne-compound-list? case-sep ws* / error)
-     case-sep         <   ';;'
-     pattern          <-- sp* word (sp* '|' sp* word)* sp* ')' sp*
-     for-clause       <-- 'for' (sp+ identifier (ws+ 'in' expression sequential-sep / sp* sequential-sep) do-group / error)
-     expression       <-- sp+ substitution sp* / (sp+ word)* sp*
-     do-group         <-- 'do' ws* (ne-compound-list 'done' / error)
-     if-clause        <-- 'if' (ne-compound-list 'then' ws* ne-compound-list else-part? 'fi' / error)
-     else-part        <-- 'elif' (ne-compound-list 'then' ws* ne-compound-list else-part? / error) / 'else' (ne-compound-list / error)
-     while-clause     <-- 'while' (ne-compound-list do-group / error)
-     until-clause     <-- 'until' (ne-compound-list do-group / error)
+     command          <-- (compound-command (sp+ io-redirect)*) / simple-command / function-def
+     compound-command <- brace-group / subshell / for-clause / case-clause / if-clause / while-clause / until-clause
+     simple-command   <-  (sp* (io-redirect sp+)* nonreserved)+
+     nonreserved      <-  &(reserved word) word / !reserved word
+     reserved         <   'case' / 'esac' / 'if' / 'fi' / 'then' / 'else' / 'elif' / 'for' / 'done' / 'do' / 'until' / 'while'
+
      function-def     <-- name sp* '(' sp* ')' ws* (function-body / error)
      function-body    <-- compound-command io-redirect*
-     brace-group      <-- '{' (sp* (compound-list / error) sp* '}' / error)
-     simple-command   <-- (io-redirect sp+)* nonreserved (sp+ (io-redirect / nonreserved))*
-     reserved         <   'case' / 'esac' / 'if' / 'fi' / 'then' / 'else' / 'elif' / 'for' / 'done' / 'do' / 'until' / 'while'
-     nonreserved      <-  &(reserved word) word / !reserved word / word
+
      io-redirect      <-- [0-9]* sp* (io-here / io-file)
      io-file          <-- ('<&' /  '>&' / '>>' / '>' / '<>'/ '<' / '>|') sp* ([0-9]+ / filename)
      io-here          <-  ('<<' / '<<-') io-suffix here-document
      io-op            <   '<<-' / '<<' / '<&' /  '>&' / '>>' / '>' / '<>'/ '<' / '>|'
      io-suffix        <-  sp* here-label sp* nl
+
+     brace-group      <-- '{' (sp* (compound-list / error) sp* '}' / error)
+     subshell         <-- '(' compound-list separator ')'
+     compound-list    <-  term (separator term)*
+
+     case-keyword     <   'case'
+     case-clause      <-- case-keyword sp+ word ws+ 'in' ws+ case-item* 'esac'
+     case-item        <-- pattern ((compound-list separator)? case-sep ws* / error)
+     case-sep         <   ';;'
+     pattern          <-- sp* word (sp* '|' sp* word)* sp* ')' sp*
+
+     for-keyword      <   'for'
+     for-clause       <-- for-keyword sp+ name in-expression? sp* sequential-sep do-group
+     in-keyword       <   'in'
+     in-expression    <-- ws+ in-keyword expression?
+     expression       <-- sp+ (substitution / word+)
+     do-keyword       <   'do'
+     done-keyword     <   'done'
+     do-group         <-- do-keyword ws* compound-list separator done-keyword
+
+     if-keyword       <   'if'
+     fi-keyword       <   'fi'
+     if-clause        <-- if-keyword compound-list separator then-part elif-part* else-part? fi-keyword
+     then-keyword     <   'then'
+     then-part        <-- then-keyword ws* compound-list separator
+     elif-keyword     <   'elif'
+     elif-part        <-- elif-keyword compound-list separator then-keyword ws* compound-list separator else-part?
+     else-keyword     <   'else'
+     else-part        <-- else-keyword compound-list separator
+
+     while-keyword    <   'while'
+     while-clause     <-- while-keyword compound-list separator do-group
+
+     until-keyword    <   'until'
+     until-clause     <-- until-keyword compound-list separator do-group
+
      filename         <-- word
      name             <-- identifier
      identifier       <-  [_a-zA-Z][_a-zA-Z0-9]*
-     word             <-- test / substitution / assignment / number / literal
+     word             <-- test / substitution / assignment / number / variable / delim / literal
      number           <-- [0-9]+
      test             <-- ltest (!rtest .)* rtest
      ltest            <   '[ '
@@ -118,7 +143,7 @@
      substitution     <-- ('$(' script ')') / ('`' script '`')
      assignment       <-- name assign (substitution / word)?
      assign           <   '='
-     literal          <-- (variable / delim / (![0-9] (![()] !io-op !sp !nl !break !pipe !assign !bt !sq !dq .)+) / ([0-9]+ &separator)) literal*
+     literal          <-- (!pipe !semi !nl !sp .)+
      variable         <-- '$' ('$' / '*' / '?' / '@' / [0-9] / identifier / ([{] (![}] .)+ [}]))
      delim            <-- singlequotes / doublequotes / substitution
      sq               <   [']
@@ -128,18 +153,22 @@
      doublequotes     <-- dq (singlequotes / substitution / variable / (!dq .))* dq
      separator        <-  (sp* break ws*) / ws+
      break            <-  amp / semi !semi
-     sequential-sep   <-- (semi !semi ws*) / ws+
+     sequential-sep   <-  (semi !semi ws*) / ws+
      amp              <-  '&'
      semi             <   ';'
      nl               <   '\n'
      sp               <   [\t ]
-     ws               <   sp / nl")
+     ws               <   sp / nl
+     error            <-- .*")
 
   (let* ((match (match-pattern script input))
          (end (peg:end match))
-         (tree (peg:tree match)))
+         (pt (peg:tree match)))
     (if (eq? (string-length input) end)
-        tree
+        (let* ((foo (pretty-print pt))
+               (ast (transform (keyword-flatten '(pipeline) pt)))
+               (foo (pretty-print ast)))
+          ast)
         (if match
             (begin
               (format (current-error-port) "parse error: at offset: ~a\n" end)
@@ -148,3 +177,15 @@
             (begin
               (format (current-error-port) "parse error: no match\n")
               #f)))))
+
+(define (transform ast)
+  (match ast
+    (('script o ...) (map transform o))
+    (('pipeline o ...) `(pipeline ,@(map transform o)))
+    (('command o ...) `(command ,@(map transform o)))
+    (('word o) (transform o))
+    (('literal o) (transform o))
+    (('name o) o)
+    (('number o) o)
+    (('assignment a b) `(assignment ,(transform a) ,(transform b)))
+    (_ ast)))
