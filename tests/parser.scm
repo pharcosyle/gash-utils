@@ -60,6 +60,10 @@
      (<sh-exec> "exec"))
   (parse "exec 3<&-"))
 
+(test-equal "Parses redirects without a command"
+  '(<sh-with-redirects> ((>& 2 1)) #f)
+  (parse "2>&1"))
+
 (test-equal "Parses assignments"
   '(<sh-set!> (("FOO" "bar")))
   (parse "FOO=bar"))
