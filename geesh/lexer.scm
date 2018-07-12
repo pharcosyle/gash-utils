@@ -296,7 +296,7 @@ leading '$')."
               (match (get-char port)
                 (#\} (match `(,parameter ,operator ,word)
                        ((p #f #f) `(<sh-ref> ,p))
-                       ((p o #f)  `(,o ,p))
+                       ((p o #f)  `(,o ,p #f))
                        ((p o w)   `(,o ,p ,w)))))))))))
 
 (define (get-parameter-expansion port)

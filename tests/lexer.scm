@@ -161,6 +161,10 @@
    ("#" . <sh-ref-skip-min>)
    ("##" . <sh-ref-skip-max>)))
 
+(test-equal "Recognizes a parameter expansion operator without default"
+  '((WORD (0 . 7) (<sh-ref-or> "foo" #f)))
+  (tokenize "${foo-}"))
+
 (test-equal "Splits multidigit parameter name without braces"
   '((WORD (0 . 3) ((<sh-ref> "1") "2")))
   (tokenize "$12"))
