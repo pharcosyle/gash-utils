@@ -40,7 +40,8 @@ MODULES =                                       \
   geesh/environment.scm                         \
   geesh/lexer.scm                               \
   geesh/parser.scm                              \
-  geesh/repl.scm
+  geesh/repl.scm                                \
+  geesh/word.scm
 
 bin_SCRIPTS =                                   \
   scripts/geesh
@@ -49,7 +50,8 @@ TESTS =                                         \
   tests/environment.scm                         \
   tests/lexer.scm                               \
   tests/parser.scm                              \
-  tests/repl.scm
+  tests/repl.scm                                \
+  tests/word.scm
 
 CLEANFILES =                                    \
   $(GOBJECTS)                                   \
