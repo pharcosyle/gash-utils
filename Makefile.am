@@ -37,6 +37,7 @@ endif # HAVE_GENHTML
 test-list: ; @echo $(TESTS)
 
 MODULES =                                       \
+  geesh/environment.scm                         \
   geesh/lexer.scm                               \
   geesh/parser.scm                              \
   geesh/repl.scm
@@ -45,6 +46,7 @@ bin_SCRIPTS =                                   \
   scripts/geesh
 
 TESTS =                                         \
+  tests/environment.scm                         \
   tests/lexer.scm                               \
   tests/parser.scm                              \
   tests/repl.scm
