@@ -320,7 +320,7 @@ the same number of times.)"
     : `(,$2 ,$4))
 
    (pattern
-    (WORD*-with-non-Esac-keywords)
+    (WORD*-without-Esac)
     : `(,$1)
     (pattern PIPE WORD*)
     : (append $1 `(,$3)))
@@ -404,11 +404,11 @@ the same number of times.)"
     : `(<sh-exec> ,$1))
 
    (cmd-name
-    (WORD*-without-ASSIGNMENT-WORD)
+    (WORD*-without-keywords-or-ASSIGNMENT-WORD)
     : $1)
 
    (cmd-word
-    (WORD*-without-ASSIGNMENT-WORD)
+    (WORD*-without-keywords-or-ASSIGNMENT-WORD)
     : $1)
 
    (cmd-prefix
@@ -510,16 +510,39 @@ the same number of times.)"
    ;; Rules added to emulate the POSIX context-sensitive lexer
    ;; approach.
 
-   ;; Accept all the specializations of a normal word. This corresponds
-   ;; to "rule 1" in the POSIX specification.
+   ;; Accept all the specializations of a normal word and all
+   ;; keywords.  This is the default case.
    (WORD*
+    (WORD) : $1
+    (NAME) : $1
+    (ASSIGNMENT-WORD) : $1
+    (If) : $1
+    (Then) : $1
+    (Else) : $1
+    (Elif) : $1
+    (Fi) : $1
+    (Do) : $1
+    (Done) : $1
+    (Case) : $1
+    (Esac) : $1
+    (While) : $1
+    (Until) : $1
+    (For) : $1
+    (Lbrace) : $1
+    (Rbrace) : $1
+    (Bang) : $1
+    (In) : $1)
+
+   ;; Just like 'WORD*', but no keywords.  This corresponds to "rule
+   ;; 1" in the POSIX specification.
+   (WORD*-without-keywords
     (WORD) : $1
     (NAME) : $1
     (ASSIGNMENT-WORD) : $1)
 
-   ;; Accept all keywords except "esac". This corresponds to "rule 4"
-   ;; in the POSIX specification.
-   (WORD*-with-non-Esac-keywords
+   ;; Just like 'WORD*', but without the "esac" keyword.  This
+   ;; corresponds to "rule 4" in the POSIX specification.
+   (WORD*-without-Esac
     (WORD) : $1
     (NAME) : $1
     (ASSIGNMENT-WORD) : $1
@@ -563,7 +586,7 @@ the same number of times.)"
 
    ;; Accept any "WORD*" token except for "ASSIGNMENT-WORD". This
    ;; corresponds to "rule 7" in the POSIX specification.
-   (WORD*-without-ASSIGNMENT-WORD
+   (WORD*-without-keywords-or-ASSIGNMENT-WORD
     (WORD) : $1
     (NAME) : $1)
 
