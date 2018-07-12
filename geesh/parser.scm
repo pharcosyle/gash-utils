@@ -383,7 +383,7 @@ the same number of times.)"
     : (let*-values (((redirects assignments*) (partition io-redirect? $1))
                     ((assignments) (map split-assignment assignments*)))
         (match redirects
-          (() `(<sh-set!> ,assignments))
+          (() `(<sh-set!> ,@assignments))
           (_ `(<sh-with-redirects> ,redirects
                 ,(if (null? assignments)
                      #f

@@ -65,8 +65,12 @@
   (parse "2>&1"))
 
 (test-equal "Parses assignments"
-  '(<sh-set!> (("FOO" "bar")))
+  '(<sh-set!> ("FOO" "bar"))
   (parse "FOO=bar"))
+
+(test-equal "Parses multiple assignments"
+  '(<sh-set!> ("FOO" "bar") ("BAZ" "quux"))
+  (parse "FOO=bar BAZ=quux"))
 
 ;; Boolean expressions
 
