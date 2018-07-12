@@ -157,19 +157,25 @@ the same number of times.)"
     (complete-commands newline-list complete-command)
     : (begin
         (command-hook)
-        (cons (if (null? (cdr $3)) (car $3) $3) $1))
+        (cons $3 $1))
     (complete-command)
     : (begin
         (command-hook)
-        (if (null? (cdr $1)) `(,(car $1)) `(,$1))))
+        `(,$1)))
 
    (complete-command
     (list separator-op)
-    : (match $2
-        ('AND (reverse! (cons `(<sh-async> ,(car $1)) (cdr $1))))
-        ('SEMI (reverse! $1)))
+    : (let ((lst (match $2
+                   ('AND (reverse! (cons `(<sh-async> ,(car $1)) (cdr $1))))
+                   ('SEMI (reverse! $1)))))
+        (if (null? (cdr lst))
+            (car lst)
+            (cons '<sh-begin> lst)))
     (list)
-    : (reverse! $1))
+    : (let ((lst (reverse! $1)))
+        (if (null? (cdr lst))
+            (car lst)
+            (cons '<sh-begin> lst))))
 
    (list
     (list separator-op and-or)

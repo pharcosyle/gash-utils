@@ -39,18 +39,18 @@
   (parse "echo foo"))
 
 (test-equal "Parses command lists"
-  '((<sh-exec> "echo" "foo")
-    (<sh-exec> "echo" "bar"))
+  '(<sh-begin> (<sh-exec> "echo" "foo")
+               (<sh-exec> "echo" "bar"))
   (parse "echo foo; echo bar"))
 
 (test-equal "Parses asynchronous command lists"
-  '((<sh-async> (<sh-exec> "echo" "foo"))
-    (<sh-async> (<sh-exec> "echo" "bar")))
+  '(<sh-begin> (<sh-async> (<sh-exec> "echo" "foo"))
+               (<sh-async> (<sh-exec> "echo" "bar")))
   (parse "echo foo& echo bar&"))
 
 (test-equal "Parses mixed command lists"
-  '((<sh-async> (<sh-exec> "echo" "foo"))
-    (<sh-exec> "echo" "bar"))
+  '(<sh-begin> (<sh-async> (<sh-exec> "echo" "foo"))
+               (<sh-exec> "echo" "bar"))
   (parse "echo foo& echo bar"))
 
 (test-equal "Parses commands with assignments"
