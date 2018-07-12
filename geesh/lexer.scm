@@ -1,5 +1,5 @@
 ;;; The Geesh Shell Interpreter
-;;; Copyright 2017 Timothy Sample <samplet@ngyro.com>
+;;; Copyright 2017, 2018 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Geesh.
 ;;;
@@ -207,18 +207,18 @@ character."
   ;; Associate Scheme-like names to all of the Shell parameter
   ;; operators.  Note that "#" means the infix version and not the
   ;; prefixed "#", which means "length".
-  '(("-" . <sh-ref-or-default>)
-    (":-" . <sh-ref-or-default*>)
-    ("=" . <sh-set-if-unset!>)
-    (":=" . <sh-set-if-unset!*>)
-    ("?" . <sh-assert-ref>)
-    (":?" . <sh-assert-ref*>)
-    ("+" . <sh-when-set>)
-    (":+" . <sh-when-set*>)
-    ("%" . <sh-ref-skip-min>)
-    ("%%" . <sh-ref-skip-max>)
-    ("#" . <sh-ref-except-min>)
-    ("##" . <sh-ref-except-max>)))
+  '(("-" . <sh-ref-or>)
+    (":-" . <sh-ref-or*>)
+    ("=" . <sh-ref-or!>)
+    (":=" . <sh-ref-or!*>)
+    ("?" . <sh-ref-assert>)
+    (":?" . <sh-ref-assert*>)
+    ("+" . <sh-ref-and>)
+    (":+" . <sh-ref-and*>)
+    ("%" . <sh-ref-except-min>)
+    ("%%" . <sh-ref-except-max>)
+    ("#" . <sh-ref-skip-min>)
+    ("##" . <sh-ref-skip-max>)))
 
 (define (try-get-parameter-operator port)
   "Try to get a Shell parameter operator from @var{port}. Upon failure,

@@ -1,5 +1,5 @@
 ;;; The Geesh Shell Interpreter
-;;; Copyright 2017 Timothy Sample <samplet@ngyro.com>
+;;; Copyright 2017, 2018 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Geesh.
 ;;;
@@ -148,18 +148,18 @@
 
       `((WORD (0 . ,(+ (string-length operator) 9)) (,symbol "foo" "bar")))
       (tokenize (string-append "${foo" operator "bar}")))))
- '(("-" . <sh-ref-or-default>)
-   (":-" . <sh-ref-or-default*>)
-   ("=" . <sh-set-if-unset!>)
-   (":=" . <sh-set-if-unset!*>)
-   ("?" . <sh-assert-ref>)
-   (":?" . <sh-assert-ref*>)
-   ("+" . <sh-when-set>)
-   (":+" . <sh-when-set*>)
-   ("%" . <sh-ref-skip-min>)
-   ("%%" . <sh-ref-skip-max>)
-   ("#" . <sh-ref-except-min>)
-   ("##" . <sh-ref-except-max>)))
+ '(("-" . <sh-ref-or>)
+   (":-" . <sh-ref-or*>)
+   ("=" . <sh-ref-or!>)
+   (":=" . <sh-ref-or!*>)
+   ("?" . <sh-ref-assert>)
+   (":?" . <sh-ref-assert*>)
+   ("+" . <sh-ref-and>)
+   (":+" . <sh-ref-and*>)
+   ("%" . <sh-ref-except-min>)
+   ("%%" . <sh-ref-except-max>)
+   ("#" . <sh-ref-skip-min>)
+   ("##" . <sh-ref-skip-max>)))
 
 (test-equal "Splits multidigit parameter name without braces"
   '((WORD (0 . 3) ((<sh-ref> "1") "2")))
@@ -177,23 +177,23 @@
  '("@" "*" "#" "?" "-" "$" "!" "0"))
 
 (test-equal "Allows brace-nesting in parameter expansions"
-  '((WORD (0 . 11) (<sh-ref-or-default> "foo" "b{}r")))
+  '((WORD (0 . 11) (<sh-ref-or> "foo" "b{}r")))
   (tokenize "${foo-b{}r}"))
 
 (test-equal "Respects escapes in parameter expansions"
-  '((WORD (0 . 11) (<sh-ref-or-default> "foo" ("b" (<sh-quote> "}") "r"))))
+  '((WORD (0 . 11) (<sh-ref-or> "foo" ("b" (<sh-quote> "}") "r"))))
   (tokenize "${foo-b\\}r}"))
 
 (test-equal "Respects single quotations in parameter expressions"
-  '((WORD (0 . 12) (<sh-ref-or-default> "foo" ("b" (<sh-quote> "}") "r"))))
+  '((WORD (0 . 12) (<sh-ref-or> "foo" ("b" (<sh-quote> "}") "r"))))
   (tokenize "${foo-b'}'r}"))
 
 (test-equal "Respects double quotations in parameter expressions"
-  '((WORD (0 . 12) (<sh-ref-or-default> "foo" ("b" (<sh-quote> "}") "r"))))
+  '((WORD (0 . 12) (<sh-ref-or> "foo" ("b" (<sh-quote> "}") "r"))))
   (tokenize "${foo-b\"}\"r}"))
 
 (test-equal "Recognizes nested parameter expansions"
-  '((WORD (0 . 13) (<sh-ref-or-default> "foo" (<sh-ref> "bar"))))
+  '((WORD (0 . 13) (<sh-ref-or> "foo" (<sh-ref> "bar"))))
   (tokenize "${foo-${bar}}"))
 
 ;;;
