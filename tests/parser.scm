@@ -73,17 +73,17 @@
   (parse "echo foo 5< bar"))
 
 (test-equal "Parses commands with dup redirects"
-  '(<sh-with-redirects> ((>& 1 3))
+  '(<sh-with-redirects> ((>& 1 "3"))
      (<sh-exec> "exec"))
   (parse "exec >&3"))
 
 (test-equal "Parses commands with close redirects"
-  '(<sh-with-redirects> ((<& 3 -))
+  '(<sh-with-redirects> ((<& 3 "-"))
      (<sh-exec> "exec"))
   (parse "exec 3<&-"))
 
 (test-equal "Parses redirects without a command"
-  '(<sh-with-redirects> ((>& 2 1)) #f)
+  '(<sh-with-redirects> ((>& 2 "1")) #f)
   (parse "2>&1"))
 
 (test-equal "Parses assignments"

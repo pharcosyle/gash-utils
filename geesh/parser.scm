@@ -45,14 +45,6 @@
          ('>! x y) ('<< x y) ('<<- x y)) #t)
     (_ #f)))
 
-(define (process-dup-or-close-word word)
-  "Process the right-hand-side of a \"<&\" or \"&>\" redirect."
-  (let ((n (string->number word)))
-    (cond
-     ((and n (exact-integer? n)) n)
-     ((string=? word "-") '-)
-     (else word))))
-
 (define (split-assignment word)
   "Split assignment @var{word} into a list where the first element is
 the variable name and the second element is the value expression."
@@ -451,11 +443,11 @@ the same number of times.)"
     (LESS filename)
     : `(< . ,$2)
     (LESSAND filename)
-    : `(<& . ,(process-dup-or-close-word $2))
+    : `(<& . ,$2)
     (GREAT filename)
     : `(> . ,$2)
     (GREATAND filename)
-    : `(>& . ,(process-dup-or-close-word $2))
+    : `(>& . ,$2)
     (DGREAT filename)
     : `(>> . ,$2)
     (LESSGREAT filename)
