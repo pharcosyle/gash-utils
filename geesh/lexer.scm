@@ -515,4 +515,8 @@ is a newline (or EOF)."
              (skip-to-end-of-line port)
              (loop (lookahead-char port))))
       (#\newline (get-newline-lexical-token port))
+      (#\\ (match (next-char port)
+             (#\newline (loop (next-char port)))
+             (_ (unget-char port #\\)
+                (get-word-lexical-token port))))
       (_ (get-word-lexical-token port)))))

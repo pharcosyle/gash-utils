@@ -59,6 +59,11 @@
   '((NAME (0 . 8) "foobar"))
   (tokenize "foo\\\nbar"))
 
+(test-equal "Handles spaces around escaped newlines"
+  '((NAME (0 . 3) "foo")
+    (NAME (7 . 3) "bar"))
+  (tokenize "foo \\\n bar"))
+
 (test-equal "Splits tokens on a space"
   '((NAME (0 . 3) "foo")
     (NAME (4 . 3) "bar"))
