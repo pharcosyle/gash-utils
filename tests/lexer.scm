@@ -133,6 +133,10 @@
   '((WORD (0 . 4) (<sh-ref> "foo")))
   (tokenize "$foo"))
 
+(test-equal "Treats dollar sign normally if not before a name"
+  '((WORD (0 . 3) "$]["))
+  (tokenize "$]["))
+
 (test-equal "Delimits unbraced, interspersed parameter names"
   '((WORD (0 . 12) ("foo-" (<sh-ref> "baz") "-bar")))
   (tokenize "foo-$baz-bar"))

@@ -180,8 +180,10 @@ character."
   (make-parameter (lambda (port) (throw 'backquoted-command-parser-unset))))
 
 (define* (get-parameter port #:key (multidigit? #f))
-  "Get a parameter name (excluding the leading '$') from @var{port}. If
-@var{multidigit?} is true, treat strings of numbers as a valid name."
+  "Get a parameter name (excluding the leading '$') from @var{port}.
+If @var{multidigit?} is true, treat strings of numbers as a valid
+name.  If a valid parameter name cannot be read from @var{port},
+nothing will be read and @code{#f} will be returned."
   (match (lookahead-char port)
     ;; Special parameter names
     ((or #\@ #\* #\# #\? #\- #\$ #\! #\0)
@@ -201,7 +203,9 @@ character."
      (let loop ((chr (next-char port)) (acc `(,start-chr)))
        (match chr
          ((? name-char?) (loop (next-char port) (cons chr acc)))
-         (_ (list->string (reverse! acc))))))))
+         (_ (list->string (reverse! acc))))))
+    ;; Not a parameter name.
+    (_ #f)))
 
 (define *parameter-operators*
   ;; Associate Scheme-like names to all of the Shell parameter
@@ -254,7 +258,7 @@ parameter expression) from @var{port}."
       ((or #\$ #\`) (let ((expansion (get-expansion port)))
                       (loop (lookahead-char port)
                             brace-balance
-                            (cons expansion acc))))
+                            (cons (or expansion (string chr)) acc))))
       (#\\ (let ((escape (get-escape port)))
              (loop (lookahead-char port) brace-balance (append escape acc ))))
       (#\' (let ((quotation (get-single-quotation port)))
@@ -304,7 +308,9 @@ leading '$')."
 @var{port} (excluding the leading '$')."
   (match (lookahead-char port)
     (#\{ (get-parameter-expression port))
-    (_ `(<sh-ref> ,(get-parameter port)))))
+    (_ (and=> (get-parameter port)
+              (lambda (name)
+                `(<sh-ref> ,name))))))
 
 (define (get-bracketed-command port)
   "Get a bracketed command ('$(...)') from @var{port} (excluding the
@@ -374,7 +380,8 @@ next character statisfies @var{pred} (or is a newline)."
                 (get-char port)
                 `(<sh-quote> ,@(join-contiguous-strings (reverse! acc)))))
          ((or #\$ #\`) (let ((expansion (get-expansion port)))
-                         (loop (lookahead-char port) (cons expansion acc))))
+                         (loop (lookahead-char port)
+                               (cons (or expansion (string chr)) acc))))
          (#\\ (let ((escape (get-escape port
                                         (cut member <> '(#\" #\$ #\` #\\)))))
                 (loop (lookahead-char port) (append escape acc))))
@@ -427,7 +434,8 @@ next character statisfies @var{pred} (or is a newline)."
            #\newline
            #\#) (acc->token acc chr))
       ((or #\$ #\`) (let ((expansion (get-expansion port)))
-                      (loop (lookahead-char port) (cons expansion acc))))
+                      (loop (lookahead-char port)
+                            (cons (or expansion (string chr)) acc))))
       (#\\ (let ((escape (get-escape port)))
              (loop (lookahead-char port) (append escape acc))))
       (#\' (let ((quotation (get-single-quotation port)))
