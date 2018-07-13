@@ -1,10 +1,17 @@
 (define-module (gash peg)
+  #:use-module (ice-9 ftw)
+  #:use-module (ice-9 local-eval)
   #:use-module (ice-9 match)
   #:use-module (ice-9 pretty-print)
   #:use-module (ice-9 peg)
   #:use-module (ice-9 peg codegen)
+  #:use-module (ice-9 regex)
 
+  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
+
+  #:use-module (gash io)
+  #:use-module (gash util)
 
   #:export (parse peg-trace?))
 
@@ -52,15 +59,6 @@
             (or (loop (car x))
                 (loop (cdr x)))))))
 
-(define (parse input)
-  (let ((tree (parse- input)))
-    (cond ((error? tree)
-           (format (current-error-port) "error:\n")
-           (pretty-print tree (current-error-port))
-           #f)
-          (#t
-           tree))))
-
 (define (parse- input)
   (define label "")
   (define (label-name str len pos)
@@ -79,16 +77,21 @@
 
   (define-peg-string-patterns
     "script           <-- ws* (term (separator term)* separator?)?
-     term             <-  pipeline (sp* ('&&' / '||') ws* pipeline)*
+     term             <-  pipeline (sp* (and / or) ws* pipeline)*
+     and              <-- '&&'
+     or               <-- '||'
      pipe             <   '|'
-     pipeline         <-- '!'? sp* command (sp* pipe ws* command)*
+     pipeline-head    <-  sp* command
+     pipeline-tail    <-  sp* pipe ws* command
+     negate           <-- '!'
+     pipeline         <-- negate? pipeline-head pipeline-tail*
      command          <-- (compound-command (sp+ io-redirect)*) / simple-command / function-def
-     compound-command <- brace-group / subshell / for-clause / case-clause / if-clause / while-clause / until-clause
+     compound-command <-  brace-group / subshell / for-clause / case-clause / if-clause / while-clause / until-clause
      simple-command   <-  (sp* (io-redirect sp+)* nonreserved)+
      nonreserved      <-  &(reserved word) word / !reserved word
      reserved         <   'case' / 'esac' / 'if' / 'fi' / 'then' / 'else' / 'elif' / 'for' / 'done' / 'do' / 'until' / 'while'
 
-     function-def     <-- name sp* '(' sp* ')' ws* (function-body / error)
+     function-def     <-- name sp* lpar sp* rpar ws* (function-body / error)
      function-body    <-- compound-command io-redirect*
 
      io-redirect      <-- [0-9]* sp* (io-here / io-file)
@@ -98,7 +101,7 @@
      io-suffix        <-  sp* here-label sp* nl
 
      brace-group      <-- '{' (sp* (compound-list / error) sp* '}' / error)
-     subshell         <-- '(' compound-list separator ')'
+     subshell         <-- lpar compound-list separator rpar
      compound-list    <-  term (separator term)*
 
      case-keyword     <   'case'
@@ -108,44 +111,47 @@
      pattern          <-- sp* word (sp* '|' sp* word)* sp* ')' sp*
 
      for-keyword      <   'for'
-     for-clause       <-- for-keyword sp+ name in-expression? sp* sequential-sep do-group
      in-keyword       <   'in'
-     in-expression    <-- ws+ in-keyword expression?
-     expression       <-- sp+ (substitution / word+)
+     for-clause       <-- for-keyword sp+ name (ws+ in-keyword expression)? sp* sequential-sep do-group
+     expression       <-- (sp+ word)+
      do-keyword       <   'do'
      done-keyword     <   'done'
-     do-group         <-- do-keyword ws* compound-list separator done-keyword
+     do-group         <-  do-keyword ws* compound-list separator done-keyword
 
      if-keyword       <   'if'
      fi-keyword       <   'fi'
-     if-clause        <-- if-keyword compound-list separator then-part elif-part* else-part? fi-keyword
+     if-clause        <-- if-keyword expression separator then-part elif-part* else-part? fi-keyword
      then-keyword     <   'then'
      then-part        <-- then-keyword ws* compound-list separator
      elif-keyword     <   'elif'
-     elif-part        <-- elif-keyword compound-list separator then-keyword ws* compound-list separator else-part?
+     elif-part        <-- elif-keyword ws* compound-list separator then-keyword ws* compound-list separator else-part?
      else-keyword     <   'else'
-     else-part        <-- else-keyword compound-list separator
+     else-part        <-- else-keyword ws* compound-list separator
 
      while-keyword    <   'while'
-     while-clause     <-- while-keyword compound-list separator do-group
+     while-clause     <-- while-keyword ws* compound-list separator do-group
 
      until-keyword    <   'until'
-     until-clause     <-- until-keyword compound-list separator do-group
+     until-clause     <-- until-keyword ws* compound-list separator do-group
 
      filename         <-- word
      name             <-- identifier
      identifier       <-  [_a-zA-Z][_a-zA-Z0-9]*
-     word             <-- test / substitution / assignment / number / variable / delim / literal
+     word             <-  test / substitution / assignment / number / variable / delim / literal
      number           <-- [0-9]+
-     test             <-- ltest (!rtest .)* rtest
+     test             <-- ltest expression  rtest
      ltest            <   '[ '
      rtest            <   ' ]'
-     substitution     <-- ('$(' script ')') / ('`' script '`')
-     assignment       <-- name assign (substitution / word)?
+     lsubst           <   '$('
+     rsubst           <   ')'
+     tick             <   '`'
+     substitution     <-- lsubst script rsubst / tick script tick
+     assignment       <-- name assign (substitution / word)*
      assign           <   '='
-     literal          <-- (!pipe !semi !nl !sp .)+
-     variable         <-- '$' ('$' / '*' / '?' / '@' / [0-9] / identifier / ([{] (![}] .)+ [}]))
-     delim            <-- singlequotes / doublequotes / substitution
+     dollar           <-  '$'
+     literal          <-- (!'[' !']' !tick !dollar !pipe !semi !par !nl !sp .)+
+     variable         <-- dollar (dollar / '*' / '?' / '@' / [0-9] / identifier / ([{] (![}] .)+ [}]))
+     delim            <-  singlequotes / doublequotes / substitution
      sq               <   [']
      dq               <   [\"]
      bt               <   [`]
@@ -156,6 +162,9 @@
      sequential-sep   <-  (semi !semi ws*) / ws+
      amp              <-  '&'
      semi             <   ';'
+     lpar             <   '('
+     rpar             <   ')'
+     par              <   lpar / rpar
      nl               <   '\n'
      sp               <   [\t ]
      ws               <   sp / nl
@@ -165,27 +174,120 @@
          (end (peg:end match))
          (pt (peg:tree match)))
     (if (eq? (string-length input) end)
-        (let* ((foo (pretty-print pt))
-               (ast (transform (keyword-flatten '(pipeline) pt)))
-               (foo (pretty-print ast)))
-          ast)
+        pt
         (if match
             (begin
               (format (current-error-port) "parse error: at offset: ~a\n" end)
-              (pretty-print tree (current-error-port))
+              (pretty-print pt (current-error-port))
               #f)
             (begin
               (format (current-error-port) "parse error: no match\n")
               #f)))))
 
+(define (parse input)
+  (let* ((pt (parse- input))
+         (foo (pretty-print pt))
+         (ast (transform (keyword-flatten '(pipeline) pt)))
+         (foo (pretty-print ast))
+         )
+    (cond ((error? ast)
+           (stderr "error:") (pretty-print ast (current-error-port)) #f)
+          (else
+           (map (cut local-eval <> (the-environment)) ast)
+           ast))))
+
 (define (transform ast)
   (match ast
     (('script o ...) (map transform o))
-    (('pipeline o ...) `(pipeline ,@(map transform o)))
+    (('substitution o) `(substitution ,@(transform o)))
+    (('pipeline o) (pk `(pipeline ,(transform o))))
+    (('pipeline h t) (pk `(pipeline ,(transform h) ,@(map transform t))))
     (('command o ...) `(command ,@(map transform o)))
-    (('word o) (transform o))
     (('literal o) (transform o))
     (('name o) o)
     (('number o) o)
-    (('assignment a b) `(assignment ,(transform a) ,(transform b)))
+    (('expression o ...) `(expression ,@(map transform o)))
+    (('assignment a b) `(lambda _ (assignment ,(transform a) ,(transform b))))
+    (('for-clause name expr do) `(for ,(transform name) (lambda _ ,(transform expr)) (lambda _ ,(transform do))))
+    (('if-clause expr then) `(if ,(transform expr) ,(transform then)))
+    (('if-clause expr then else) `(if ,(transform expr) ,(transform then) ,(transform else)))
+    (('then-part o ...) `(begin ,@(map transform o)))
+    (('else-part o ...) `(begin ,@(map transform o)))
     (_ ast)))
+
+(define global-variables (map (lambda (key-value)
+                                (let* ((key-value (string-split key-value #\=))
+                                       (key (car key-value))
+                                       (value (cadr key-value)))
+                                  (cons key value)))
+                              (environ)))
+
+(define (glob pattern)
+  (define (glob? pattern)
+    (and (string? pattern) (string-match "\\?|\\*" pattern)))
+  (define (glob2regex pattern)
+    (let* ((pattern (regexp-substitute/global #f "\\." pattern 'pre "\\." 'post))
+           (pattern (regexp-substitute/global #f "\\?" pattern 'pre "." 'post))
+           (pattern (regexp-substitute/global #f "\\*" pattern 'pre ".*" 'post)))
+      (make-regexp (string-append "^" pattern "$"))))
+  (define (glob-match regex path) ;; pattern path -> bool
+    (regexp-match? (regexp-exec regex path)))
+  (define (glob- pattern paths)
+    (map (lambda (path)
+           (if (string-prefix? "./" path) (string-drop path 2) path))
+         (append-map (lambda (path)
+                       (map (cute string-append (if (string=? "/" path) "" path) "/" <>)
+                            (filter (conjoin (negate (cut string-prefix? "." <>))
+                                             (cute glob-match (glob2regex pattern) <>))
+                                    (or (scandir path) '()))))
+                     paths)))
+  (cond
+   ((not pattern) '(""))
+   ((glob? pattern) (let ((absolute? (string-prefix? "/" pattern)))
+                      (let loop ((patterns (filter (negate string-null?) (string-split pattern #\/)))
+                                 (paths (if absolute? '("/") '("."))))
+                        (if (null? patterns)
+                            paths
+                            (loop (cdr patterns) (glob- (car patterns) paths))))))
+   (#t (list pattern))))
+
+(define (singlequotes . o)
+  (string-join o ""))
+
+(define (doublequotes . o)
+  (string-join (append-map glob  o) ""))
+
+(define (assignment name value)
+  (set! global-variables
+    (assoc-set! global-variables name value))
+  #t)
+
+(define (variable name)
+  (or (assoc-ref global-variables (string-drop name 1)) ""))
+
+(define (expression . args)
+  (append-map glob args))
+
+(define (for name expr body)
+  (for-each (lambda (value)
+              (assignment name value)
+              (body)) (pk 'for-expr: (expr))))
+
+(define (command . args)
+  (define (exec command)
+    (cond ((procedure? command) command)
+          ((every string? command)
+           (cut apply (compose (cut equal? 0 <>)
+                               (compose (cut assignment "?" <>) number->string)
+                               status:exit-val
+                               system*) command))
+          (else (lambda () #t))))
+  (exec (append-map glob args)))
+
+(define (substitution . commands)
+  (apply (@ (gash pipe) pipeline->string) (map cdr commands)))
+
+(define (pipeline . commands)
+  (apply (@ (gash pipe) pipeline) #t commands)
+  ;;(map (lambda (command) (command)) commands)
+  )
