@@ -259,9 +259,13 @@
   (match ast
     (('script o ...) (map transform o))
     (('substitution o) `(substitution ,@(transform o)))
-    (('pipeline o) (pk `(pipeline ,(let ((c (warn 'transform (transform o)))) (or (builtin c) c)))))
+    (('pipeline o) (pk `(pipeline ,(transform o))))
     (('pipeline h t) (pk `(pipeline ,(transform h) ,@(map transform t))))
-    (('command o ...) `(command ,@(map transform o)))
+    (('command o ...) (let ((command (map transform o)))
+                        (when (> %debug-level 1)
+                          (format (current-error-port) "transform command=~s\n" command))
+                        (or (builtin command)
+                            `(command ,@command))))
     (('literal o) (transform o))
     (('name o) o)
     (('number o) o)
@@ -275,19 +279,21 @@
     (_ ast)))
 
 (define (builtin ast)
+  ;; FIXME: distinguish between POSIX compliant builtins and
+  ;; `best-effort'/`fallback'?
+  "Possibly modify command to use a builtin."
   (when (> %debug-level 0)
     (format (current-error-port) "builtin ast=~s\n" ast))
   (receive (command args)
       (match ast
-        (('command (and (? string?) command) args ...) (values command args))
-        ;; ((('append ('glob command) args ...)) (values command args))
-        ;; ((('glob command)) (values command #f))
+        (((and (? string?) command) args ...) (values command args))
         (_ (values #f #f)))
-    (let ((program (and command (PATH-search-path command))))
+    (let ((program (and command
+                        (not %prefer-builtins?)
+                        (PATH-search-path command))))
       (when (> %debug-level 0)
-        (format (current-error-port) "command ~a => ~s ~s\n" program command args))
-      (cond ((and program (not %prefer-builtins?))
-             #f)
+        (format (current-error-port) "command ~a => ~s ~s\n" (or program 'builtin) command args))
+      (cond (program #f)
             ((and command (assoc-ref %builtin-commands command))
              =>
              (lambda (command)
