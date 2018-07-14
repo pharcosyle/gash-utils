@@ -294,10 +294,21 @@
         (((and (? string?) command) args ...) (values command args))
         (_ (values #f #f)))
     (let ((program (and command
-                        (PATH-search-path command))))
+                        (cond ((string-prefix? "/" command)
+                               (when (not (file-exists? command))
+                                 (format (current-error-port) "gash: ~a: no such file or directory\n" command))
+                               command)
+                              (else (PATH-search-path command))))))
+      ;; FIXME: find some generic strerror/errno way: what about permissions and stuff?
+      ;; after calling  system* we're too late for that?
+      (when (not program)
+        (format (current-error-port) "gash: ~a: command not found\n" command))
       (when (> %debug-level 0)
         (format (current-error-port) "command ~a => ~s ~s\n" (or program 'builtin) command args))
-      (cond ((and program (not prefer-builtin?)) #f)
+      (cond ((and program (not prefer-builtin?))
+             (when (not (access? program X_OK))
+               (format (current-error-port) "gash: ~a: permission denied\n" command))
+             #f)
             ((and command (assoc-ref %builtin-commands command))
              =>
              (lambda (command)
@@ -357,6 +368,10 @@
           ((every string? command)
            (cut apply (compose (lambda (status)
                                  ((compose (cut assignment "?" <>) number->string) status)
+                                 status)
+                               (lambda (status)
+                                 (when (not (zero? status))
+                                   (format (current-error-port) "*****gash: ~a: ~a" (car command) (strerror status)))
                                  status)
                                status:exit-val
                                system*) command))
