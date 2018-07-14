@@ -105,12 +105,15 @@ copyleft.
                   (help? (option-ref options 'help #f))
                   (parse? (option-ref options 'parse #f))
                   (version? (option-ref options 'version #f))
-                  (files (option-ref options '() '())))
+                  (files (option-ref options '() '()))
+                  (dead-run (compose sh-exec
+                                (if #t (cut stdout "transformed: " <>) identity) (cut transform <>)
+                                (if #t (cut stdout "parsed: " <>) identity))))
              (set! %prefer-builtins? (option-ref options 'prefer-builtins #f))
              (set-shell-opt! "errexit" (option-ref options 'errexit #f))
              (set-shell-opt! "xtrace" (option-ref options 'xtrace #f))
-             (if (option-ref options 'debug #f)
-                 (set! %debug-level debug))
+             (when (option-ref options 'debug #f)
+               (set! %debug-level debug))
              (cond
               (help? (display-help))
               (version? (display-version))
@@ -122,18 +125,22 @@ copyleft.
               ((pair? files)
                (let* ((asts (map file-to-ast files))
                       ;;(status (map pretty-print asts))
+                      ;;(status (map run asts))
                       )
+
                  ;;(quit (or #t (every identity status)))
+                 ;;(quit (every identity status))
                  (quit #t)
                  ))
               (#t (let* ((HOME (string-append (getenv "HOME") "/.gash_history"))
                          (thunk (lambda ()
                                   (let loop ((line (readline (prompt))))
                                     (when (not (eof-object? line))
-                                      (let ((ast (string-to-ast line)))
+                                      (let* ((ast (string-to-ast line)))
                                         (when ast
                                           (if (not (string-null? line))
                                               (add-history line))
+                                          (stderr "hiero?\n")
                                           (run ast))
                                         (loop (let ((previous (if ast "" (string-append line "\n")))
                                                     (next (readline (if ast (prompt) "> "))))
@@ -142,8 +149,8 @@ copyleft.
                     (clear-history)
                     (read-history HOME)
                     (with-readline-completion-function completion thunk)
-                    (write-history HOME))
-                  (newline)))))))
+                    (write-history HOME)
+                    (newline))))))))
     (thunk)))
 
 (define (expand identifier o) ;;identifier-string -> symbol
@@ -324,6 +331,7 @@ mostly works, pipes work, some redirections work.
 ;; transform ast -> list of expr
 ;; such that (map eval expr)
 (define (transform ast)
+  (format (current-error-port) "transform=~s\n" ast)
   (match ast
      (('script term "&") (list (background (transform term))))
      (('script term) `(,(transform term)))
