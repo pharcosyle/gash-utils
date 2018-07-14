@@ -107,7 +107,7 @@
                               (let ((file (string-append debug-id "." id)))
                                 (cons* command `("tee" ,file) lst)))
                             '() commands (map number->string (iota (length commands))))))
-           (foo (when (> %debug-level 0) (with-output-to-file debug-id (cut format #t "COMMANDS: ~s\n" commands))))
+           (foo (when (> %debug-level 1) (with-output-to-file debug-id (cut format #t "COMMANDS: ~s\n" commands))))
            (ports (if (> (length commands) 1)
                       (let loop ((input (spawn fg? job (car commands) '())) ;; spawn-source
                                  (commands (cdr commands)))
