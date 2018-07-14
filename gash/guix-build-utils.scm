@@ -39,6 +39,10 @@
             dump-port
             file-name-predicate
             find-files
+
+            directory-exists?
+            executable-file?
+            symbolic-link?
             ))
 
 ;;; Commentary:
@@ -48,6 +52,22 @@
 ;;;
 ;;; Directories.
 ;;;
+
+(define (directory-exists? dir)
+  "Return #t if DIR exists and is a directory."
+  (let ((s (stat dir #f)))
+    (and s
+         (eq? 'directory (stat:type s)))))
+
+(define (executable-file? file)
+  "Return #t if FILE exists and is executable."
+  (let ((s (stat file #f)))
+    (and s
+         (not (zero? (logand (stat:mode s) #o100))))))
+
+(define (symbolic-link? file)
+  "Return #t if FILE is a symbolic link (aka. \"symlink\".)"
+  (eq? (stat:type (lstat file)) 'symlink))
 
 (define (file-name-predicate regexp)
   "Return a predicate that returns true when passed a file name whose base

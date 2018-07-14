@@ -240,28 +240,68 @@ Options:
     (() #f)
     (args
      (let* ((option-spec
-             '((help)
+             '((is-directory (single-char #\d))
+               (exists (single-char #\e))
+               (has-size (single-char #\s))
+               (help)
+               (is-directory (single-char #\d))
+               (is-file (single-char #\f))
+               (is-symbolic-link (single-char #\L))
+               (is-symbolic-link (single-char #\h))
+               (is-readable (single-char #\r))
+               (is-writable (single-char #\w))
+               (is-exeutable (single-char #\x))
                (version)))
             (options (getopt-long (cons "ls" args) option-spec))
             (help? (option-ref options 'help #f))
             (version? (option-ref options 'version #f))
-            (files (option-ref options '() '())))
+            (files (option-ref options '() '()))
+            (file (and (pair? files) (car files))))
        (cond (help? (display "Usage: test [EXPRESSION]
 
 Options:
+  -d FILE    FILE exists and is a directory
+  -e FILE    FILE exists
+  -f FILE    FILE exists and is a regular file
+  -h FILE    FILE exists and is a symbolic link (same as -L)
+  -L FILE    FILE exists and is a symbolic link (same as -h)
+  -r FILE    FILE exists and read permission is granted
+  -s FILE    FILE exists and has a size greater than zero
+  -w FILE    FILE exists and write permission is granted
+  -x FILE    FILE exists and execute (or search) permission is granted
   --help     display this help and exit
   --version  display version information and exit
 "))
              (version? (format #t "test (GASH) ~a\n" %version))
              ((null? files) #f)
-             (else
+             ((and (= (length files) 3)
+                   (member (cadr files) '("=" "==")))
               (match files
                 ((or (left "=" right)
                      (left "==" right))
                  (equal? left right))
                 (expression
                  (let ((status (sh-exec `(pipeline (command ',expression)))))
-                   (zero? status))))))))))
+                   (zero? status)))))
+             ((not (= (length files) 1))
+              (format (current-error-port) "test: too many files: ~a\n" files)
+              1)
+             ((option-ref options 'is-directory #f)
+              (directory-exists? file))
+             ((option-ref options 'exists #f)
+              (file-exists? file))
+             ((option-ref options 'is-symbolic-link #f)
+              (symbolic-link? file))
+             ((option-ref options 'is-readable #f)
+              (access? file R_OK))
+             ((option-ref options 'has-size #f)
+              (and (file-exists? file)
+                   (not (zero? (stat:size (stat file))))))
+             ((option-ref options 'is-writable #f)
+              (access? file W_OK))
+             ((option-ref options 'is-exeutable #f)
+              (access? file X_OK))
+             (else #f))))))
 
 (define (PATH-search-path program)
   (search-path (string-split (getenv "PATH") #\:) program))
