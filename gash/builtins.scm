@@ -26,6 +26,7 @@
   #:use-module (gash config)
   #:use-module (gash gash)
   #:use-module (gash job)
+  #:use-module (gash io)
   #:use-module (gash peg)
 
   #:export (
