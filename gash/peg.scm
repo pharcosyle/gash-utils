@@ -12,17 +12,15 @@
   #:use-module (srfi srfi-26)
 
   #:use-module (gash builtins)
+  #:use-module (gash environment)
   #:use-module (gash gash)
   #:use-module (gash io)
   #:use-module (gash job)
   #:use-module (gash util)
 
   #:export (
-            assignment
-            %global-variables
             parse
             peg-trace?
-            set-shell-opt!
             ))
 
 (define (wrap-parser-for-users for-syntax parser accumsym s-syn)
@@ -276,15 +274,6 @@
     (('else-part o ...) `(begin ,@(map transform o)))
     (_ ast)))
 
-(define (set-shell-opt! name set?)
-  (let* ((shell-opts (assoc-ref %global-variables "SHELLOPTS"))
-         (options (if (string-null? shell-opts) '()
-                      (string-split shell-opts #\:)))
-         (new-options (if set? (delete-duplicates (sort (cons name options) string<))
-                          (filter (negate (cut equal? <> name)) options)))
-         (new-shell-opts (string-join new-options ":")))
-    (assignment "SHELLOPTS" new-shell-opts)))
-
 (define (builtin ast)
   (when (> %debug-level 0)
     (format (current-error-port) "builtin ast=~s\n" ast))
@@ -306,19 +295,6 @@
                    `(,apply ,command ',(map (cut local-eval <> (the-environment)) args))
                    command)))
             (else #f)))))
-
-;; FIXME: export/env vs set
-(define %global-variables
-  (map identity ;; FIXME: make mutable
-       `(,(cons "SHELLOPTS" "")
-         ,(cons "PIPESTATUS" "([0]=\"0\"")
-         ,(cons "?" "0")
-         ,@(map (lambda (key-value)
-                  (let* ((key-value (string-split key-value #\=))
-                         (key (car key-value))
-                         (value (cadr key-value)))
-                    (cons key value)))
-                (environ)))))
 
 (define (glob pattern)
   (define (glob? pattern)
@@ -354,14 +330,6 @@
 
 (define (doublequotes . o)
   (string-join (append-map glob  o) ""))
-
-(define (assignment name value)
-  (set! %global-variables
-    (assoc-set! %global-variables name value))
-  #t)
-
-(define (variable name)
-  (or (assoc-ref %global-variables (string-drop name 1)) ""))
 
 (define (expression . args)
   (append-map glob args))

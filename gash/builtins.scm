@@ -24,10 +24,11 @@
 
   #:use-module (gash bournish-commands)
   #:use-module (gash config)
+  #:use-module (gash environment)
   #:use-module (gash gash)
   #:use-module (gash job)
   #:use-module (gash io)
-  #:use-module (gash peg)
+  ;;#:use-module (gash peg)
 
   #:export (
             %builtin-commands
