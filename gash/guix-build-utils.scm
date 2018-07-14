@@ -21,24 +21,26 @@
 
 
 (define-module (gash guix-build-utils)
-  ;; #:use-module (srfi srfi-1)
-  ;; #:use-module (srfi srfi-11)
-  ;; #:use-module (srfi srfi-26)
-  ;; #:use-module (srfi srfi-34)
-  ;; #:use-module (srfi srfi-35)
-  ;; #:use-module (srfi srfi-60)
+  #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-9 gnu)
+
   #:use-module (ice-9 ftw)
-  ;; #:use-module (ice-9 match)
-  ;; #:use-module (ice-9 regex)
-  ;; #:use-module (ice-9 rdelim)
-  ;; #:use-module (ice-9 format)
-  ;; #:use-module (ice-9 threads)
+  #:use-module (ice-9 regex)
+  #:use-module (ice-9 rdelim)
+
   #:use-module (rnrs bytevectors)
   #:use-module (rnrs io ports)
   #:export (
             dump-port
             file-name-predicate
             find-files
+            grep
+            <grep-match>
+            grep-match-file-name
+            grep-match-string
+            grep-match-line
+            grep-match-column
+            grep-match-end-column
 
             directory-exists?
             executable-file?
@@ -142,3 +144,27 @@ transferred and the continuation of the transfer as a thunk."
   (progress 0
             (lambda ()
               (loop 0 (get-bytevector-n! in buffer 0 buffer-size)))))
+
+(define-immutable-record-type <grep-match>
+  (make-grep-match file-name string line column end-column)
+  grep-match?
+  (file-name grep-match-file-name)
+  (string grep-match-string)
+  (line grep-match-line)
+  (column grep-match-column)
+  (end-column grep-match-end-column))
+
+(define (grep regexp file)
+  (call-with-input-file file
+    (lambda (in)
+      (let loop ((line (read-line in)) (ln 1) (matches '()))
+        (if (eof-object? line) (reverse matches)
+            (let* ((m (list-matches regexp line))
+                   (m (and (pair? m) (car m))))
+              (loop (read-line in) (1+ ln)
+                    (if m (cons (make-grep-match file
+                                                 (match:string m)
+                                                 ln
+                                                 (match:start m)
+                                                 (match:end m)) matches)
+                        matches))))))))

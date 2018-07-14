@@ -20,6 +20,7 @@
   #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 local-eval)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 pretty-print)
   #:use-module (ice-9 receive)
   #:use-module (ice-9 regex)
 
@@ -303,6 +304,71 @@ Options:
               (access? file X_OK))
              (else #f))))))
 
+(define grep-command
+  (case-lambda
+    (() #f)
+    (args
+     (let* ((option-spec
+             '((help)
+               (line-number (single-char #\n))
+               (files-with-matches (single-char #\l))
+               (files-without-match (single-char #\L))
+               (with-file-name (single-char #\H))
+               (no-file-name (single-char #\h))
+               (only-matching (single-char #\o))
+               (version (single-char #\V))))
+            (options (getopt-long (cons "ls" args) option-spec))
+            (help? (option-ref options 'help #f))
+            (version? (option-ref options 'version #f))
+            (files (option-ref options '() '())))
+       (cond (help? (display "Usage: grep [OPTION]... PATTERN [FILE]...
+
+Options:
+  --help                     display this help and exit
+  -h, --no-filename          suppress the file name prefix on output
+  -H, --with-filename        print file name with output lines
+  -l, --files-with-matches   print only names of FILEs with selected lines
+  -L, --files-without-match  print only names of FILEs with no selected lines
+  -n, --line-number          print line number with output lines
+  -o, --only-matching        show only the part of a line matching PATTERN
+  -V, --version              display version information and exit
+"))
+             (version? (format #t "grep (GASH) ~a\n" %version))
+             ((null? files) #t)
+             (else
+              (let* ((pattern (warn 'pattern (car files)))
+                     (files (warn 'files (cdr files)))
+                     (matches (append-map (cut grep pattern <>) files)))
+                (define (display-match o)
+                  (let* ((s (grep-match-string o))
+                         (s (if (option-ref options 'only-matching #f)
+                                (substring s (grep-match-column o) (grep-match-end-column o))
+                                s))
+                         (s (if (option-ref options 'line-number #f)
+                                (string-append (number->string (grep-match-line o)) ":" s)
+                                s))
+                         (s (if (option-ref options 'with-file-name #f)
+                                (string-append (grep-match-file-name o) ":" s)
+                                s)))
+                    (stdout s)))
+                (define (files-with-matches)
+                  (delete-duplicates (map grep-match-file-name matches)))
+                (cond ((option-ref options 'files-with-matches #f)
+                       (let ((result (files-with-matches)))
+                         (and (pair? result)
+                              (for-each stdout result)
+                              0)))
+                      ((option-ref options 'files-without-match #f)
+                       (let* ((result (files-with-matches))
+                              (result (filter (negate (cut member <> result)) files)))
+                         (and (pair? result)
+                              (for-each stdout result)
+                              0)))
+                      (else
+                       (and (pair? matches)
+                            (for-each display-match matches)
+                            0))))))))))
+
 (define (PATH-search-path program)
   (search-path (string-split (getenv "PATH") #\:) program))
 
@@ -471,6 +537,7 @@ Options:
     ("exit"    . ,exit-command)
     ("fg"      . ,fg-command)
     ("find"    . ,find-command)
+    ("grep"    . ,grep-command)
     ("help"    . ,help-command)
     ("jobs"    . ,jobs-command)
     ("ls"      . ,ls-command)
