@@ -159,7 +159,7 @@
      assignment       <-- name assign (substitution / word)*
      assign           <   '='
      dollar           <-  '$'
-     literal          <-- (!'[' !']' !tick !dollar !pipe !semi !par !nl !sp .)+
+     literal          <-- (!ltest !tick !dollar !pipe !semi !par !nl !sp .)+
      variable         <-- dollar (dollar / '*' / '?' / '@' / [0-9] / identifier / ([{] (![}] .)+ [}]))
      delim            <-  singlequotes / doublequotes / substitution
      sq               <   [']
@@ -167,8 +167,8 @@
      bt               <   [`]
      singlequotes     <-- sq  (doublequotes / (!sq .))* sq
      doublequotes     <-- dq (singlequotes / substitution / variable / (!dq .))* dq
-     separator        <-  (sp* break ws*) / ws+
      break            <-  amp / semi !semi
+     separator        <-  (sp* break ws*) / ws+
      sequential-sep   <-  (semi !semi ws*) / ws+
      amp              <-  '&'
      semi             <   ';'
@@ -365,7 +365,7 @@
 (define (for name expr body)
   (for-each (lambda (value)
               (assignment name value)
-              (body)) (pk 'for-expr: (expr))))
+              (body)) (expr)))
 
 (define (command . args)
   (define (exec command)
@@ -384,7 +384,7 @@
   (exec (append-map glob args)))
 
 (define (substitution . commands)
-  (apply (@ (gash pipe) pipeline->string) (map cdr commands)))
+  (apply (@ (gash pipe) pipeline->string) (map cdr commands))) ;;HACK
 
 (define (pipeline . commands)
   (apply (@ (gash pipe) pipeline) #t commands))

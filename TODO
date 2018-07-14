@@ -9,5 +9,6 @@
 * compound: case, while, until
 * expansion: done
 * alias:
+* iohere:
 * redirection:
 * posix compliance:

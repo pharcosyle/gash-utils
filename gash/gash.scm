@@ -45,6 +45,7 @@
           "" (string-split s #\newline)))
 
 (define (file-to-string filename)
+  (stdout "\n\n** " filename ":")
   ((compose read-string open-input-file) filename))
 
 (define (string-to-ast string)
