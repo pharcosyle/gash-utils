@@ -14,6 +14,7 @@
   #:use-module (ice-9 receive)
   #:use-module (ice-9 regex)
 
+  #:use-module (gash config)
   #:use-module (gash job)
   #:use-module (gash pipe)
   #:use-module (gash peg)
@@ -68,8 +69,8 @@ gash [options]
 "))
 
 (define (display-version)
-  (display "
-GASH 0.1
+  (display (string-append "
+GASH " %version "
 
 Copryright (C) 2016,2017,2018 R.E.W. van Beusekom, rutger.van.beusekom@gmail.com.
 
@@ -77,7 +78,7 @@ This is gash, Guile As SHell.  Gash is free software and is covered by
 the GNU General Public License version 3 or later, see COPYING for the
 copyleft.
 
-"))
+")))
 
 (define (main args)
   (let ((thunk

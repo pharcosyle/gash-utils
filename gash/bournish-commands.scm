@@ -20,13 +20,18 @@
 ;;; along with Gash.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (gash bournish-commands)
-  #:use-module (ice-9 rdelim)
-  #:use-module (ice-9 match)
   #:use-module (ice-9 ftw)
+  #:use-module (ice-9 getopt-long)
+  #:use-module (ice-9 match)
+  #:use-module (ice-9 rdelim)
+  #:use-module (ice-9 regex)
+
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-26)
+
   #:use-module (gash guix-build-utils)
+  #:use-module (gash config)
   #:use-module (gash io)
   #:export (
             display-tabulated
@@ -94,37 +99,69 @@ TERMINAL-WIDTH.  Use COLUMN-GAP spaces between two subsequent columns."
       (newline)
       (loop (map 1+ indexes)))))
 
+(cond-expand
+ (guile
+  ;; Support -1, see https://lists.gnu.org/archive/html/bug-guile/2018-07/msg00009.html
+  (module-define! (resolve-module '(ice-9 getopt-long)) 'short-opt-rx (make-regexp "^-([a-zA-Z0-9]+)(.*)")))
+ (else))
+
 (define ls-command-implementation
   ;; Run-time support procedure.
   (case-lambda
     (()
      (display-tabulated (scandir ".")))
-    (files
-     (let ((files (append-map (lambda (file)
-                                (catch 'system-error
-                                  (lambda ()
-                                    (match (stat:type (lstat file))
-                                      ('directory
-                                       ;; Like GNU ls, list the contents of
-                                       ;; FILE rather than FILE itself.
-                                       (match (scandir file
-                                                       (match-lambda
-                                                         ((or "." "..") #f)
-                                                         (_ #t)))
-                                         (#f
-                                          (list file))
-                                         ((files ...)
-                                          (map (cut string-append file "/" <>)
-                                               files))))
-                                      (_
-                                       (list file))))
-                                  (lambda args
-                                    (let ((errno (system-error-errno args)))
-                                      (format (current-error-port) "~a: ~a~%"
-                                              file (strerror errno))
-                                      '()))))
-                              files)))
-       (display-tabulated files)))))
+    (args
+     (format (current-error-port) "hiero:args=~s\n" args)
+     (let* ((option-spec
+             '((all (single-char #\a))
+               (help)
+               (one-file-per-line (single-char #\1))
+               (version)))
+            (options (getopt-long (cons "ls" args) option-spec))
+            (all? (option-ref options 'all #f))
+            (help? (option-ref options 'help #f))
+            (one-file-per-line? (option-ref options 'one-file-per-line #f))
+            (version? (option-ref options 'version #f))
+            (files (option-ref options '() '())))
+       (cond (help? (display "Usage: ls [OPTION]... [FILE]...
+
+Options:
+  -a, --all      do not ignore entries starting with .
+  -1             list one file per line
+      --help     display this help and exit
+      --version  display version information and exit
+"))
+             (version? (format #t "ls (GASH) ~a\n" %version))
+             (else
+              (let* ((files (if (null? files) (scandir ".")
+                                (append-map (lambda (file)
+                                              (catch 'system-error
+                                                (lambda ()
+                                                  (match (stat:type (lstat file))
+                                                    ('directory
+                                                     ;; Like GNU ls, list the contents of
+                                                     ;; FILE rather than FILE itself.
+                                                     (match (scandir file
+                                                                     (match-lambda
+                                                                       ((or "." "..") #f)
+                                                                       (_ #t)))
+                                                       (#f
+                                                        (list file))
+                                                       ((files ...)
+                                                        (map (cut string-append file "/" <>)
+                                                             files))))
+                                                    (_
+                                                     (list file))))
+                                                (lambda args
+                                                  (let ((errno (system-error-errno args)))
+                                                    (format (current-error-port) "~a: ~a~%"
+                                                            file (strerror errno))
+                                                    '()))))
+                                            files)))
+                     (files (if all? files
+                                (filter (negate (cut string-prefix? "." <>)) files))))
+                (if one-file-per-line? (for-each stdout files)
+                    (display-tabulated files)))))))))
 
 (define ls-command (wrap-command ls-command-implementation "ls"))
 
