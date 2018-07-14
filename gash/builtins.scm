@@ -48,9 +48,11 @@
 
 (define (cd-command . args)
   (match args
-    (() (chdir (getenv "HOME")))
+    (() (cd-command (getenv "HOME")))
     ((dir)
-     (chdir dir))
+     (assignment "OLDPWD" (getcwd))
+     (if (string=? dir "-") (chdir (variable "OLDPWD"))
+         (chdir dir)))
     ((args ...)
      (format (current-error-port) "cd: too many arguments: ~a\n" (string-join args)))))
 
