@@ -38,6 +38,7 @@ set -e
 SCM_FILES="
 gash/bournish-commands.scm
 gash/builtins.scm
+gash/config.scm
 gash/guix-build-utils.scm
 gash/gash.scm
 gash/io.scm

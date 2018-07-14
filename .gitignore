@@ -3,3 +3,4 @@
 /bin/gash
 /.config.make
 /doc/version.texi
+/gash/config.scm

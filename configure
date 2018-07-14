@@ -40,6 +40,10 @@ SHELL=$BASH
 VERSION=$VERSION
 EOF
 
+sed \
+    -e "s,@VERSION@,$VERSION,"\
+    gash/config.scm.in > gash/config.scm
+
 cat <<EOF
 Run:
   make            to build gash
