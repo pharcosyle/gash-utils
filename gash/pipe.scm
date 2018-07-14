@@ -76,7 +76,7 @@
                  (let ((status (if (thunk? command) (command)
                                    (command input w))))
                    (exit (cond ((number? status) status)
-                               ((boolean? status) status)
+                               ((boolean? status) (if status 0 1))
                                (else 0)))))
                (begin
                  (map dup->fdes w ofd)

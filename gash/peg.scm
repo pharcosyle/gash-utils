@@ -229,7 +229,11 @@
         (lambda (o)
           (match o
             (('command command ...)
-             (format (current-error-port) "+ ~a\n" (string-join command)))
+             ;;(format (current-error-port) "+ ~a\n" (string-join command))
+             ;; FIXME: side-effects done twice?!
+             ;; '(variable "$?"): not a string...hmm
+             (format (current-error-port) "+ ~a\n" (string-join (map (cut local-eval <> (the-environment)) command)))
+             )
             (_ (format (current-error-port) "FIXME trace:~s" o))))
         (reverse commands)))
      (exec ast))
@@ -247,6 +251,9 @@
            (map sh-exec ast)
            ;;(map (cut local-eval <> (the-environment)) ast)
            ast))))
+
+(define (unspecified? o)
+  (eq? o *unspecified*))
 
 (define (transform ast)
   (when (> %debug-level 1)
@@ -276,10 +283,7 @@
          (new-options (if set? (delete-duplicates (sort (cons name options) string<))
                           (filter (negate (cut equal? <> name)) options)))
          (new-shell-opts (string-join new-options ":")))
-    ;; HMM
-    (assignment "SHELLOPTS" new-shell-opts)
-    (lambda _ (format (current-error-port) "hiero\n") "daro")
-    '("hiero2")))
+    (assignment "SHELLOPTS" new-shell-opts)))
 
 (define (builtin ast)
   (when (> %debug-level 0)
@@ -299,7 +303,7 @@
              =>
              (lambda (command)
                (if args
-                   `(,apply ,command ',args)
+                   `(,apply ,command ',(map (cut local-eval <> (the-environment)) args))
                    command)))
             (else #f)))))
 
@@ -308,7 +312,7 @@
   (map identity ;; FIXME: make mutable
        `(,(cons "SHELLOPTS" "")
          ,(cons "PIPESTATUS" "([0]=\"0\"")
-         ,(cons "?" "")
+         ,(cons "?" "0")
          ,@(map (lambda (key-value)
                   (let* ((key-value (string-split key-value #\=))
                          (key (car key-value))
@@ -387,4 +391,12 @@
   (apply (@ (gash pipe) pipeline->string) (map cdr commands))) ;;HACK
 
 (define (pipeline . commands)
-  (apply (@ (gash pipe) pipeline) #t commands))
+  (when (> %debug-level 1)
+    (format (current-error-port) "pijp: commands=~s\n" commands))
+  ;; FIXME: after running a builtin, we still end up here with the builtin's result
+  ;; that should probably not happen, however, cater for it here for now
+  (match commands
+    (((and (? boolean?) boolean)) (if boolean 0 1))
+    (((and (? number?) number)) number)
+    (((? unspecified?)) 0)
+    (_ (apply (@ (gash pipe) pipeline) #t commands))))

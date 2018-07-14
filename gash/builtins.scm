@@ -12,25 +12,15 @@
   #:export (
             %builtin-commands
             PATH-search-path
-    ;;         cd-command
-    ;; ("bg"     . ,bg-command)
-    ;; ("cat"    . ,cat-command)
-    ;; ("cd"     . ,cd-command)
-    ;; ("cp"     . ,cp-command)
-    ;; ("echo"   . ,echo-command)
-    ;; ("exit"   . ,exit-command)
-    ;; ("fg"     . ,fg-command)
-    ;; ("help"   . ,help-command)
-    ;; ("jobs"   . ,jobs-command)
-    ;; ("ls"     . ,ls-command)
-    ;; ("pwd"    . ,pwd-command)
-    ;; ("reboot" . ,reboot-command)
-    ;; ("rm"     . ,rm-command)
-    ;; ("set"    . ,set-command)
-    ;; ("wc"     . ,wc-command)
-    ;; ("which"  . ,which-command)
-
-))
+            bg-command
+            cd-command
+            echo-command
+            exit-command
+            fg-command
+            help-command
+            pwd-command
+            set-command
+            ))
  
 (define (PATH-search-path program)
   (search-path (string-split (getenv "PATH") #\:) program))
@@ -101,7 +91,7 @@ mostly works, pipes work, some redirections work.
     ("cat"    . ,cat-command)
     ("cd"     . ,cd-command)
     ("cp"     . ,cp-command)
-    ;;("echo"   . ,echo-command) BROKEN wrt variables for now
+    ("echo"   . ,echo-command) BROKEN wrt variables for now
     ("exit"   . ,exit-command)
     ("fg"     . ,fg-command)
     ("help"   . ,help-command)
