@@ -21,6 +21,7 @@
   #:use-module (ice-9 local-eval)
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
+  #:use-module (ice-9 regex)
 
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
@@ -32,10 +33,21 @@
   #:use-module (gash guix-build-utils)
   #:use-module (gash io)
   #:use-module (gash job)
+  #:use-module (gash peg)               ; pipeline
 
   #:export (
             %builtin-commands
             builtin
+            pipeline
+            command
+            glob
+            singlequotes
+            doublequotes
+            expression
+            for
+            substitution
+            sh-exec
+
             bg-command
             cd-command
             echo-command
@@ -46,43 +58,6 @@
             pwd-command
             set-command
             ))
- 
-(define (PATH-search-path program)
-  (search-path (string-split (getenv "PATH") #\:) program))
-
-(define* (builtin ast #:key prefer-builtin?)
-  ;; FIXME: distinguish between POSIX compliant builtins and
-  ;; `best-effort'/`fallback'?
-  "Possibly modify command to use a builtin."
-  (when (> %debug-level 0)
-    (format (current-error-port) "builtin ast=~s\n" ast))
-  (receive (command args)
-      (match ast
-        (((and (? string?) command) args ...) (values command args))
-        (_ (values #f #f)))
-    (let ((program (and command
-                        (cond ((string-prefix? "/" command)
-                               (when (not (file-exists? command))
-                                 (format (current-error-port) "gash: ~a: no such file or directory\n" command))
-                               command)
-                              (else (PATH-search-path command))))))
-      ;; FIXME: find some generic strerror/errno way: what about permissions and stuff?
-      ;; after calling  system* we're too late for that?
-      (when (> %debug-level 0)
-        (format (current-error-port) "command ~a => ~s ~s\n" (or program 'builtin) command args))
-      (cond ((and program (not prefer-builtin?))
-             (when (not program)
-               (format (current-error-port) "gash: ~a: command not found\n" command))
-             (when (not (access? program X_OK))
-               (format (current-error-port) "gash: ~a: permission denied\n" command))
-             #f)
-            ((and command (assoc-ref %builtin-commands command))
-             =>
-             (lambda (command)
-               (if args
-                   `(,apply ,command ',(map (cut local-eval <> (the-environment)) args))
-                   command)))
-            (else #f)))))
 
 (define (cd-command . args)
   (match args
@@ -260,6 +235,191 @@ Options:
                               (if (string? program) (begin (format #t "~a hashed (~a)\n" command ) 0)
                                   1)))))))))))
 
+(define test-command
+  (case-lambda
+    (() #f)
+    (args
+     (let* ((option-spec
+             '((help)
+               (version)))
+            (options (getopt-long (cons "ls" args) option-spec))
+            (help? (option-ref options 'help #f))
+            (version? (option-ref options 'version #f))
+            (files (option-ref options '() '())))
+       (cond (help? (display "Usage: test [EXPRESSION]
+
+Options:
+  --help     display this help and exit
+  --version  display version information and exit
+"))
+             (version? (format #t "test (GASH) ~a\n" %version))
+             ((null? files) #f)
+             (else
+              (match files
+                ((or (left "=" right)
+                     (left "==" right))
+                 (equal? left right))
+                (expression
+                 (let ((status (sh-exec `(pipeline (command ',expression)))))
+                   (zero? status))))))))))
+
+(define (PATH-search-path program)
+  (search-path (string-split (getenv "PATH") #\:) program))
+
+(define* (builtin ast #:key prefer-builtin?)
+  ;; FIXME: distinguish between POSIX compliant builtins and
+  ;; `best-effort'/`fallback'?
+  "Possibly modify command to use a builtin."
+  (when (> %debug-level 0)
+    (format (current-error-port) "builtin ast=~s\n" ast))
+  (receive (command args)
+      (match ast
+        (((and (? string?) command) args ...) (values command args))
+        (_ (values #f #f)))
+    (let ((program (and command
+                        (cond ((string-prefix? "/" command)
+                               (when (not (file-exists? command))
+                                 (format (current-error-port) "gash: ~a: no such file or directory\n" command))
+                               command)
+                              (else (PATH-search-path command))))))
+      ;; FIXME: find some generic strerror/errno way: what about permissions and stuff?
+      ;; after calling  system* we're too late for that?
+      (when (> %debug-level 0)
+        (format (current-error-port) "command ~a => ~s ~s\n" (or program 'builtin) command args))
+      (cond ((and program (not prefer-builtin?))
+             (when (not program)
+               (format (current-error-port) "gash: ~a: command not found\n" command))
+             (when (not (access? program X_OK))
+               (format (current-error-port) "gash: ~a: permission denied\n" command))
+             #f)
+            ((and command (assoc-ref %builtin-commands command))
+             =>
+             (lambda (command)
+               (if args
+                   `(,apply ,command ',(map (cut local-eval <> (the-environment)) args))
+                   command)))
+            (else #f)))))
+
+(define (command . args)
+  (define (exec command)
+    (cond ((procedure? command) command)
+          ((every string? command) (cut apply (compose status:exit-val system*) command))
+          ;; not sure whether to do $?/PIPESTATUS here or in sh-exec
+          ((every string? command)
+           (cut apply (compose (lambda (status)
+                                 ((compose (cut assignment "?" <>) number->string) status)
+                                 status)
+                               (lambda (status)
+                                 (when (not (zero? status))
+                                   (format (current-error-port) "*****gash: ~a: ~a" (car command) (strerror status)))
+                                 status)
+                               status:exit-val
+                               system*) command))
+          (else (lambda () #t))))
+  (exec (append-map glob args)))
+
+(define (glob pattern)
+  (define (glob? pattern)
+    (and (string? pattern) (string-match "\\?|\\*" pattern)))
+  (define (glob2regex pattern)
+    (let* ((pattern (regexp-substitute/global #f "\\." pattern 'pre "\\." 'post))
+           (pattern (regexp-substitute/global #f "\\?" pattern 'pre "." 'post))
+           (pattern (regexp-substitute/global #f "\\*" pattern 'pre ".*" 'post)))
+      (make-regexp (string-append "^" pattern "$"))))
+  (define (glob-match regex path) ;; pattern path -> bool
+    (regexp-match? (regexp-exec regex path)))
+  (define (glob- pattern paths)
+    (map (lambda (path)
+           (if (string-prefix? "./" path) (string-drop path 2) path))
+         (append-map (lambda (path)
+                       (map (cute string-append (if (string=? "/" path) "" path) "/" <>)
+                            (filter (conjoin (negate (cut string-prefix? "." <>))
+                                             (cute glob-match (glob2regex pattern) <>))
+                                    (or (scandir path) '()))))
+                     paths)))
+  (cond
+   ((not pattern) '(""))
+   ((glob? pattern) (let ((absolute? (string-prefix? "/" pattern)))
+                      (let loop ((patterns (filter (negate string-null?) (string-split pattern #\/)))
+                                 (paths (if absolute? '("/") '("."))))
+                        (if (null? patterns)
+                            paths
+                            (loop (cdr patterns) (glob- (car patterns) paths))))))
+   (#t (list pattern))))
+
+(define (singlequotes . o)
+  (string-join o ""))
+
+(define (doublequotes . o)
+  (string-join (append-map glob  o) ""))
+
+(define (expression . args)
+  (append-map glob args))
+
+(define (for name expr body)
+  (for-each (lambda (value)
+              (assignment name value)
+              (body)) (expr)))
+
+(define (substitution . commands)
+  (apply (@ (gash pipe) pipeline->string) (map cdr commands))) ;;HACK
+
+(define (sh-exec ast)
+  (define (exec cmd)
+    (when (> %debug-level 0)
+      (format (current-error-port) "sh-exec:exec cmd=~s\n" cmd))
+    (let* ((job (local-eval cmd (the-environment)))
+           (stati (cond ((job? job) (map status:exit-val (job-status job)))
+                        ((boolean? job) (list (if job 0 1)))
+                        ((number? job) (list job))
+                        (else (list 0))))
+           (status (if (shell-opt? "pipefail") (or (find (negate zero?) stati) 0)
+                       (car stati)))
+           (pipestatus (string-append
+                        "("
+                        (string-join
+                         (map (lambda (s i)
+                                (format #f "[~a]=\"~a\"" s i))
+                              stati
+                              (iota (length stati))))
+                        ")")))
+      (assignment "PIPESTATUS" pipestatus)
+      (assignment "?" (number->string status))
+      (when (and (not (zero? status))
+                 (shell-opt? "errexit"))
+        (exit status))
+      status))
+  (when (> %debug-level 1)
+    (format (current-error-port) "sh-exec:exec ast=~s\n" ast))
+  (match ast
+    ('script #t) ;; skip
+    (('pipeline commands ...)
+     (when (shell-opt? "xtrace")
+       (for-each
+        (lambda (o)
+          (match o
+            (('command command ...)
+             ;;(format (current-error-port) "+ ~a\n" (string-join command))
+             ;; FIXME: side-effects done twice?!
+             ;; '(variable "$?"): not a string...hmm
+             (format (current-error-port) "+ ~a\n" (string-join (map (cut local-eval <> (the-environment)) command)))
+             )
+            (_ (format (current-error-port) "FIXME trace:~s" o))))
+        (reverse commands)))
+     (exec ast))
+    (_ (for-each exec ast))))
+
+(define (pipeline . commands)
+  (when (> %debug-level 1)
+    (format (current-error-port) "pijp: commands=~s\n" commands))
+  ;; FIXME: after running a builtin, we still end up here with the builtin's result
+  ;; that should probably not happen, however, cater for it here for now
+  (match commands
+    (((and (? boolean?) boolean)) (if boolean 0 1))
+    (((and (? number?) number)) number)
+    (((? unspecified?)) 0)
+    (_ (apply (@ (gash pipe) pipeline) #t commands))))
+
 (define %builtin-commands
   `(
     ("bg"      . ,bg-command)
@@ -278,6 +438,7 @@ Options:
     ("reboot"  . ,reboot-command)
     ("rm"      . ,rm-command)
     ("set"     . ,set-command)
+    ("test"    . ,test-command)
     ("type"    . ,type-command)
     ("wc"      . ,wc-command)
     ("which"   . ,which-command)
