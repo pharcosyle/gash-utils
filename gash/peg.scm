@@ -10,14 +10,16 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
 
+  #:use-module (gash gash)
   #:use-module (gash io)
+  #:use-module (gash job)
   #:use-module (gash util)
 
   #:export (parse peg-trace?))
 
 (define (wrap-parser-for-users for-syntax parser accumsym s-syn)
   #`(lambda (str strlen pos)
-      (when (> (@ (gash gash) %debug-level) 0)
+      (when (> (@ (gash gash) %debug-level) 1)
         (format (current-error-port) "~a ~a : ~s\n"
                 (make-string (- pos (or (string-rindex str #\newline 0 pos) 0)) #\space)
                 '#,s-syn
@@ -184,16 +186,48 @@
               (format (current-error-port) "parse error: no match\n")
               #f)))))
 
+(define (sh-exec ast)
+  (define (exec cmd)
+    (when (> %debug-level 0)
+      (format (current-error-port) "sh-exec:exec cmd=~s\n" cmd))
+    (let* ((job (warn 'job (local-eval cmd (the-environment))))
+           (stati (cond ((job? job) (map status:exit-val (warn 'job-status (job-status job))))
+                        ((boolean? job) (list (if job 0 1)))
+                        ((number? job) (list job))
+                        (else (list 0))))
+           (status (if (shell-opt? "pipefail") (or (find (negate zero?) stati) 0)
+                       (car stati)))
+           (pipestatus (string-append
+                        "("
+                        (string-join
+                         (map (lambda (s i)
+                                (format #f "[~a]=\"~a\"" s i))
+                              stati
+                              (iota (length stati))))
+                        ")")))
+      (set! global-variables (assoc-set! global-variables "PIPESTATUS" pipestatus))
+      (set! global-variables (assoc-set! global-variables "?" (number->string status)))
+      (when (and (not (zero? status))
+                 (shell-opt? "errexit"))
+        (exit status))))
+  (when (> %debug-level 1)
+    (format (current-error-port) "sh-exec:exec ast=~s\n" ast))
+  (match ast
+    ('script #t) ;; skip
+    (('pipeline command ...) (exec ast))
+    (_ (for-each exec ast))))
+
+
 (define (parse input)
   (let* ((pt (parse- input))
          (foo (pretty-print pt))
          (ast (transform (keyword-flatten '(pipeline) pt)))
-         (foo (pretty-print ast))
-         )
+         (foo (pretty-print ast)))
     (cond ((error? ast)
            (stderr "error:") (pretty-print ast (current-error-port)) #f)
           (else
-           (map (cut local-eval <> (the-environment)) ast)
+           (map sh-exec ast)
+           ;;(map (cut local-eval <> (the-environment)) ast)
            ast))))
 
 (define (transform ast)

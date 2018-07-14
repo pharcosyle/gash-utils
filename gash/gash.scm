@@ -77,7 +77,8 @@ copyleft.
 
 "))
 
-(define global-variables (list (cons "SHELLOPTS" "")))
+(define global-variables (list (cons "SHELLOPTS" "")
+                               (cons "?" 0)))
 
 (define (main args)
   (map (lambda (key-value)
@@ -363,34 +364,6 @@ mostly works, pipes work, some redirections work.
      (((('pipe _) command) ...) (map (compose car transform) command))
      ((_ o) (transform o)) ;; peel the onion: (symbol (...)) -> (...)
      (_ ast))) ;; done
-
-(define (DEAD-sh-exec ast)
-  (define (exec cmd)
-    (when (> %debug-level 0)
-      (format (current-error-port) "sh-exec:exec cmd=~s\n" cmd))
-    (let* ((job (local-eval cmd (the-environment)))
-           (stati (cond ((job? job) (map status:exit-val (job-status job)))
-                        ((boolean? job) (list (if job 0 1)))
-                        ((number? job) (list job))
-                        (else (list 0))))
-           (status (if (shell-opt? "pipefail") (or (find (negate zero?) stati) 0)
-                       (car stati)))
-           (pipestatus (string-append
-                        "("
-                        (string-join
-                         (map (lambda (s i)
-                                (format #f "[~a]=\"~a\"" s i))
-                              stati
-                              (iota (length stati))))
-                        ")")))
-      (set! global-variables (assoc-set! global-variables "PIPESTATUS" pipestatus))
-      (set! global-variables (assoc-set! global-variables "?" (number->string status)))
-      (when (and (not (zero? status))
-                 (shell-opt? "errexit"))
-        (exit status))))
-  (match ast
-    ('script #t) ;; skip
-    (_ (for-each exec ast))))
 
 (define prompt
   (let* ((l (string #\001))

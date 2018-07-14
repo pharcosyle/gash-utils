@@ -100,7 +100,7 @@
            (job (new-job))
            (debug-id (job-debug-id job))
            (commands
-            (if (zero? %debug-level) commands
+            (if (< %debug-level 3) commands
                 (fold-right (lambda (command id lst)
                               (let ((file (string-append debug-id "." id)))
                                 (cons* command `("tee" ,file) lst)))
