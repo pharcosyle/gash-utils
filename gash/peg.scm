@@ -198,9 +198,10 @@
          (foo (pretty-print ast)))
     (cond ((error? ast)
            (stderr "error:") (pretty-print ast (current-error-port)) #f)
+          ((eq? ast 'script)
+           #t)
           (else
            (map sh-exec ast)
-           ;;(map (cut local-eval <> (the-environment)) ast)
            ast))))
 
 (define (unspecified? o)
