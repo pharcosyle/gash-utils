@@ -257,6 +257,8 @@ Options:
             (help? (option-ref options 'help #f))
             (version? (option-ref options 'version #f))
             (files (option-ref options '() '()))
+            (files (if (equal? (last files) "]") (drop-right files 1)
+                       files))
             (file (and (pair? files) (car files))))
        (cond (help? (display "Usage: test [EXPRESSION]
 
@@ -549,4 +551,5 @@ Options:
     ("type"    . ,type-command)
     ("wc"      . ,wc-command)
     ("which"   . ,which-command)
+    ("["       . ,test-command)
     ))
