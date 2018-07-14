@@ -18,6 +18,7 @@
 
 (define-module (geesh lexer)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 rdelim)
   #:use-module (ice-9 receive)
   #:use-module (ice-9 textual-ports)
   #:use-module (srfi srfi-1)
@@ -26,7 +27,8 @@
   #:use-module (system base lalr)
   #:export (read-bracketed-command
             read-backquoted-command
-            get-token))
+            get-token
+            get-here-doc))
 
 ;;; Commentary:
 ;;;
@@ -528,3 +530,108 @@ is a newline (or EOF)."
              (_ (unget-char port #\\)
                 (get-word-lexical-token port))))
       (_ (get-word-lexical-token port)))))
+
+
+;;; Here-documents.
+
+(define (get-quoted-here-doc end port)
+  "Get a quoted here-document string from @var{port}, where @var{end}
+marks the end of the here-document."
+  (let loop ((line (read-line port 'concat)) (acc '()))
+    (if (eof-object? line)
+        ;; XXX: Following Bash, we should issue a warning here.
+        `(<sh-quote> ,(string-concatenate-reverse acc))
+        (let ((line* (string-trim-right line #\newline)))
+          (if (string=? line* end)
+              `(<sh-quote> ,(string-concatenate-reverse acc))
+              (loop (get-line port) (cons line acc)))))))
+
+(define (get-unquoted-here-doc end port)
+  "Get an unquoted here-document string from @var{port}, where
+@var{end} marks the end of the here-document."
+
+  (define end-list (string->list end))
+
+  (define (get-unquoted-here-doc-string port)
+    (let loop ((chr (lookahead-char port)) (acc '()))
+      (match chr
+        ((or #\$ #\` #\\ (? eof-object?)) (list->string (reverse! acc)))
+        (#\newline (list->string (reverse! (cons (get-char port) acc))))
+        (_ (loop (next-char port) (cons chr acc))))))
+
+  (let loop ((chr (lookahead-char port))
+             (end end-list)
+             (end-acc '())
+             (acc '()))
+    (cond
+     ;; We've read the end string and are looking at newline or EOF.
+     ((and (null? end)
+           (or (eof-object? chr)
+               (char=? chr #\newline)))
+      (get-char port)
+      `(<sh-quote> ,@(join-contiguous-strings (reverse! acc))))
+     ;; We've hit EOF prematurely.
+     ((eof-object? chr)
+      ;; XXX: Following Bash, we should issue a warning here.
+      (let* ((end-str (list->string (reverse! end-acc)))
+             (acc (if (string-null? end-str) acc (cons end-str acc))))
+        `(<sh-quote> ,@(join-contiguous-strings (reverse! acc)))))
+     ;; We've read another character from the end string.
+     ((and (pair? end)
+           (char=? (car end) chr))
+      (loop (next-char port) (cdr end) (cons chr end-acc) acc))
+     ;; We've read a non-end-string character, and have some
+     ;; characters from the end string already read.
+     ((pair? end-acc)
+      (loop chr #f '() (cons (list->string (reverse! end-acc)) acc)))
+     ;; We've nothing to do with the end string.
+     (else
+      (match chr
+        ((or #\$ #\`) (let ((expansion (get-expansion port)))
+                        (loop (lookahead-char port) #f '()
+                              (cons (or expansion (string chr)) acc))))
+        (#\\ (let ((escape (get-escape port (cut member <> '(#\$ #\` #\\)))))
+               (loop (lookahead-char port) #f '() (append escape acc))))
+        (_ (let ((str (get-unquoted-here-doc-string port)))
+             (loop (lookahead-char port) end-list '()
+                   (if (not (string-null? str))
+                       (cons str acc)
+                       acc)))))))))
+
+(define (wrap-port-with-tab-trimming port)
+  "Wrap @var{port} filtering out all tabs that occur at the beginning
+of a line."
+  (define after-newline? #t)
+  (make-soft-port
+   (vector
+    ;; put-char, put-string, and flush-output-port
+    #f #f #f
+    ;; get-char
+    (lambda ()
+      (if after-newline?
+          (let loop ((chr (get-char port)))
+            (match chr
+              (#\tab (loop (get-char port)))
+              (#\newline chr)
+              (_ (set! after-newline? #f)
+                 chr)))
+          (match (get-char port)
+            (#\newline
+             (set! after-newline? #t)
+             #\newline)
+            (chr chr))))
+    ;; close-port
+    #f)
+   "r"))
+
+(define* (get-here-doc end port #:key (trim-tabs? #f) (quoted? #f))
+  "Get a here-document token from @var{port}, using @var{end} to
+signal the ending.  If @var{trim-tabs?} is set, remove leading tabs
+from each line.  If @var{quoted?} is set, ignore substitutions."
+  ((get-token->get-lexical-token
+    (lambda (port)
+      (let ((port (if trim-tabs? (wrap-port-with-tab-trimming port) port)))
+        `(HERE-DOC . ,(if quoted?
+                          (get-quoted-here-doc end port)
+                          (get-unquoted-here-doc end port))))))
+   port))

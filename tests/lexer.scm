@@ -258,6 +258,63 @@
   (tokenize "\"$foo\""))
 
 ;;;
+;;; Here-documents.
+;;;
+
+(define* (get-here-doc* end str #:key (trim-tabs? #f) (quoted? #f))
+  (call-with-input-string str
+    (lambda (port)
+      (let* ((token (get-here-doc end port
+                                  #:trim-tabs? trim-tabs?
+                                  #:quoted? quoted?))
+             (category  (lexical-token-category token))
+             (source    (lexical-token-source token))
+             (value     (lexical-token-value token))
+             (offset    (source-location-offset source))
+             (length    (source-location-length source)))
+        `(,category (,offset . ,length) ,value)))))
+
+(test-equal "Lexes a here-document"
+  '(HERE-DOC (0 . 8) (<sh-quote> "foo\n"))
+  (get-here-doc* "eof" "foo\neof"))
+
+(test-equal "Lexes a here-document with an expansion"
+  '(HERE-DOC (0 . 7) (<sh-quote> (<sh-ref> "x") "\n"))
+  (get-here-doc* "eof" "$x\neof"))
+
+(test-equal "Lexes a quoted here-document with an expansion"
+  '(HERE-DOC (0 . 7) (<sh-quote> "$x\n"))
+  (get-here-doc* "eof" "$x\neof" #:quoted? #t))
+
+(test-equal "Lexes a here-document with tab trimming"
+  '(HERE-DOC (0 . 15) (<sh-quote> "foo\nbar\n"))
+  (get-here-doc* "eof" "\tfoo\n\tbar\n\teof" #:trim-tabs? #t))
+
+(test-equal "Stops lexing a here-document at the end"
+  '(HERE-DOC (0 . 8) (<sh-quote> "foo\n"))
+  (get-here-doc* "eof" "foo\neof\nnbar"))
+
+(test-equal "Lexes a here-document containing here-end with prefix"
+  '(HERE-DOC (0 . 13) (<sh-quote> "foo\n eof\n"))
+  (get-here-doc* "eof" "foo\n eof\neof"))
+
+(test-equal "Lexes a here-document containing here-end with suffix"
+  '(HERE-DOC (0 . 13) (<sh-quote> "foo\neof \n"))
+  (get-here-doc* "eof" "foo\neof \neof"))
+
+(test-equal "Lexes a here-document with repeated here-end"
+  '(HERE-DOC (0 . 15) (<sh-quote> "foo\neofeof\n"))
+  (get-here-doc* "eof" "foo\neofeof\neof"))
+
+(test-equal "Lexes a here-document with here-end after an expansion"
+  '(HERE-DOC (0 . 12) (<sh-quote> (<sh-ref> "x") "eof\n"))
+  (get-here-doc* "eof" "${x}eof\neof"))
+
+(test-equal "Lexes a here-document with here-end after an escape"
+  '(HERE-DOC (0 . 9) (<sh-quote> "\\eof\n"))
+  (get-here-doc* "eof" "\\eof\neof"))
+
+;;;
 ;;; Bracketed commands.
 ;;;
 
