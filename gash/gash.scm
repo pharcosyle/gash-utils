@@ -394,10 +394,9 @@ mostly works, pipes work, some redirections work.
       (when (and (not (zero? status))
                  (shell-opt? "errexit"))
         (exit status))))
-  (let ((ast (transform ast)))
-    (match ast
-      ('script #t) ;; skip
-      (_ (for-each exec ast)))))
+  (match ast
+    ('script #t) ;; skip
+    (_ (for-each exec ast))))
 
 (define prompt
   (let* ((l (string #\001))
