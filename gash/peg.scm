@@ -15,7 +15,12 @@
   #:use-module (gash job)
   #:use-module (gash util)
 
-  #:export (parse peg-trace?))
+  #:export (
+            assignment
+            %global-variables
+            parse
+            peg-trace?
+            ))
 
 (define (wrap-parser-for-users for-syntax parser accumsym s-syn)
   #`(lambda (str strlen pos)
@@ -190,8 +195,8 @@
   (define (exec cmd)
     (when (> %debug-level 0)
       (format (current-error-port) "sh-exec:exec cmd=~s\n" cmd))
-    (let* ((job (warn 'job (local-eval cmd (the-environment))))
-           (stati (cond ((job? job) (map status:exit-val (warn 'job-status (job-status job))))
+    (let* ((job (local-eval cmd (the-environment)))
+           (stati (cond ((job? job) (map status:exit-val (job-status job)))
                         ((boolean? job) (list (if job 0 1)))
                         ((number? job) (list job))
                         (else (list 0))))
@@ -205,11 +210,12 @@
                               stati
                               (iota (length stati))))
                         ")")))
-      (set! global-variables (assoc-set! global-variables "PIPESTATUS" pipestatus))
-      (set! global-variables (assoc-set! global-variables "?" (number->string status)))
+      (assignment "PIPESTATUS" pipestatus)
+      (assignment "?" (number->string status))
       (when (and (not (zero? status))
                  (shell-opt? "errexit"))
-        (exit status))))
+        (exit status))
+      status))
   (when (> %debug-level 1)
     (format (current-error-port) "sh-exec:exec ast=~s\n" ast))
   (match ast
@@ -249,12 +255,18 @@
     (('else-part o ...) `(begin ,@(map transform o)))
     (_ ast)))
 
-(define global-variables (map (lambda (key-value)
-                                (let* ((key-value (string-split key-value #\=))
-                                       (key (car key-value))
-                                       (value (cadr key-value)))
-                                  (cons key value)))
-                              (environ)))
+;; FIXME: export/env vs set
+(define %global-variables
+  (map identity ;; FIXME: make mutable
+       `(("SHELLOPTS" . "")
+         ("PIPESTATUS" . "([0]=\"0\"")
+         ("?" . "")
+         ,@(map (lambda (key-value)
+                  (let* ((key-value (string-split key-value #\=))
+                         (key (car key-value))
+                         (value (cadr key-value)))
+                    (cons key value)))
+                (environ)))))
 
 (define (glob pattern)
   (define (glob? pattern)
@@ -292,12 +304,12 @@
   (string-join (append-map glob  o) ""))
 
 (define (assignment name value)
-  (set! global-variables
-    (assoc-set! global-variables name value))
+  (set! %global-variables
+    (assoc-set! %global-variables name value))
   #t)
 
 (define (variable name)
-  (or (assoc-ref global-variables (string-drop name 1)) ""))
+  (or (assoc-ref %global-variables (string-drop name 1)) ""))
 
 (define (expression . args)
   (append-map glob args))
@@ -310,9 +322,10 @@
 (define (command . args)
   (define (exec command)
     (cond ((procedure? command) command)
+          ((every string? command) (cut apply (compose status:exit-val system*) command))
+          ;; not sure whether to do $?/PIPESTATUS here or in sh-exec
           ((every string? command)
-           (cut apply (compose (cut warn 'end-val <>)
-                               (lambda (status)
+           (cut apply (compose (lambda (status)
                                  ((compose (cut assignment "?" <>) number->string) status)
                                  status)
                                (cut warn 'exit-val <>)
@@ -320,7 +333,7 @@
                                (cut warn 'status <>)
                                system*) command))
           (else (lambda () #t))))
-  (exec (append-map glob args)))
+  (warn 'command=> (exec (append-map glob args))))
 
 (define (substitution . commands)
   (apply (@ (gash pipe) pipeline->string) (map cdr commands)))

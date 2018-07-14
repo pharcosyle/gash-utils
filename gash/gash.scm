@@ -77,16 +77,7 @@ copyleft.
 
 "))
 
-(define global-variables (list (cons "SHELLOPTS" "")
-                               (cons "?" 0)))
-
 (define (main args)
-  (map (lambda (key-value)
-         (let* ((key-value (string-split key-value #\=))
-                (key (car key-value))
-                (value (cadr key-value)))
-           (set! global-variables (assoc-set! global-variables key value))))
-       (environ))
   (let ((thunk
          (lambda ()
            (job-control-init)
@@ -116,10 +107,10 @@ copyleft.
               (help? (display-help))
               (version? (display-version))
               (command? (let ((ast (string-to-ast command?)))
-                          (exit (assoc-ref global-variables "?"))))
+                          (exit (assoc-ref %global-variables "?"))))
               ((pair? files)
                (let* ((asts (map file-to-ast files))
-                      (status (assoc-ref global-variables "?")))
+                      (status (assoc-ref %global-variables "?")))
                  (exit status)))
               (#t (let* ((HOME (string-append (getenv "HOME") "/.gash_history"))
                          (thunk (lambda ()
@@ -255,16 +246,16 @@ mostly works, pipes work, some redirections work.
 (define cp-command (wrap-command cp-command-implementation "cp"))
 
 (define (set-shell-opt! name set?)
-  (let* ((shell-opts (assoc-ref global-variables "SHELLOPTS"))
+  (let* ((shell-opts (assoc-ref %global-variables "SHELLOPTS"))
          (options (if (string-null? shell-opts) '()
                       (string-split shell-opts #\:)))
          (new-options (if set? (delete-duplicates (sort (cons name options) string<))
                           (filter (negate (cut equal? <> name)) options)))
          (new-shell-opts (string-join new-options ":")))
-    (set! global-variables (assoc-set! global-variables "SHELLOPTS" new-shell-opts))))
+    (assignment "SHELLOPTS" new-shell-opts)))
 
 (define (shell-opt? name)
-  (member name (string-split (assoc-ref global-variables "SHELLOPTS") #\:)))
+  (member name (string-split (assoc-ref %global-variables "SHELLOPTS") #\:)))
 
 (define %commands
   ;; Built-in commands.
