@@ -262,7 +262,9 @@
     (('pipeline h t) (pk `(pipeline ,(transform h) ,@(map transform t))))
     (('command o ...) (let* ((command (map transform o))
                              (program (car command))
-                             (escape-builtin? (string-prefix? "\\" program))
+                             ;; if [ 0 = 1 ] ... program = '(if ...) not a string
+                             ;; this escape-builtin? is probably not deep enough?
+                             (escape-builtin? (and (string? program) (string-prefix? "\\" program)))
                              (program (if escape-builtin? (string-drop program 1) program))
                              (command (cons program (cdr command))))
                         (when (> %debug-level 1)
