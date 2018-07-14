@@ -17,6 +17,7 @@
 ;;; along with Gash.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (gash builtins)
+  #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 match)
 
   #:use-module (srfi srfi-1)
@@ -26,9 +27,9 @@
   #:use-module (gash config)
   #:use-module (gash environment)
   #:use-module (gash gash)
-  #:use-module (gash job)
+  #:use-module (gash guix-build-utils)
   #:use-module (gash io)
-  ;;#:use-module (gash peg)
+  #:use-module (gash job)
 
   #:export (
             %builtin-commands
@@ -38,6 +39,7 @@
             echo-command
             exit-command
             fg-command
+            find-command
             help-command
             pwd-command
             set-command
@@ -108,6 +110,39 @@ mostly works, pipes work, some redirections work.
 
 (define cp-command (wrap-command cp-command-implementation "cp"))
 
+(define find-command-implementation
+  ;; Run-time support procedure.
+  (case-lambda
+    (()
+     (find-command-implementation "."))
+    (args
+     (let* ((option-spec
+             '((help)
+               (version)))
+            (options (getopt-long (cons "ls" args) option-spec))
+            (help? (option-ref options 'help #f))
+            (version? (option-ref options 'version #f))
+            (files (option-ref options '() '()))
+            (files (if (null? files) '(".") files))
+            (file (car files)))
+       (when (> (length files) 1)
+         (format (current-error-port) "find: too many FILEs: ~s\n" files)
+         (error "find failed"))
+       ;; TODO: find [OPTION]... [FILE]... [EXPRESSION]...
+       ;; and options: esp: -x, -L
+       (cond (help? (display "Usage: find [OPTION]... [FILE]
+
+Options:
+  --help     display this help and exit
+  --version  display version information and exit
+"))
+             (version? (format #t "find (GASH) ~a\n" %version))
+             (else
+              (let* ((files (find-files file #:directories? #t #:fail-on-error? #t)))
+                (for-each stdout files))))))))
+
+(define find-command (wrap-command find-command-implementation "find"))
+
 (define %builtin-commands
   `(
     ("bg"     . ,bg-command)
@@ -117,6 +152,7 @@ mostly works, pipes work, some redirections work.
     ("echo"   . ,echo-command)
     ("exit"   . ,exit-command)
     ("fg"     . ,fg-command)
+    ("find"   . ,find-command)
     ("help"   . ,help-command)
     ("jobs"   . ,jobs-command)
     ("ls"     . ,ls-command)

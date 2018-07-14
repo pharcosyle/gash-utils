@@ -27,7 +27,7 @@
   ;; #:use-module (srfi srfi-34)
   ;; #:use-module (srfi srfi-35)
   ;; #:use-module (srfi srfi-60)
-  ;; #:use-module (ice-9 ftw)
+  #:use-module (ice-9 ftw)
   ;; #:use-module (ice-9 match)
   ;; #:use-module (ice-9 regex)
   ;; #:use-module (ice-9 rdelim)
@@ -35,11 +35,68 @@
   ;; #:use-module (ice-9 threads)
   #:use-module (rnrs bytevectors)
   #:use-module (rnrs io ports)
-  #:export (dump-port))
+  #:export (
+            dump-port
+            file-name-predicate
+            find-files
+            ))
 
 ;;; Commentary:
 
 ;;; This code is taken from (guix build utils)
+
+;;;
+;;; Directories.
+;;;
+
+(define (file-name-predicate regexp)
+  "Return a predicate that returns true when passed a file name whose base
+name matches REGEXP."
+  (let ((file-rx (if (regexp? regexp)
+                     regexp
+                     (make-regexp regexp))))
+    (lambda (file stat)
+      (regexp-exec file-rx (basename file)))))
+
+(define* (find-files dir #:optional (pred (const #t))
+                     #:key (stat lstat)
+                     directories?
+                     fail-on-error?)
+  "Return the lexicographically sorted list of files under DIR for which PRED
+returns true.  PRED is passed two arguments: the absolute file name, and its
+stat buffer; the default predicate always returns true.  PRED can also be a
+regular expression, in which case it is equivalent to (file-name-predicate
+PRED).  STAT is used to obtain file information; using 'lstat' means that
+symlinks are not followed.  If DIRECTORIES? is true, then directories will
+also be included.  If FAIL-ON-ERROR? is true, raise an exception upon error."
+  (let ((pred (if (procedure? pred)
+                  pred
+                  (file-name-predicate pred))))
+    ;; Sort the result to get deterministic results.
+    (sort (file-system-fold (const #t)
+                            (lambda (file stat result) ; leaf
+                              (if (pred file stat)
+                                  (cons file result)
+                                  result))
+                            (lambda (dir stat result) ; down
+                              (if (and directories?
+                                       (pred dir stat))
+                                  (cons dir result)
+                                  result))
+                            (lambda (dir stat result) ; up
+                              result)
+                            (lambda (file stat result) ; skip
+                              result)
+                            (lambda (file stat errno result)
+                              (format (current-error-port) "find-files: ~a: ~a~%"
+                                      file (strerror errno))
+                              (when fail-on-error?
+                                (error "find-files failed"))
+                              result)
+                            '()
+                            dir
+                            stat)
+          string<?)))
 
 (define* (dump-port in out
                     #:key (buffer-size 16384)
