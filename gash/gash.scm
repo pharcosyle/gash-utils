@@ -105,10 +105,7 @@ copyleft.
                   (help? (option-ref options 'help #f))
                   (parse? (option-ref options 'parse #f))
                   (version? (option-ref options 'version #f))
-                  (files (option-ref options '() '()))
-                  (dead-run (compose sh-exec
-                                (if #t (cut stdout "transformed: " <>) identity) (cut transform <>)
-                                (if #t (cut stdout "parsed: " <>) identity))))
+                  (files (option-ref options '() '())))
              (set! %prefer-builtins? (option-ref options 'prefer-builtins #f))
              (set-shell-opt! "errexit" (option-ref options 'errexit #f))
              (set-shell-opt! "xtrace" (option-ref options 'xtrace #f))
@@ -118,30 +115,19 @@ copyleft.
               (help? (display-help))
               (version? (display-version))
               (command? (let ((ast (string-to-ast command?)))
-                          (pretty-print ast)
-                          (exit 0)
-                          (exit (if ast (run ast)
-                                    0))))
+                          (exit (assoc-ref global-variables "?"))))
               ((pair? files)
                (let* ((asts (map file-to-ast files))
-                      ;;(status (map pretty-print asts))
-                      ;;(status (map run asts))
-                      )
-
-                 ;;(quit (or #t (every identity status)))
-                 ;;(quit (every identity status))
-                 (quit #t)
-                 ))
+                      (status (assoc-ref global-variables "?")))
+                 (exit status)))
               (#t (let* ((HOME (string-append (getenv "HOME") "/.gash_history"))
                          (thunk (lambda ()
                                   (let loop ((line (readline (prompt))))
                                     (when (not (eof-object? line))
                                       (let* ((ast (string-to-ast line)))
-                                        (when ast
-                                          (if (not (string-null? line))
-                                              (add-history line))
-                                          (stderr "hiero?\n")
-                                          (run ast))
+                                        (when (and ast
+                                                   (not (string-null? line)))
+                                          (add-history line))
                                         (loop (let ((previous (if ast "" (string-append line "\n")))
                                                     (next (readline (if ast (prompt) "> "))))
                                                 (if (eof-object? next) next
@@ -330,7 +316,7 @@ mostly works, pipes work, some redirections work.
 
 ;; transform ast -> list of expr
 ;; such that (map eval expr)
-(define (transform ast)
+(define (DEAD-transform ast)
   (format (current-error-port) "transform=~s\n" ast)
   (match ast
      (('script term "&") (list (background (transform term))))
@@ -378,7 +364,7 @@ mostly works, pipes work, some redirections work.
      ((_ o) (transform o)) ;; peel the onion: (symbol (...)) -> (...)
      (_ ast))) ;; done
 
-(define (sh-exec ast)
+(define (DEAD-sh-exec ast)
   (define (exec cmd)
     (when (> %debug-level 0)
       (format (current-error-port) "sh-exec:exec cmd=~s\n" cmd))
