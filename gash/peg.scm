@@ -5,11 +5,13 @@
   #:use-module (ice-9 pretty-print)
   #:use-module (ice-9 peg)
   #:use-module (ice-9 peg codegen)
+  #:use-module (ice-9 receive)
   #:use-module (ice-9 regex)
 
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
 
+  #:use-module (gash builtins)
   #:use-module (gash gash)
   #:use-module (gash io)
   #:use-module (gash job)
@@ -20,6 +22,7 @@
             %global-variables
             parse
             peg-trace?
+            set-shell-opt!
             ))
 
 (define (wrap-parser-for-users for-syntax parser accumsym s-syn)
@@ -220,7 +223,16 @@
     (format (current-error-port) "sh-exec:exec ast=~s\n" ast))
   (match ast
     ('script #t) ;; skip
-    (('pipeline command ...) (exec ast))
+    (('pipeline commands ...)
+     (when (shell-opt? "xtrace")
+       (for-each
+        (lambda (o)
+          (match o
+            (('command command ...)
+             (format (current-error-port) "+ ~a\n" (string-join command)))
+            (_ (format (current-error-port) "FIXME trace:~s" o))))
+        (reverse commands)))
+     (exec ast))
     (_ (for-each exec ast))))
 
 
@@ -237,10 +249,12 @@
            ast))))
 
 (define (transform ast)
+  (when (> %debug-level 1)
+    (format (current-error-port) "transform ast=~s\n" ast))
   (match ast
     (('script o ...) (map transform o))
     (('substitution o) `(substitution ,@(transform o)))
-    (('pipeline o) (pk `(pipeline ,(transform o))))
+    (('pipeline o) (pk `(pipeline ,(let ((c (warn 'transform (transform o)))) (or (builtin c) c)))))
     (('pipeline h t) (pk `(pipeline ,(transform h) ,@(map transform t))))
     (('command o ...) `(command ,@(map transform o)))
     (('literal o) (transform o))
@@ -255,12 +269,46 @@
     (('else-part o ...) `(begin ,@(map transform o)))
     (_ ast)))
 
+(define (set-shell-opt! name set?)
+  (let* ((shell-opts (assoc-ref %global-variables "SHELLOPTS"))
+         (options (if (string-null? shell-opts) '()
+                      (string-split shell-opts #\:)))
+         (new-options (if set? (delete-duplicates (sort (cons name options) string<))
+                          (filter (negate (cut equal? <> name)) options)))
+         (new-shell-opts (string-join new-options ":")))
+    ;; HMM
+    (assignment "SHELLOPTS" new-shell-opts)
+    (lambda _ (format (current-error-port) "hiero\n") "daro")
+    '("hiero2")))
+
+(define (builtin ast)
+  (when (> %debug-level 0)
+    (format (current-error-port) "builtin ast=~s\n" ast))
+  (receive (command args)
+      (match ast
+        (('command (and (? string?) command) args ...) (values command args))
+        ;; ((('append ('glob command) args ...)) (values command args))
+        ;; ((('glob command)) (values command #f))
+        (_ (values #f #f)))
+    (let ((program (and command (PATH-search-path command))))
+      (when (> %debug-level 0)
+        (format (current-error-port) "command ~a => ~s ~s\n" program command args))
+      (cond ((and program (not %prefer-builtins?))
+             #f)
+            ((and command (assoc-ref %builtin-commands command))
+             =>
+             (lambda (command)
+               (if args
+                   `(,apply ,command ',args)
+                   command)))
+            (else #f)))))
+
 ;; FIXME: export/env vs set
 (define %global-variables
   (map identity ;; FIXME: make mutable
-       `(("SHELLOPTS" . "")
-         ("PIPESTATUS" . "([0]=\"0\"")
-         ("?" . "")
+       `(,(cons "SHELLOPTS" "")
+         ,(cons "PIPESTATUS" "([0]=\"0\"")
+         ,(cons "?" "")
          ,@(map (lambda (key-value)
                   (let* ((key-value (string-split key-value #\=))
                          (key (car key-value))
@@ -333,12 +381,10 @@
                                (cut warn 'status <>)
                                system*) command))
           (else (lambda () #t))))
-  (warn 'command=> (exec (append-map glob args))))
+  (exec (append-map glob args)))
 
 (define (substitution . commands)
   (apply (@ (gash pipe) pipeline->string) (map cdr commands)))
 
 (define (pipeline . commands)
-  (apply (@ (gash pipe) pipeline) #t commands)
-  ;;(map (lambda (command) (command)) commands)
-  )
+  (apply (@ (gash pipe) pipeline) #t commands))

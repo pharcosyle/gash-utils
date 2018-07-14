@@ -19,13 +19,14 @@
   #:use-module (gash peg)
   #:use-module (gash io)
   #:use-module (gash util)
-  #:use-module (gash bournish-commands)
 
   #:export (main
             %debug-level
+            %prefer-builtins?
             shell-opt?))
 
-(define %debug-level 0)
+(define %debug-level 0)       ; 1 informational, 2 verbose, 3 peg tracing
+(define %prefer-builtins? #f) ; use builtin, even if COMMAND is available in PATH?
 
 (define (remove-shell-comments s)
   (string-join (map
@@ -177,131 +178,13 @@ copyleft.
                             (loop (cdr patterns) (glob- (car patterns) paths))))))
    (#t (list pattern))))
 
-(define (background ast)
+(define (DEAD-background ast)
   (match ast
     (('pipeline fg rest ...) `(pipeline #f ,@rest))
     (_ ast)))
 
-(define (PATH-search-path program)
-  (search-path (string-split (getenv "PATH") #\:) program))
-
-(define (cd-command . args)
-  (match args
-    (() (chdir (getenv "HOME")))
-    ((dir)
-     (chdir dir))
-    ((args ...)
-     (format (current-error-port) "cd: too many arguments: ~a\n" (string-join args)))))
-
-(define (echo-command . args)
-  (match args
-    (() (newline))
-    (("-n" args ...) (map display args))
-    (_ (map display args) (newline))))
-
-(define (bg-command . args)
-  (match args
-    (() (bg 1))
-    ((job x ...) (bg (string->number (car job))))))
-
-(define (fg-command . args)
-  (match args
-    (() (fg 1))
-    ((job x ...) (fg (string->number (car job))))))
-
-(define pwd-command (lambda _ (stdout (getcwd))))
-
-(define (set-command . args) ;; TODO export; env vs set
-  (define (display-var o)
-    (format #t "~a=~a\n" (car o) (cdr o)))
-  (match args
-    (() (for-each display-var global-variables))
-    (("-e") (set-shell-opt! "errexit" #t))
-    (("+e") (set-shell-opt! "errexit" #f))
-    (("-x") (set-shell-opt! "xtrace" #t))
-    (("+x") (set-shell-opt! "xtrace" #f))))
-
-(define (exit-command . args)
-  (match args
-    (() (exit 0))
-    ((status)
-     (exit (string->number status)))
-    ((args ...)
-     (format (current-error-port) "exit: too many arguments: ~a\n" (string-join args)))))
-
-(define (help-command . _)
-  (display "\
-Hello, this is gash, Guile As SHell.
-
-Gash is work in progress; many language constructs work, globbing
-mostly works, pipes work, some redirections work.
-")
-  (when (or %prefer-builtins? (not (PATH-search-path "ls")))
-    (display "\nIt features the following, somewhat naive builtin commands\n")
-    (display-tabulated (map car %commands))))
-
-(define (cp-command-implementation source dest . rest)
-  (copy-file source dest))
-
-(define cp-command (wrap-command cp-command-implementation "cp"))
-
-(define (set-shell-opt! name set?)
-  (let* ((shell-opts (assoc-ref %global-variables "SHELLOPTS"))
-         (options (if (string-null? shell-opts) '()
-                      (string-split shell-opts #\:)))
-         (new-options (if set? (delete-duplicates (sort (cons name options) string<))
-                          (filter (negate (cut equal? <> name)) options)))
-         (new-shell-opts (string-join new-options ":")))
-    (assignment "SHELLOPTS" new-shell-opts)))
-
 (define (shell-opt? name)
   (member name (string-split (assoc-ref %global-variables "SHELLOPTS") #\:)))
-
-(define %commands
-  ;; Built-in commands.
-  `(
-    ("bg"     . ,bg-command)
-    ("cat"    . ,cat-command)
-    ("cd"     . ,cd-command)
-    ("cp"     . ,cp-command)
-    ("echo"   . ,echo-command)
-    ("exit"   . ,exit-command)
-    ("fg"     . ,fg-command)
-    ("help"   . ,help-command)
-    ("jobs"   . ,jobs-command)
-    ("ls"     . ,ls-command)
-    ("pwd"    . ,pwd-command)
-    ("reboot" . ,reboot-command)
-    ("rm"     . ,rm-command)
-    ("set"    . ,set-command)
-    ("wc"     . ,wc-command)
-    ("which"  . ,which-command)
-    ))
-
-(define %prefer-builtins? #t) ; use builtin, even if COMMAND is available in PATH?
-(define (builtin ast)
-  (receive (command args)
-      (match ast
-        ((('append ('glob command) args ...)) (values command args))
-        ((('glob command)) (values command #f))
-        (_ (values #f #f)))
-    (let ((program (and command (PATH-search-path command))))
-      (when (> %debug-level 0)
-        (format (current-error-port) "command ~a => ~s ~s\n" program command args))
-      (cond ((and program (not %prefer-builtins?))
-             #f)
-            ((and command (assoc-ref %commands command))
-             =>
-             (lambda (command)
-               (if args
-                   `(,apply ,command ,@args)
-                   `(,command))))
-            (else
-             (match ast
-               (('for-each rest ...) ast)
-               (('if rest ...) ast)
-               (#t #t)
-               (_ #f)))))))
 
 (define (tostring . args)
   (with-output-to-string (cut map display args)))
