@@ -222,6 +222,43 @@ Options:
                      ;; FIXME:
                      `(command ,@args))))))))
 
+(define type-command
+  (case-lambda
+    (() #t)
+    (args
+     (let* ((option-spec
+             '((help)
+               (canonical-file-name (single-char #\p))
+               (version)))
+            (options (getopt-long (cons "ls" args) option-spec))
+            (help? (option-ref options 'help #f))
+            (version? (option-ref options 'version #f))
+            (files (option-ref options '() '())))
+       (cond (help? (display "Usage: type [OPTION]... [COMMAND]
+
+Options:
+  --help     display this help and exit
+  -p         display canonical file name of COMMAND
+  --version  display version information and exit
+"))
+             (version? (format #t "type (GASH) ~a\n" %version))
+             ((null? files) #t)
+             ((option-ref options 'canonical-file-name #f)
+              (let* ((command (car files))
+                     (builtin (builtin `(,command) #:prefer-builtin? %prefer-builtins?)))
+                (if builtin 0
+                    (let ((program (PATH-search-path command)))
+                      (and (string? program)
+                           (stdout program)
+                           0)))))
+             (else
+              (let* ((command (car files))
+                     (builtin (builtin `(,command) #:prefer-builtin? %prefer-builtins?)))
+                (cond (builtin (format #t "~a is a shell builtin\n" command)
+                               0)
+                      (else (let ((program (PATH-search-path command)))
+                              (if (string? program) (begin (format #t "~a hashed (~a)\n" command ) 0)
+                                  1)))))))))))
 
 (define %builtin-commands
   `(
@@ -241,6 +278,7 @@ Options:
     ("reboot"  . ,reboot-command)
     ("rm"      . ,rm-command)
     ("set"     . ,set-command)
+    ("type"    . ,type-command)
     ("wc"      . ,wc-command)
     ("which"   . ,which-command)
     ))
