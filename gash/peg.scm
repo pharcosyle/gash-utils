@@ -261,10 +261,15 @@
     (('substitution o) `(substitution ,@(transform o)))
     (('pipeline o) (pk `(pipeline ,(transform o))))
     (('pipeline h t) (pk `(pipeline ,(transform h) ,@(map transform t))))
-    (('command o ...) (let ((command (map transform o)))
+    (('command o ...) (let* ((command (map transform o))
+                             (program (car command))
+                             (escape-builtin? (string-prefix? "\\" program))
+                             (program (if escape-builtin? (string-drop program 1) program))
+                             (command (cons program (cdr command))))
                         (when (> %debug-level 1)
                           (format (current-error-port) "transform command=~s\n" command))
-                        (or (builtin command)
+                        (or (builtin command #:prefer-builtin? (and %prefer-builtins?
+                                                                    (not escape-builtin?)))
                             `(command ,@command))))
     (('literal o) (transform o))
     (('name o) o)
@@ -278,7 +283,7 @@
     (('else-part o ...) `(begin ,@(map transform o)))
     (_ ast)))
 
-(define (builtin ast)
+(define* (builtin ast #:key prefer-builtin?)
   ;; FIXME: distinguish between POSIX compliant builtins and
   ;; `best-effort'/`fallback'?
   "Possibly modify command to use a builtin."
@@ -289,11 +294,10 @@
         (((and (? string?) command) args ...) (values command args))
         (_ (values #f #f)))
     (let ((program (and command
-                        (not %prefer-builtins?)
                         (PATH-search-path command))))
       (when (> %debug-level 0)
         (format (current-error-port) "command ~a => ~s ~s\n" (or program 'builtin) command args))
-      (cond (program #f)
+      (cond ((and program (not prefer-builtin?)) #f)
             ((and command (assoc-ref %builtin-commands command))
              =>
              (lambda (command)
