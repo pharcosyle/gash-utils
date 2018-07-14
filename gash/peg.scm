@@ -5,7 +5,6 @@
   #:use-module (ice-9 pretty-print)
   #:use-module (ice-9 peg)
   #:use-module (ice-9 peg codegen)
-  #:use-module (ice-9 receive)
   #:use-module (ice-9 regex)
 
   #:use-module (srfi srfi-1)
@@ -282,40 +281,6 @@
     (('then-part o ...) `(begin ,@(map transform o)))
     (('else-part o ...) `(begin ,@(map transform o)))
     (_ ast)))
-
-(define* (builtin ast #:key prefer-builtin?)
-  ;; FIXME: distinguish between POSIX compliant builtins and
-  ;; `best-effort'/`fallback'?
-  "Possibly modify command to use a builtin."
-  (when (> %debug-level 0)
-    (format (current-error-port) "builtin ast=~s\n" ast))
-  (receive (command args)
-      (match ast
-        (((and (? string?) command) args ...) (values command args))
-        (_ (values #f #f)))
-    (let ((program (and command
-                        (cond ((string-prefix? "/" command)
-                               (when (not (file-exists? command))
-                                 (format (current-error-port) "gash: ~a: no such file or directory\n" command))
-                               command)
-                              (else (PATH-search-path command))))))
-      ;; FIXME: find some generic strerror/errno way: what about permissions and stuff?
-      ;; after calling  system* we're too late for that?
-      (when (not program)
-        (format (current-error-port) "gash: ~a: command not found\n" command))
-      (when (> %debug-level 0)
-        (format (current-error-port) "command ~a => ~s ~s\n" (or program 'builtin) command args))
-      (cond ((and program (not prefer-builtin?))
-             (when (not (access? program X_OK))
-               (format (current-error-port) "gash: ~a: permission denied\n" command))
-             #f)
-            ((and command (assoc-ref %builtin-commands command))
-             =>
-             (lambda (command)
-               (if args
-                   `(,apply ,command ',(map (cut local-eval <> (the-environment)) args))
-                   command)))
-            (else #f)))))
 
 (define (glob pattern)
   (define (glob? pattern)

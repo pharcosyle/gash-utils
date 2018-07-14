@@ -18,7 +18,9 @@
 
 (define-module (gash builtins)
   #:use-module (ice-9 getopt-long)
+  #:use-module (ice-9 local-eval)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 receive)
 
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
@@ -33,7 +35,7 @@
 
   #:export (
             %builtin-commands
-            PATH-search-path
+            builtin
             bg-command
             cd-command
             echo-command
@@ -47,6 +49,40 @@
  
 (define (PATH-search-path program)
   (search-path (string-split (getenv "PATH") #\:) program))
+
+(define* (builtin ast #:key prefer-builtin?)
+  ;; FIXME: distinguish between POSIX compliant builtins and
+  ;; `best-effort'/`fallback'?
+  "Possibly modify command to use a builtin."
+  (when (> %debug-level 0)
+    (format (current-error-port) "builtin ast=~s\n" ast))
+  (receive (command args)
+      (match ast
+        (((and (? string?) command) args ...) (values command args))
+        (_ (values #f #f)))
+    (let ((program (and command
+                        (cond ((string-prefix? "/" command)
+                               (when (not (file-exists? command))
+                                 (format (current-error-port) "gash: ~a: no such file or directory\n" command))
+                               command)
+                              (else (PATH-search-path command))))))
+      ;; FIXME: find some generic strerror/errno way: what about permissions and stuff?
+      ;; after calling  system* we're too late for that?
+      (when (> %debug-level 0)
+        (format (current-error-port) "command ~a => ~s ~s\n" (or program 'builtin) command args))
+      (cond ((and program (not prefer-builtin?))
+             (when (not program)
+               (format (current-error-port) "gash: ~a: command not found\n" command))
+             (when (not (access? program X_OK))
+               (format (current-error-port) "gash: ~a: permission denied\n" command))
+             #f)
+            ((and command (assoc-ref %builtin-commands command))
+             =>
+             (lambda (command)
+               (if args
+                   `(,apply ,command ',(map (cut local-eval <> (the-environment)) args))
+                   command)))
+            (else #f)))))
 
 (define (cd-command . args)
   (match args
@@ -143,23 +179,68 @@ Options:
 
 (define find-command (wrap-command find-command-implementation "find"))
 
+(define command-command
+  (case-lambda
+    (() #t)
+    (args
+     (let* ((option-spec
+             '((describe (single-char #\V))
+               (help)
+               (show (single-char #\v))
+               (version)))
+            (options (getopt-long (cons "ls" args) option-spec))
+            (help? (option-ref options 'help #f))
+            (version? (option-ref options 'version #f))
+            (files (option-ref options '() '())))
+       (cond (help? (display "Usage: command [OPTION]... [COMMAND [ARG]...]
+
+Options:
+  --help     display this help and exit
+  --version  display version information and exit
+  -v         display a description of COMMAND similar to the `type' builtin
+  -V         display a more verbose description of COMMAND
+"))
+             (version? (format #t "command (GASH) ~a\n" %version))
+             ((null? files) #t)
+             ((option-ref options 'describe #f)
+              (let* ((command (car files))
+                     (builtin (builtin `(,command) #:prefer-builtin? %prefer-builtins?)))
+                (cond (builtin (format #t "~a is a shell builtin\n" command)
+                               0)
+                      (else (let ((program (PATH-search-path command)))
+                              (if (string? program) (begin (format #t "~a hashed (~a)\n" command ) 0)
+                                  1))))))
+             ((option-ref options 'show #f)
+              (let* ((command (car files))
+                     (builtin (builtin `(,command) #:prefer-builtin? %prefer-builtins?)))
+                (if builtin (begin (stdout command) 0)
+                    (let ((program (PATH-search-path command)))
+                      (if (string? program) (begin (stdout program) 0)
+                          1)))))
+             (else (let* ((command (car files))
+                          (builtin (builtin command #:prefer-builtin? %prefer-builtins?)))
+                     ;; FIXME:
+                     `(command ,@args))))))))
+
+
 (define %builtin-commands
   `(
-    ("bg"     . ,bg-command)
-    ("cat"    . ,cat-command)
-    ("cd"     . ,cd-command)
-    ("cp"     . ,cp-command)
-    ("echo"   . ,echo-command)
-    ("exit"   . ,exit-command)
-    ("fg"     . ,fg-command)
-    ("find"   . ,find-command)
-    ("help"   . ,help-command)
-    ("jobs"   . ,jobs-command)
-    ("ls"     . ,ls-command)
-    ("pwd"    . ,pwd-command)
-    ("reboot" . ,reboot-command)
-    ("rm"     . ,rm-command)
-    ("set"    . ,set-command)
-    ("wc"     . ,wc-command)
-    ("which"  . ,which-command)
+    ("bg"      . ,bg-command)
+    ("cat"     . ,cat-command)
+    ("command" . ,command-command)
+    ("cd"      . ,cd-command)
+    ("cp"      . ,cp-command)
+    ("echo"    . ,echo-command)
+    ("exit"    . ,exit-command)
+    ("fg"      . ,fg-command)
+    ("find"    . ,find-command)
+    ("help"    . ,help-command)
+    ("jobs"    . ,jobs-command)
+    ("ls"      . ,ls-command)
+    ("pwd"     . ,pwd-command)
+    ("reboot"  . ,reboot-command)
+    ("rm"      . ,rm-command)
+    ("set"     . ,set-command)
+    ("wc"      . ,wc-command)
+    ("which"   . ,which-command)
     ))
