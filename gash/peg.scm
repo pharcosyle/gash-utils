@@ -354,9 +354,7 @@
            (cut apply (compose (lambda (status)
                                  ((compose (cut assignment "?" <>) number->string) status)
                                  status)
-                               (cut warn 'exit-val <>)
                                status:exit-val
-                               (cut warn 'status <>)
                                system*) command))
           (else (lambda () #t))))
   (exec (append-map glob args)))
