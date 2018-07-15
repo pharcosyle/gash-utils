@@ -230,38 +230,18 @@
     ((('assignent _ ...) _ ...)
      (map transform (keyword-flatten '(and assignent command literal name or pipeline substitution) ast)))
 
-
     (('script o ...) `(script ,@(map transform o)))
-
-    ;; (('pipeline o)
-    ;;  (let ((commands (list (transform o))))
-    ;;   `(pipeline ,@(cons (trace commands) commands))))
 
     (('pipeline o ...)
      (let ((commands (map transform o)))
       `(pipeline ,@(cons (trace commands) commands))))
     
-    ;; (('pipeline h (and t ('command _ ...) ...))
-    ;;  (let ((commands (list (transform h) (transform t))))
-    ;;    `(pipeline ,@(cons (trace commands) commands))))
-    ;; (('pipeline h (and t (('command _ ...) ...)))
-    ;;  (let ((commands (cons (transform h) (map transform t))))
-    ;;    `(pipeline ,@(cons (trace commands) commands))))
-
-    ;;((and o (('pipeline _ ...) ...)) (map transform o))
-
-
     (('command o ...) `(command ,@(map transform o)))
     (('literal o) (transform o))
     (('name o) o)
     (('number o) o)
 
-    ;;(('assignment a b) `(assignment ,(transform a) ',(transform b)))
-
-    (('assignment a (and b ('literal _ ...))) `(assignment ,(transform a) ,(transform b)))
-    (('assignment a b)
-     `(assignment ,(transform a) ',(map transform b)))
-
+    (('assignment a b) `(assignment ,(transform a) ',(transform b)))
 
     (('for-clause name expr body)
      `(for ,(transform name) (lambda _ ,(transform expr)) (lambda _ ,@(transform body))))
