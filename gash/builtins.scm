@@ -257,13 +257,28 @@ Options:
                (is-readable (single-char #\r))
                (is-writable (single-char #\w))
                (is-exeutable (single-char #\x))
+               (string-not-null (single-char #\n))
+               (string-null (single-char #\z))
                (version)))
             (options (getopt-long (cons "test" args) option-spec))
             (help? (option-ref options 'help #f))
             (version? (option-ref options 'version #f))
             (files (option-ref options '() '()))
-            (file (and (pair? files) (car files))))
+            (file (and (pair? files) (car files)))
+            (no-options? (and file
+                              (= (length options) 1))))
        (cond (help? (display "Usage: test [EXPRESSION]
+
+Expression:
+
+  STRING     equivalent to -n STRING
+
+  STRING1 = STRING2
+  STRING1 == STRING2
+             the strings are equal
+
+  STRING1 != STRING2
+             the strings are not equal
 
 Options:
   -d FILE    FILE exists and is a directory
@@ -271,21 +286,30 @@ Options:
   -f FILE    FILE exists and is a regular file
   -h FILE    FILE exists and is a symbolic link (same as -L)
   -L FILE    FILE exists and is a symbolic link (same as -h)
+  -n STRING  the length of STRING is nonzero
   -r FILE    FILE exists and read permission is granted
   -s FILE    FILE exists and has a size greater than zero
   -w FILE    FILE exists and write permission is granted
   -x FILE    FILE exists and execute (or search) permission is granted
+  -z STRING  the length of STRING is zero
   --help     display this help and exit
   --version  display version information and exit
 "))
              (version? (format #t "test (GASH) ~a\n" %version))
              ((null? files) #f)
+             ((or (option-ref options 'n #f)
+                  no-options?)
+              (not (string-null? file)))
+             ((option-ref options 'z #f)
+              (string-null? file))
              ((and (= (length files) 3)
                    (member (cadr files) '("=" "==")))
               (match files
                 ((or (left "=" right)
                      (left "==" right))
                  (equal? left right))
+                ((left "!=" right)
+                 (not (equal? left right)))
                 (expression
                  (pipeline (command expression)))))
              ((not (= (length files) 1))
