@@ -513,8 +513,8 @@ Options:
                         ((boolean? job) (list (if job 0 1)))
                         ((number? job) (list job))
                         (else (list 0))))
-           (status  (if (shell-opt? "pipefail") (or (find (negate zero?) stati) 0)
-                        (car stati)))
+           (status (if (shell-opt? "pipefail") (or (find (negate zero?) stati) 0)
+                       (car stati)))
            (pipestatus (string-append
                         "("
                         (string-join

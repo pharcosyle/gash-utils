@@ -46,7 +46,8 @@
   #t)
 
 (define (variable name)
-  (or (assoc-ref %global-variables (string-drop name 1)) ""))
+  (let ((name (if (string-prefix? "$" name) (string-drop name 1) name)))
+    (or (assoc-ref %global-variables name) "")))
 
 (define (set-shell-opt! name set?)
   (let* ((shell-opts (variable "SHELLOPTS"))
