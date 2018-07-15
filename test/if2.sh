@@ -1,3 +1,3 @@
 if [ x"$y" != x ]; then
-    echo boo
+    echo "boo"
 fi

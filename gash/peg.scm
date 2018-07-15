@@ -145,7 +145,7 @@
      oldword             <-  substitution / assignment / number / variable / delim / literal
 
      word-for-test-assign-sh        <-- assignment / (delim / number / variable / literal)+
-     word-for-test-if-sh            <-- assignment / delim / (number / variable / literal)+
+     word-for-test-if2-sh            <-- assignment / delim / (number / variable / literal)+
 
      word    <-- assignment / (delim / number / variable / literal)+
 
