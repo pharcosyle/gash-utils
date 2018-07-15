@@ -46,10 +46,12 @@
             glob
             singlequotes
             doublequotes
-            expression
+            sequence
+            splice
             for
+            split
             substitution
-            sh-exec
+            script
             if-clause
 
             bg-command
@@ -475,16 +477,23 @@ Options:
 (define (doublequotes . o)
   (string-join (append-map glob  o) ""))
 
-(define (expression . args)
-  (append-map glob args))
+(define (sequence . args)
+  (apply append args))
 
-(define (for name expr body)
+(define (script . o)
+  o)
+
+(define (for name sequence body)
   (for-each (lambda (value)
               (assignment name value)
-              (body)) (expr)))
+              (body))
+            (sequence)))
 
-(define (substitution . commands)
-  (apply (@ (gash pipe) pipeline->string) (map cdr commands))) ;;HACK
+(define (split o)
+  ((compose string-tokenize string-trim-right) o))
+
+(define-syntax-rule (substitution commands)
+  (split (with-output-to-string (lambda _ commands))))
 
 (define-syntax if-clause
   (lambda (x)

@@ -117,7 +117,8 @@
 
      for-keyword      <   'for'
      in-keyword       <   'in'
-     for-clause       <-- for-keyword sp+ name (ws+ in-keyword pipeline)? sp* sequential-sep do-group
+     for-clause       <-- for-keyword sp+ name (ws+ in-keyword sequence)? sp* sequential-sep do-group
+     sequence         <-- (sp+ word)+
      do-keyword       <   'do'
      done-keyword     <   'done'
      do-group         <-  do-keyword ws* compound-list separator done-keyword
@@ -202,11 +203,10 @@
   (eq? o *unspecified*))
 
 (define (transform ast)
-  (when (> %debug-level 1)
+  (when (> %debug-level -1)
     (format (current-error-port) "transform ast=~s\n" ast))
   (match ast
-    (('script o ...) (map transform o))
-    (('substitution o) `(substitution ,@(transform o)))
+    (('script o ...) `(script ,@(map transform o)))
     (('pipeline o) (pk `(pipeline ,(transform o))))
     (('pipeline h t) (pk `(pipeline ,(transform h) ,@(map transform t))))
     (('command o ...) `(command ,@(map transform o)))
@@ -214,7 +214,17 @@
     (('name o) o)
     (('number o) o)
     (('assignment a b) `(lambda _ (assignment ,(transform a) ,(transform b))))
-    (('for-clause name expr do) `(for ,(transform name) (lambda _ ,(transform expr)) (lambda _ ,(transform do))))
+    (('for-clause name expr do)
+     `(for ,(transform name) (lambda _ ,(transform expr)) (lambda _ ,(transform do))))
+    (('sequence o ...)
+     `(sequence ,@(fold-right (lambda (o r)
+                                (cons
+                                 (match o
+                                   (('substitution x) (transform o))
+                                   (_ `(list ,(transform o))))
+                                 r))
+                              '() o)))
+    (('substitution o) `(substitution ,(transform o)))
     (('if-clause expr then) `(if-clause ,(transform expr) ,(transform then)))
     (('if-clause expr then else) `(if-clause ,(transform expr) ,(transform then) ,(transform else)))
     (('then-part o ...) `(begin ,@(map transform o)))
