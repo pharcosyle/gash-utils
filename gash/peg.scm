@@ -142,7 +142,8 @@
      filename         <-- word
      name             <-- identifier
      identifier       <-  [_a-zA-Z][_a-zA-Z0-9]*
-     word             <-  substitution / assignment / number / variable / delim / literal
+     oldword             <-  substitution / assignment / number / variable / delim / literal
+     word             <-- assignment / delim / (substitution / number / variable / literal)+
      number           <-- [0-9]+
      lsubst           <   '$('
      rsubst           <   ')'
@@ -258,4 +259,6 @@
     (('if-clause expr then else) `(if-clause ,(transform expr) ,(transform then) ,(transform else)))
     (('then-part o ...) `(begin ,@(map transform o)))
     (('else-part o ...) `(begin ,@(map transform o)))
+    (('word o) (transform o))
+    (('word o ...) `(string-append ,@(map transform o)))
     (_ ast)))
