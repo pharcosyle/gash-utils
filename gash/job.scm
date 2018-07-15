@@ -102,13 +102,15 @@
   (let ((pgid (add-to-process-group job pid)))
     (set-job-pgid! job pgid)
     (stderr "job-add-process fg?=~a\n" fg?)
-    (when (and #f fg?) ;; FIXME
+    (when (and (isatty? (current-error-port))
+               fg?)
       (tcsetpgrp (current-error-port) pgid))
     (set-job-processes! job (cons (make-process pid command #f) (job-processes job)))))
 
 (define (job-setup-process fg? job)
   (when (isatty? (current-error-port))
-    (when (and #f fg?)
+    (when (and (isatty? (current-error-port))
+               fg?)
       (tcsetpgrp (current-error-port) (add-to-process-group job (getpid))))
     (map (cut sigaction <> SIG_DFL)
          (list SIGINT SIGQUIT SIGTSTP SIGTTIN SIGTTOU SIGCHLD))))
@@ -116,7 +118,9 @@
 (define (job-control-init)
   (when (isatty? (current-error-port))
     (let ((pgid (getpgrp)))
-      (while (not (eqv? (tcgetpgrp (current-error-port)) pgid))
+      (while (and #f  ;; FIXME: make check backgrouds our tests
+                  (isatty? (current-error-port))
+                  (not (eqv? (tcgetpgrp (current-error-port)) pgid)))
         (kill (- pgid) SIGTTIN))) ;; oops we are not in the foreground
     (map (cut sigaction <> SIG_IGN) (list SIGINT SIGQUIT SIGTSTP SIGTTIN SIGTTOU))
     (sigaction SIGCHLD SIG_DFL)
