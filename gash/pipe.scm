@@ -13,7 +13,7 @@
   #:use-module (gash job)
   #:use-module (gash io)
 
-  #:export (handle-error pipeline pipeline->string substitute))
+  #:export (handle-error pipeline+ pipeline->string substitute))
 
 (define (handle-error job error)
   (let ((status (wait job)))
@@ -87,14 +87,9 @@
            (map close w)
            r))))
 
-(define (pipeline fg? . commands)
+(define (pipeline+ fg? . commands)
   (when (> %debug-level 0)
-    (format (current-error-port) "pipeline[~a]: COMMANDS: ~s\n" fg? commands))
-  ;; (when (shell-opt? "xtrace")
-  ;;   (for-each
-  ;;    (lambda (o)
-  ;;      (format (current-error-port) "+ ~a\n" (string-join o)))
-  ;;    (reverse commands)))
+    (format (current-error-port) "pipeline+[~a]: COMMANDS: ~s\n" fg? commands))
   (receive (r w)
       (pipe*)
     (move->fdes w 2)
@@ -136,16 +131,16 @@
 
 (define (pipeline->string . commands)
   (receive (job ports)
-      (apply pipeline #f commands)
+      (apply pipeline+ #f commands)
     (let ((output (read-string (car ports))))
       (wait job)
       output)))
 
-;;(pipeline #f '("head" "-c128" "/dev/urandom") '("tr" "-dc" "A-Z0-9") (lambda () (display (read-string))))
-;;(pipeline #f '("head" "-c128" "/dev/urandom") '("tr" "-dc" "A-Z0-9") '("cat"))
-;;(pipeline #f (lambda () (display 'foo)) '("grep" "o") '("tr" "o" "e"))
+;;(pipeline+ #f '("head" "-c128" "/dev/urandom") '("tr" "-dc" "A-Z0-9") (lambda () (display (read-string))))
+;;(pipeline+ #f '("head" "-c128" "/dev/urandom") '("tr" "-dc" "A-Z0-9") '("cat"))
+;;(pipeline+ #f (lambda () (display 'foo)) '("grep" "o") '("tr" "o" "e"))
 
-;; (pipeline #f
+;; (pipeline+ #f
 ;;    (lambda () (display "\nbin\nboot\nroot\nusr\nvar"))
 ;;    '("tr" "u" "a")
 ;;    (lambda () (display (string-map (lambda (c) (if (eq? c #\o) #\e c)) (read-string))))
@@ -153,7 +148,7 @@
 ;;    (lambda () (display (read-string))))
 
 ;; (receive (job ports)
-;;     (pipeline #f
+;;     (pipeline+ #f
 ;;               (lambda ()
 ;;                 (display "foo")
 ;;                 (display "bar" (current-error-port)))

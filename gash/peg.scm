@@ -119,15 +119,14 @@
 
      for-keyword      <   'for'
      in-keyword       <   'in'
-     for-clause       <-- for-keyword sp+ name (ws+ in-keyword expression)? sp* sequential-sep do-group
-     expression       <-- (sp+ word)+
+     for-clause       <-- for-keyword sp+ name (ws+ in-keyword pipeline)? sp* sequential-sep do-group
      do-keyword       <   'do'
      done-keyword     <   'done'
      do-group         <-  do-keyword ws* compound-list separator done-keyword
 
      if-keyword       <   'if'
      fi-keyword       <   'fi'
-     if-clause        <-- if-keyword expression separator then-part elif-part* else-part? fi-keyword
+     if-clause        <-- if-keyword pipeline separator then-part elif-part* else-part? fi-keyword
      then-keyword     <   'then'
      then-part        <-- then-keyword ws* compound-list separator
      elif-keyword     <   'elif'
@@ -144,11 +143,8 @@
      filename         <-- word
      name             <-- identifier
      identifier       <-  [_a-zA-Z][_a-zA-Z0-9]*
-     word             <-  test / substitution / assignment / number / variable / delim / literal
+     word             <-  substitution / assignment / number / variable / delim / literal
      number           <-- [0-9]+
-     test             <-- ltest expression  rtest
-     ltest            <   '[ '
-     rtest            <   ' ]'
      lsubst           <   '$('
      rsubst           <   ')'
      tick             <   '`'
@@ -156,7 +152,7 @@
      assignment       <-- name assign (substitution / word)*
      assign           <   '='
      dollar           <-  '$'
-     literal          <-- (!ltest !tick !dollar !pipe !semi !par !nl !sp .)+
+     literal          <-- (!tick !dollar !pipe !semi !par !nl !sp .)+
      variable         <-- dollar (dollar / '*' / '?' / '@' / [0-9] / identifier / ([{] (![}] .)+ [}]))
      delim            <-  singlequotes / doublequotes / substitution
      sq               <   [']
@@ -201,7 +197,7 @@
           ((eq? ast 'script)
            #t)
           (else
-           (map sh-exec ast)
+           (map (cut local-eval <> (the-environment)) ast)
            ast))))
 
 (define (unspecified? o)
@@ -217,8 +213,6 @@
     (('pipeline h t) (pk `(pipeline ,(transform h) ,@(map transform t))))
     (('command o ...) (let* ((command (map transform o))
                              (program (car command))
-                             ;; if [ 0 = 1 ] ... program = '(if ...) not a string
-                             ;; this escape-builtin? is probably not deep enough?
                              (escape-builtin? (and (string? program) (string-prefix? "\\" program)))
                              (program (if escape-builtin? (string-drop program 1) program))
                              (command (cons program (cdr command))))
@@ -230,11 +224,10 @@
     (('literal o) (transform o))
     (('name o) o)
     (('number o) o)
-    (('expression o ...) `(expression ,@(map transform o)))
     (('assignment a b) `(lambda _ (assignment ,(transform a) ,(transform b))))
     (('for-clause name expr do) `(for ,(transform name) (lambda _ ,(transform expr)) (lambda _ ,(transform do))))
-    (('if-clause expr then) `(if ,(transform expr) ,(transform then)))
-    (('if-clause expr then else) `(if ,(transform expr) ,(transform then) ,(transform else)))
+    (('if-clause expr then) `(if-clause ,(transform expr) ,(transform then)))
+    (('if-clause expr then else) `(if-clause ,(transform expr) ,(transform then) ,(transform else)))
     (('then-part o ...) `(begin ,@(map transform o)))
     (('else-part o ...) `(begin ,@(map transform o)))
     (_ ast)))

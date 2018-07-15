@@ -34,7 +34,7 @@
   #:use-module (gash guix-build-utils)
   #:use-module (gash io)
   #:use-module (gash job)
-  #:use-module (gash peg)               ; pipeline
+  #:use-module (gash pipe)
 
   #:export (
             %builtin-commands
@@ -48,6 +48,7 @@
             for
             substitution
             sh-exec
+            if-clause
 
             bg-command
             cd-command
@@ -131,7 +132,7 @@ mostly works, pipes work, some redirections work.
      (let* ((option-spec
              '((help)
                (version)))
-            (options (getopt-long (cons "ls" args) option-spec))
+            (options (getopt-long (cons "find" args) option-spec))
             (help? (option-ref options 'help #f))
             (version? (option-ref options 'version #f))
             (files (option-ref options '() '()))
@@ -164,7 +165,7 @@ Options:
                (help)
                (show (single-char #\v))
                (version)))
-            (options (getopt-long (cons "ls" args) option-spec))
+            (options (getopt-long (cons "command" args) option-spec))
             (help? (option-ref options 'help #f))
             (version? (option-ref options 'version #f))
             (files (option-ref options '() '())))
@@ -206,7 +207,7 @@ Options:
              '((help)
                (canonical-file-name (single-char #\p))
                (version)))
-            (options (getopt-long (cons "ls" args) option-spec))
+            (options (getopt-long (cons "type" args) option-spec))
             (help? (option-ref options 'help #f))
             (version? (option-ref options 'version #f))
             (files (option-ref options '() '())))
@@ -253,12 +254,10 @@ Options:
                (is-writable (single-char #\w))
                (is-exeutable (single-char #\x))
                (version)))
-            (options (getopt-long (cons "ls" args) option-spec))
+            (options (getopt-long (cons "test" args) option-spec))
             (help? (option-ref options 'help #f))
             (version? (option-ref options 'version #f))
             (files (option-ref options '() '()))
-            (files (if (equal? (last files) "]") (drop-right files 1)
-                       files))
             (file (and (pair? files) (car files))))
        (cond (help? (display "Usage: test [EXPRESSION]
 
@@ -284,11 +283,12 @@ Options:
                      (left "==" right))
                  (equal? left right))
                 (expression
-                 (let ((status (sh-exec `(pipeline (command ',expression)))))
-                   (zero? status)))))
+                 (pipeline (command expression)))))
              ((not (= (length files) 1))
               (format (current-error-port) "test: too many files: ~a\n" files)
               1)
+             ((option-ref options 'is-file #f)
+              (regular-file? file))
              ((option-ref options 'is-directory #f)
               (directory-exists? file))
              ((option-ref options 'exists #f)
@@ -304,7 +304,22 @@ Options:
               (access? file W_OK))
              ((option-ref options 'is-exeutable #f)
               (access? file X_OK))
-             (else #f))))))
+             (else
+              (error "gash: test: not supported" args)))))))
+
+(define bracket-command
+  (case-lambda
+    (() #f)
+    (args
+     (cond ((and (pair? args) (equal? (car args) "--help"))
+            (test-command "--help"))
+           ((and (pair? args) (equal? (car args) "--version"))
+            (test-command "--version"))
+           (else
+            (if (not (equal? (last args) "]")) (begin
+                                                 (format (current-error-port) "gash: [: missing `]'\n")
+                                                 #f)
+                (apply test-command (drop-right args 1))))))))
 
 (define grep-command
   (case-lambda
@@ -338,8 +353,8 @@ Options:
              (version? (format #t "grep (GASH) ~a\n" %version))
              ((null? files) #t)
              (else
-              (let* ((pattern (warn 'pattern (car files)))
-                     (files (warn 'files (cdr files)))
+              (let* ((pattern (car files))
+                     (files (cdr files))
                      (matches (append-map (cut grep pattern <>) files)))
                 (define (display-match o)
                   (let* ((s (grep-match-string o))
@@ -472,17 +487,26 @@ Options:
 (define (substitution . commands)
   (apply (@ (gash pipe) pipeline->string) (map cdr commands))) ;;HACK
 
-(define (sh-exec ast)
-  (define (exec cmd)
-    (when (> %debug-level 0)
-      (format (current-error-port) "sh-exec:exec cmd=~s\n" cmd))
-    (let* ((job (local-eval cmd (the-environment)))
-           (stati (cond ((job? job) (map status:exit-val (job-status job)))
+(define-syntax if-clause
+  (lambda (x)
+    (syntax-case x ()
+      ((_ expr then)
+       (with-syntax ((it (datum->syntax x 'it)))
+         #'(let ((it expr))
+             (if (zero? it) then))))
+      ((_ expr then else)
+       (with-syntax ((it (datum->syntax x 'it)))
+         #'(let ((it expr))
+             (if (zero? it) then else)))))))
+
+(define (pipeline . commands)
+  (define (handle job)
+    (let* ((stati (cond ((job? job) (map status:exit-val (job-status job)))
                         ((boolean? job) (list (if job 0 1)))
                         ((number? job) (list job))
                         (else (list 0))))
-           (status (if (shell-opt? "pipefail") (or (find (negate zero?) stati) 0)
-                       (car stati)))
+           (status  (if (shell-opt? "pipefail") (or (find (negate zero?) stati) 0)
+                        (car stati)))
            (pipestatus (string-append
                         "("
                         (string-join
@@ -498,35 +522,17 @@ Options:
         (exit status))
       status))
   (when (> %debug-level 1)
-    (format (current-error-port) "sh-exec:exec ast=~s\n" ast))
-  (match ast
-    ('script #t) ;; skip
-    (('pipeline commands ...)
-     (when (shell-opt? "xtrace")
-       (for-each
-        (lambda (o)
-          (match o
-            (('command command ...)
-             ;;(format (current-error-port) "+ ~a\n" (string-join command))
-             ;; FIXME: side-effects done twice?!
-             ;; '(variable "$?"): not a string...hmm
-             (format (current-error-port) "+ ~a\n" (string-join (map (cut local-eval <> (the-environment)) command)))
-             )
-            (_ (format (current-error-port) "FIXME trace:~s" o))))
-        (reverse commands)))
-     (exec ast))
-    (_ (for-each exec ast))))
-
-(define (pipeline . commands)
-  (when (> %debug-level 1)
     (format (current-error-port) "pijp: commands=~s\n" commands))
   ;; FIXME: after running a builtin, we still end up here with the builtin's result
   ;; that should probably not happen, however, cater for it here for now
   (match commands
-    (((and (? boolean?) boolean)) (if boolean 0 1))
-    (((and (? number?) number)) number)
-    (((? unspecified?)) 0)
-    (_ (apply (@ (gash pipe) pipeline) #t commands))))
+    (((and (? boolean?) boolean))
+     (handle boolean))
+    (((and (? number?) number))
+     (handle number))
+    (((? unspecified?))
+     (handle #t))
+    (_ (handle (apply pipeline+ #t commands)))))
 
 (define %builtin-commands
   `(
@@ -551,5 +557,5 @@ Options:
     ("type"    . ,type-command)
     ("wc"      . ,wc-command)
     ("which"   . ,which-command)
-    ("["       . ,test-command)
+    ("["       . ,bracket-command)
     ))

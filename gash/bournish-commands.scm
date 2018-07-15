@@ -111,7 +111,6 @@ TERMINAL-WIDTH.  Use COLUMN-GAP spaces between two subsequent columns."
     (()
      (display-tabulated (scandir ".")))
     (args
-     (format (current-error-port) "hiero:args=~s\n" args)
      (let* ((option-spec
              '((all (single-char #\a))
                (help)

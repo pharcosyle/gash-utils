@@ -44,6 +44,7 @@
 
             directory-exists?
             executable-file?
+            regular-file?
             symbolic-link?
             ))
 
@@ -67,9 +68,17 @@
     (and s
          (not (zero? (logand (stat:mode s) #o100))))))
 
+(define (regular-file? file)
+  "Return #t if FILE is a regular file."
+  (let ((s (stat file #f)))
+    (and s
+         (eq? (stat:type s) 'regular))))
+
 (define (symbolic-link? file)
   "Return #t if FILE is a symbolic link (aka. \"symlink\".)"
-  (eq? (stat:type (lstat file)) 'symlink))
+  (let ((s (lstat file)))
+    (and s
+         (eq? (stat:type s) 'symlink))))
 
 (define (file-name-predicate regexp)
   "Return a predicate that returns true when passed a file name whose base
