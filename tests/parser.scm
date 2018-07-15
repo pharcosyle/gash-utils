@@ -138,6 +138,55 @@
                               (<sh-exec> "echo" "bar")))
   (parse "(echo foo; echo bar)"))
 
+;; Here documents
+
+(test-equal "Parses one here-document in a complete command"
+  '(<sh-with-redirects> ((<< 0 (<sh-quote> "foo\n")))
+     (<sh-exec> "cat"))
+  (parse "cat <<eof\nfoo\neof"))
+
+(test-equal "Parses multiple here-documents in a complete command"
+  '(<sh-begin> (<sh-with-redirects> ((<< 0 (<sh-quote> "foo\n")))
+                 (<sh-exec> "cat"))
+               (<sh-with-redirects> ((<< 0 (<sh-quote> "bar\n")))
+                 (<sh-exec> "cat")))
+  (parse "cat <<eof1; cat <<eof2\nfoo\neof1\nbar\neof2"))
+
+(test-equal "Parses one here-document in a compound list"
+  '(<sh-subshell>
+    (<sh-with-redirects> ((<< 0 (<sh-quote> "foo\n")))
+      (<sh-exec> "cat")))
+  (parse "(cat <<eof\nfoo\neof\n)"))
+
+(test-equal "Parses multiple here-documents in a compound list"
+  '(<sh-subshell>
+    (<sh-begin> (<sh-with-redirects> ((<< 0 (<sh-quote> "foo\n")))
+                  (<sh-exec> "cat"))
+                (<sh-with-redirects> ((<< 0 (<sh-quote> "bar\n")))
+                  (<sh-exec> "cat"))))
+  (parse "(cat <<eof1; cat <<eof2\nfoo\neof1\nbar\neof2\n)"))
+
+(test-equal "Parses here-documents in both simultaneously"
+  '(<sh-begin> (<sh-subshell>
+                (<sh-with-redirects> ((<< 0 (<sh-quote> "foo\n")))
+                  (<sh-exec> "cat")))
+               (<sh-with-redirects> ((<< 0 (<sh-quote> "bar\n")))
+                 (<sh-exec> "cat")))
+  (parse "(cat <<eof1); cat <<eof2\nfoo\neof1\nbar\neof2"))
+
+(test-equal "Parses two here-documents split by two newlines"
+  '(<sh-subshell>
+    (<sh-begin> (<sh-with-redirects> ((<< 0 (<sh-quote> "foo\n")))
+                  (<sh-exec> "cat"))
+                (<sh-with-redirects> ((<< 0 (<sh-quote> "bar\n")))
+                  (<sh-exec> "cat"))))
+  (parse "(\ncat <<eof\nfoo\neof\n\ncat <<eof\nbar\neof\n)"))
+
+(test-equal "Parses tab-trimming here-document"
+  '(<sh-with-redirects> ((<< 0 (<sh-quote> "foo\n")))
+     (<sh-exec> "cat"))
+  (parse "cat <<-eof\n\tfoo\n\teof"))
+
 ;; For loops
 
 (test-equal "Parses for loops over parameters without seperator"

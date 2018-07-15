@@ -73,15 +73,101 @@ the variable name and the second element is the value expression."
 ;; end-of-file objects, but (rnrs io ports) does.
 (define eof-object (@ (rnrs io ports) eof-object))
 
+(define (map+fold proc init xs)
+  "Apply @var{proc} to each element of @var{xs}, mapping and folding
+at the same time.  The procedure @var{proc} must return two values:
+the first is the result for mapping, and the second is the result for
+folding."
+  (let loop ((xs xs) (map-acc '()) (fold-acc init))
+    (match xs
+      ((x . rest) (let-values (((map-value fold-value) (proc x fold-acc)))
+                    (loop rest (cons map-value map-acc) fold-value)))
+      (() (values (reverse! map-acc) fold-acc)))))
+
+(define (merge-here-docs cmd here-docs)
+  "Replace @code{'(<sh-here-end> ...)} forms in @var{cmd} with words
+from the list @var{here-docs}.  Returns two values: the modified
+@var{cmd} and the unused strings from @var{here-docs}."
+  (match cmd
+    (('<sh-with-redirects> redirs . rest)
+     (let*-values (((redirs here-docs)
+                    (let loop ((redirs redirs) (here-docs here-docs) (acc '()))
+                      (match redirs
+                        ((((or '<< '<<-) fdes ('<sh-here-end> _)) . rest)
+                         (loop rest (cdr here-docs)
+                               (cons `(<< ,fdes ,(car here-docs)) acc)))
+                        ((redir . rest)
+                         (loop rest here-docs
+                               (cons redir acc)))
+                        (() (values (reverse! acc) here-docs)))))
+                   ((rest here-docs)
+                    (map+fold merge-here-docs here-docs rest)))
+       (values `(<sh-with-redirects> ,redirs ,@rest) here-docs)))
+    ((xs ...) (map+fold merge-here-docs here-docs xs))
+    (x (values x here-docs))))
+
+(define (remove-quotes here-end)
+  "Remove quote forms from @var{here-end} and concatenate the result
+into a single field (string).  If there are no quote forms in
+@var{here-end}, it is returned as-is.  This means that when @code{(eq?
+here-end (remove-quotes here-end))}, then @var{here-end} does not
+contain any quote forms."
+  (let loop ((word here-end) (quotes? #f) (acc '()))
+    (match word
+      (() (if quotes? (string-concatenate-reverse acc) here-end))
+      (('<sh-quote> word*) (loop '() #t (cons (remove-quotes word*) acc)))
+      ((('<sh-quote> word*) . t) (loop t #t (cons (remove-quotes word*) acc)))
+      ((? string?) (loop '() quotes? (cons word acc)))
+      (((? string? h) . t) (loop t quotes? (cons h acc))))))
+
+(define (read-here-docs op+ends port)
+  "Read a here-document from @var{port} for each operator and here-end
+pair in @var{op+ends}."
+  (map (match-lambda
+         ((op . end) (let ((end* (remove-quotes end)))
+                       (get-here-doc (remove-quotes end) port
+                                     #:trim-tabs? (eq? op '<<-)
+                                     #:quoted? (not (eq? end end*))))))
+       op+ends))
+
 (define (make-lexer port read-sh/bracketed read-sh/backquoted)
   "Make a lexer thunk that reads tokens from @var{port}. When the lexer
 needs to read subcommands, it uses @var{read-sh/bracketed} to read
 bracketed subcommands and @var{read-sh/backquoted} to read backquoted
 subcommands."
+  (define next-tokens '())
+  (define here-ends '())
   (lambda ()
     (parameterize ((read-bracketed-command read-sh/bracketed)
                    (read-backquoted-command read-sh/backquoted))
-      (get-token port))))
+      (match next-tokens
+        (()
+         (let* ((token (get-token port))
+                (category (and (lexical-token? token)
+                               (lexical-token-category token))))
+           (match category
+             ((or 'DLESS 'DLESSDASH)
+              (let ((here-end (get-here-end port)))
+                (unless (lexical-token? here-end)
+                  (error "Unexpected EOF."))
+                (let ((op (if (eq? category 'DLESS) '<< '<<-))
+                      (end (lexical-token-value here-end)))
+                  (set! here-ends (cons `(,op . ,end) here-ends))
+                  (set! next-tokens `(,here-end)))
+                token))
+             ('NEWLINE
+              (if (null? here-ends)
+                  token
+                  (let ((here-docs (read-here-docs (reverse here-ends) port)))
+                    (set! here-ends '())
+                    (set! next-tokens (append here-docs `(,token)))
+                    (make-lexical-token 'HERE-DOC-SEP
+                                        (lexical-token-source token)
+                                        ""))))
+             (_ token))))
+        ((next-token . rest)
+         (set! next-tokens rest)
+         next-token)))))
 
 (define* (make-parser #:key (command-hook noop)
                       (open-bracket-hook noop)
@@ -137,7 +223,9 @@ the same number of times.)"
     ASSIGNMENT-WORD
     NAME
     NEWLINE
-    IO-NUMBER)
+    IO-NUMBER
+    HERE-DOC
+    HERE-DOC-SEP)
 
    (program
     (linebreak complete-commands linebreak)
@@ -156,6 +244,11 @@ the same number of times.)"
         `(,$1)))
 
    (complete-command
+    (complete-command HERE-DOC-SEP here-doc-list)
+    : (let-values (((complete-command here-docs) (merge-here-docs $1 $3)))
+        (unless (null? here-docs)
+          (error "Unused here-documents"))
+        complete-command)
     (list separator-op)
     : (let ((lst (match $2
                    ('AND (reverse! (cons `(<sh-async> ,(car $1)) (cdr $1))))
@@ -240,6 +333,11 @@ the same number of times.)"
         (cmds `(<sh-begin> ,@(reverse! cmds)))))
 
    (term
+    (term HERE-DOC-SEP here-doc-list)
+    : (let-values (((term here-docs) (merge-here-docs $1 (reverse $3))))
+        (unless (null? here-docs)
+          (error "Unused here-documents"))
+        term)
     (term separator and-or)
     : (match $2
         ('AND (cons* $3 `(<sh-async> ,(car $1)) (cdr $1)))
@@ -461,9 +559,9 @@ the same number of times.)"
 
    (io-here
     (DLESS here-end)
-    : `(<< . ,$2)
+    : `(<< . (<sh-here-end> ,$2))
     (DLESSDASH here-end)
-    : `(<<- . ,$2))
+    : `(<<- . (<sh-here-end> ,$2)))
 
    (here-end
     (WORD*)
@@ -598,7 +696,15 @@ the same number of times.)"
 
    (pattern!
     (pattern)
-    : (begin (open-bracket-hook) $1))))
+    : (begin (open-bracket-hook) $1))
+
+   ;; A helper rule for handling here-docs.
+
+   (here-doc-list
+    (here-doc-list HERE-DOC)
+    : (append $1 `(,$2))
+    (HERE-DOC)
+    : `(,$1))))
 
 (define* (syntax-error message #:optional token)
   "Handle a parser error"
