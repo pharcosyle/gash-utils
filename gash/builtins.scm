@@ -17,6 +17,7 @@
 ;;; along with Gash.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (gash builtins)
+  #:use-module (ice-9 ftw)
   #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 local-eval)
   #:use-module (ice-9 match)
@@ -35,6 +36,7 @@
   #:use-module (gash io)
   #:use-module (gash job)
   #:use-module (gash pipe)
+  #:use-module (gash util)
 
   #:export (
             %builtin-commands
@@ -74,8 +76,8 @@
 (define (echo-command . args)
   (match args
     (() (newline))
-    (("-n" args ...) (map display args))
-    (_ (map display args) (newline))))
+    (("-n" args ...) (display (string-join args)))
+    (_ (display (string-join args)) (newline))))
 
 (define (bg-command . args)
   (match args
@@ -419,25 +421,21 @@ Options:
              =>
              (lambda (command)
                (if args
-                   `(,apply ,command ',(map (cut local-eval <> (the-environment)) args))
-                   command)))
+                   (apply command (map (cut local-eval <> (the-environment)) args))
+                   (command))))
             (else #f)))))
 
 (define (command . args)
   (define (exec command)
     (cond ((procedure? command) command)
-          ((every string? command) (cut apply (compose status:exit-val system*) command))
-          ;; not sure whether to do $?/PIPESTATUS here or in sh-exec
           ((every string? command)
-           (cut apply (compose (lambda (status)
-                                 ((compose (cut assignment "?" <>) number->string) status)
-                                 status)
-                               (lambda (status)
-                                 (when (not (zero? status))
-                                   (format (current-error-port) "*****gash: ~a: ~a" (car command) (strerror status)))
-                                 status)
-                               status:exit-val
-                               system*) command))
+           (let* ((program (car command))
+                  (escape-builtin? (and (string? program) (string-prefix? "\\" program)))
+                  (program (if escape-builtin? (string-drop program 1) program))
+                  (command (cons program (cdr command))))
+             (or (builtin command #:prefer-builtin? (and %prefer-builtins?
+                                                          (not escape-builtin?)))
+                 (cut apply (compose status:exit-val system*) command))))
           (else (lambda () #t))))
   (exec (append-map glob args)))
 
@@ -451,23 +449,24 @@ Options:
       (make-regexp (string-append "^" pattern "$"))))
   (define (glob-match regex path) ;; pattern path -> bool
     (regexp-match? (regexp-exec regex path)))
-  (define (glob- pattern paths)
-    (map (lambda (path)
-           (if (string-prefix? "./" path) (string-drop path 2) path))
-         (append-map (lambda (path)
-                       (map (cute string-append (if (string=? "/" path) "" path) "/" <>)
+  (define (glob- pattern file-names)
+    (map (lambda (file-name)
+           (if (string-prefix? "./" file-name) (string-drop file-name 2) file-name))
+         (append-map (lambda (file-name)
+                       (map (cut string-append (if (string=? "/" file-name) "" file-name) "/" <>)
                             (filter (conjoin (negate (cut string-prefix? "." <>))
                                              (cute glob-match (glob2regex pattern) <>))
-                                    (or (scandir path) '()))))
-                     paths)))
+                                    (or (scandir file-name) '()))))
+                     file-names)))
   (cond
    ((not pattern) '(""))
    ((glob? pattern) (let ((absolute? (string-prefix? "/" pattern)))
                       (let loop ((patterns (filter (negate string-null?) (string-split pattern #\/)))
-                                 (paths (if absolute? '("/") '("."))))
+                                 (file-names (if absolute? '("/") '("."))))
                         (if (null? patterns)
-                            paths
-                            (loop (cdr patterns) (glob- (car patterns) paths))))))
+                            file-names
+                            (begin
+                              (loop (cdr patterns) (glob- (car patterns) file-names)))))))
    (#t (list pattern))))
 
 (define (singlequotes . o)

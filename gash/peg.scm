@@ -1,5 +1,4 @@
 (define-module (gash peg)
-  #:use-module (ice-9 ftw)
   #:use-module (ice-9 local-eval)
   #:use-module (ice-9 match)
   #:use-module (ice-9 pretty-print)
@@ -15,7 +14,6 @@
   #:use-module (gash gash)
   #:use-module (gash io)
   #:use-module (gash job)
-  #:use-module (gash util)
 
   #:export (
             parse
@@ -211,16 +209,7 @@
     (('substitution o) `(substitution ,@(transform o)))
     (('pipeline o) (pk `(pipeline ,(transform o))))
     (('pipeline h t) (pk `(pipeline ,(transform h) ,@(map transform t))))
-    (('command o ...) (let* ((command (map transform o))
-                             (program (car command))
-                             (escape-builtin? (and (string? program) (string-prefix? "\\" program)))
-                             (program (if escape-builtin? (string-drop program 1) program))
-                             (command (cons program (cdr command))))
-                        (when (> %debug-level 1)
-                          (format (current-error-port) "transform command=~s\n" command))
-                        (or (builtin command #:prefer-builtin? (and %prefer-builtins?
-                                                                    (not escape-builtin?)))
-                            `(command ,@command))))
+    (('command o ...) `(command ,@(map transform o)))
     (('literal o) (transform o))
     (('name o) o)
     (('number o) o)

@@ -145,42 +145,6 @@ copyleft.
         (_ o))))
   (map expand- o))
 
-
-;; TODO: add braces
-(define (glob pattern) ;; pattern -> list of path
-
-  (define (glob? pattern)
-    (string-match "\\?|\\*" pattern))
-
-  (define (glob2regex pattern)
-    (let* ((pattern (regexp-substitute/global #f "\\." pattern 'pre "\\." 'post))
-           (pattern (regexp-substitute/global #f "\\?" pattern 'pre "." 'post))
-           (pattern (regexp-substitute/global #f "\\*" pattern 'pre ".*" 'post)))
-      (make-regexp (string-append "^" pattern "$"))))
-
-  (define (glob-match regex path) ;; pattern path -> bool
-    (regexp-match? (regexp-exec regex path)))
-
-  (define (glob- pattern paths)
-    (map (lambda (path)
-           (if (string-prefix? "./" path) (string-drop path 2) path))
-         (append-map (lambda (path)
-                       (map (cute string-append (if (string=? "/" path) "" path) "/" <>)
-                            (filter (conjoin (negate (cut string-prefix? "." <>))
-                                             (cute glob-match (glob2regex pattern) <>))
-                                    (or (scandir path) '()))))
-                     paths)))
-  (cond
-   ((not pattern) '(""))
-   ((string-prefix? "$" pattern) (list (pk "get " pattern " => " (assoc-ref global-variables (string-drop pattern 1))))) ;; TODO: REMOVE ME
-   ((glob? pattern) (let ((absolute? (string-prefix? "/" pattern)))
-                      (let loop ((patterns (filter (negate string-null?) (string-split pattern #\/)))
-                                 (paths (if absolute? '("/") '("."))))
-                        (if (null? patterns)
-                            paths
-                            (loop (cdr patterns) (glob- (car patterns) paths))))))
-   (#t (list pattern))))
-
 (define (DEAD-background ast)
   (match ast
     (('pipeline fg rest ...) `(pipeline #f ,@rest))
