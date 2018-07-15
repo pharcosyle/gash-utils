@@ -54,6 +54,7 @@
             script
             if-clause
             xtrace
+            word
 
             bg-command
             cd-command
@@ -503,7 +504,10 @@ Options:
   (string-join (append-map glob  o) ""))
 
 (define (sequence . args)
-  (append-map glob (apply append args)))
+  (pke 'sequence (append-map glob (apply append args)))
+  ;;(pke 'sequence (map glob (pke 'apply-append (apply append (pke 'seq-args: args)))))
+  ;;(list (apply append args))
+  )
 
 (define (script . o)
   o)
@@ -520,8 +524,13 @@ Options:
 (define (xtrace o)
   (o))
 
+(define (word . o)
+  (apply string-append o))
+
 (define-syntax-rule (substitution commands)
-  (split (with-output-to-string (lambda _ commands))))
+  (let ((lst (pke 'split (split (pke 'string (with-output-to-string (lambda _ commands)))))))
+    (if (= (length lst) 1) (car lst)
+        lst)))
 
 (define-syntax if-clause
   (lambda (x)

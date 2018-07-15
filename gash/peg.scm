@@ -143,7 +143,13 @@
      name             <-- identifier
      identifier       <-  [_a-zA-Z][_a-zA-Z0-9]*
      oldword             <-  substitution / assignment / number / variable / delim / literal
-     word             <-- assignment / delim / (substitution / number / variable / literal)+
+
+     word-for-test-assign-sh        <-- assignment / (delim / number / variable / literal)+
+     word-for-test-if-sh            <-- assignment / delim / (number / variable / literal)+
+
+     word    <-- assignment / (delim / number / variable / literal)+
+
+
      number           <-- [0-9]+
      lsubst           <   '$('
      rsubst           <   ')'
@@ -187,10 +193,12 @@
               (format (current-error-port) "parse error: no match\n")
               #f)))))
 
+(define (flatten o)
+  (keyword-flatten '(and assignent command doublequotes for-clause literal name or pipeline singlequotes substitution word) o))
 (define (parse input)
   (let* ((pt (parse- input))
          (foo (when (> %debug-level 1) (display "tree:\n") (pretty-print pt)))
-         (flat (keyword-flatten '(and assignent command literal name or pipeline substitution) pt))
+         (flat (flatten pt))
          (foo (when (> %debug-level 0) (display "flat:\n") (pretty-print flat)))
          (ast (transform flat))
          (foo (when (> %debug-level 0) (display "ast:\n") (pretty-print ast))))
@@ -222,43 +230,63 @@
     (pretty-print ast (current-error-port)))
   (match ast
     ;; FIXME: flatten?
-    ((('pipeline _ ...) _ ...)
-     (map transform (keyword-flatten '(and assignent command literal name or pipeline substitution) ast)))
 
-    ((('literal _ ...) _ ...)
-     (map transform (keyword-flatten '(and assignent command literal name or pipeline substitution) ast)))
+    ((('assignent _ ...) _ ...) (map transform (flatten ast)))
+    ((('command _ ...) _ ...) (map transform (flatten ast)))
+    ((('doublequotes _ ...) _ ...) (map transform (flatten ast)))
+    ((('for-clause _ ...) _ ...) (map transform (flatten ast)))
+    ((('literal _ ...) _ ...) (map transform (flatten ast)))
+    ((('pipeline _ ...) _ ...) (map transform (flatten ast)))
+    ((('singlequotes _ ...) _ ...) (map transform (flatten ast)))
+    ((('word _ ...) _ ...) (map transform (flatten ast)))
 
-    ((('assignent _ ...) _ ...)
-     (map transform (keyword-flatten '(and assignent command literal name or pipeline substitution) ast)))
 
     (('script o ...) `(script ,@(map transform o)))
 
     (('pipeline o ...)
      (let ((commands (map transform o)))
-      `(pipeline ,@(cons (trace commands) commands))))
+       `(pipeline ,@(cons (trace commands) commands))))
     
     (('command o ...) `(command ,@(map transform o)))
     (('literal o) (transform o))
     (('name o) o)
     (('number o) o)
 
-    (('assignment a b) `(assignment ,(transform a) ',(transform b)))
+    ;;(('assignment a b) `(assignment ,(transform a) ',(transform b)))
+    ;; FIXME: to quote or not?
+    (('assignment a b) `(assignment ,(transform a) ,(transform b)))
 
+    ;; (('assignment a (and b ('literal _ ...))) `(assignment ,(transform a) ,(transform b)))
+    ;; (('assignment a b)
+    ;;  `(assignment ,(transform a) ,(map transform b)))
+
+
+    (('for-clause name expr (and body ('pipeline _ ...)))
+     `(for ,(transform name) (lambda _ ,(transform expr)) (lambda _ ,(transform body))))
     (('for-clause name expr body)
-     `(for ,(transform name) (lambda _ ,(transform expr)) (lambda _ ,@(transform body))))
+     `(for ,(transform name) (lambda _ ,(transform expr)) (lambda _ ,@(map transform body))))
+    (('sequence o)
+     `(sequence ,@(fold-right (lambda (o r)
+                                      (cons
+                                       (match o
+                                         (('substitution x) (transform o))
+                                         (_ `(list ,(transform o))))
+                                       r))
+                                    '() o)))
     (('sequence o ...)
      `(sequence ,@(fold-right (lambda (o r)
-                                (cons
-                                 (match o
-                                   (('substitution x) (transform o))
-                                   (_ `(list ,(transform o))))
-                                 r))
-                              '() o)))
+                                      (cons
+                                       (match o
+                                         (('substitution x) (transform o))
+                                         (_ `(list ,(transform o))))
+                                       r))
+                                    '() o)))
     (('substitution o) `(substitution ,(transform o)))
     (('if-clause expr then) `(if-clause ,(transform expr) ,(transform then)))
     (('if-clause expr then else) `(if-clause ,(transform expr) ,(transform then) ,(transform else)))
     (('then-part o ...) `(begin ,@(map transform o)))
     (('else-part o ...) `(begin ,@(map transform o)))
+    (('word 'singlequotes) "")
     (('word o) (transform o))
     (('word o ...) `(string-append ,@(map transform o)))
     (_ ast)))

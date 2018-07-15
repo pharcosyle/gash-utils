@@ -1,6 +1,6 @@
 #! /bin/sh
 # -*-scheme-*-
-exec ${GUILE-guile} -L $(pwd)/bin -L $(pwd) -C $(pwd)/bin -C $(pwd) --no-auto-compile -e '(gash)' -s $0 "$@"
+exec ${GUILE-guile} -L $(dirname $0) -L $(dirname $(dirname $0)) -C $(dirname $0) -C $(dirname $(dirname $0)) --no-auto-compile -e '(gash)' -s $0 "$@"
 !#
 (define-module (gash)
   #:export (main))
