@@ -218,33 +218,46 @@
 
 (define (transform ast)
   (when (> %debug-level 1)
-    (format (current-error-port) "transform ast=~s\n" ast))
+    (pretty-print ast (current-error-port)))
   (match ast
+    ;; FIXME: flatten?
+    ((('pipeline _ ...) _ ...)
+     (map transform (keyword-flatten '(and assignent command literal name or pipeline substitution) ast)))
+
+    ((('literal _ ...) _ ...)
+     (map transform (keyword-flatten '(and assignent command literal name or pipeline substitution) ast)))
+
+    ((('assignent _ ...) _ ...)
+     (map transform (keyword-flatten '(and assignent command literal name or pipeline substitution) ast)))
+
+
     (('script o ...) `(script ,@(map transform o)))
 
+    ;; (('pipeline o)
+    ;;  (let ((commands (list (transform o))))
+    ;;   `(pipeline ,@(cons (trace commands) commands))))
 
-    ;; FIXME: how to get rid of PEG's gratuitous parentheses/heterogeneous grouping
-    (('pipeline o)
-     (let ((commands (list (transform o))))
+    (('pipeline o ...)
+     (let ((commands (map transform o)))
       `(pipeline ,@(cons (trace commands) commands))))
-
-    (('pipeline h (and t ('command _ ...) ...))
-     (let ((commands (list (transform h) (transform t))))
-       `(pipeline ,@(cons (trace commands) commands))))
-    (('pipeline h (and t (('command _ ...) ...)))
-     (let ((commands (cons (transform h) (map transform t))))
-       `(pipeline ,@(cons (trace commands) commands))))
-
-    ((and o (('pipeline _ ...) ...)) (map transform o))
     
+    ;; (('pipeline h (and t ('command _ ...) ...))
+    ;;  (let ((commands (list (transform h) (transform t))))
+    ;;    `(pipeline ,@(cons (trace commands) commands))))
+    ;; (('pipeline h (and t (('command _ ...) ...)))
+    ;;  (let ((commands (cons (transform h) (map transform t))))
+    ;;    `(pipeline ,@(cons (trace commands) commands))))
+
+    ;;((and o (('pipeline _ ...) ...)) (map transform o))
+
+
     (('command o ...) `(command ,@(map transform o)))
     (('literal o) (transform o))
     (('name o) o)
     (('number o) o)
 
-    ;;(('assignment a b) `(assignment ,(transform a) ,(transform b)))
+    ;;(('assignment a b) `(assignment ,(transform a) ',(transform b)))
 
-    ;; FIXME: flatten?
     (('assignment a (and b ('literal _ ...))) `(assignment ,(transform a) ,(transform b)))
     (('assignment a b)
      `(assignment ,(transform a) ',(map transform b)))
