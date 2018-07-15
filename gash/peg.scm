@@ -22,7 +22,7 @@
 
 (define (wrap-parser-for-users for-syntax parser accumsym s-syn)
   #`(lambda (str strlen pos)
-      (when (> (@ (gash gash) %debug-level) 1)
+      (when (> (@ (gash gash) %debug-level) 2)
         (format (current-error-port) "~a ~a : ~s\n"
                 (make-string (- pos (or (string-rindex str #\newline 0 pos) 0)) #\space)
                 '#,s-syn
@@ -188,9 +188,11 @@
 
 (define (parse input)
   (let* ((pt (parse- input))
-         (foo (when (> %debug-level 0) (pretty-print pt)))
-         (ast (transform (keyword-flatten '(pipeline) pt)))
-         (foo (when (> %debug-level 0) (pretty-print ast))))
+         (foo (when (> %debug-level 1) (display "tree:\n") (pretty-print pt)))
+         (flat (keyword-flatten '(and assignent command literal name or pipeline substitution) pt))
+         (foo (when (> %debug-level 0) (display "flat:\n") (pretty-print flat)))
+         (ast (transform flat))
+         (foo (when (> %debug-level 0) (display "ast:\n") (pretty-print ast))))
     (cond ((error? ast)
            (stderr "error:") (pretty-print ast (current-error-port)) #f)
           ((eq? ast 'script)
@@ -203,42 +205,51 @@
   (eq? o *unspecified*))
 
 (define (trace commands)
-  (when (shell-opt? "xtrace")
-     (for-each
-      (lambda (o)
-        (match o
-          (('command (and command (? string?)) ...)
-           (format (current-error-port) "+ ~a\n" (string-join command)))
-          (_ (format (current-error-port) "+ ~s <FIXME>\n" o))))
-      (reverse commands)))
-  commands)
+  `(xtrace
+    ,(lambda _
+       (when (shell-opt? "xtrace")
+         (for-each
+          (lambda (o)
+            (match o
+              (('command (and command (? string?)) ...)
+               (format (current-error-port) "+ ~a\n" (string-join command)))
+              (_ format (current-error-port) "+ ~s <FIXME>\n" o)))
+          (reverse commands))))))
 
 (define (transform ast)
   (when (> %debug-level 1)
     (format (current-error-port) "transform ast=~s\n" ast))
   (match ast
     (('script o ...) `(script ,@(map transform o)))
+
+
     ;; FIXME: how to get rid of PEG's gratuitous parentheses/heterogeneous grouping
     (('pipeline o)
      (let ((commands (list (transform o))))
-       (trace commands)
-      `(pipeline ,@commands)))
+      `(pipeline ,@(cons (trace commands) commands))))
+
     (('pipeline h (and t ('command _ ...) ...))
      (let ((commands (list (transform h) (transform t))))
-       (trace commands)
-       `(pipeline ,@commands)))
+       `(pipeline ,@(cons (trace commands) commands))))
     (('pipeline h (and t (('command _ ...) ...)))
      (let ((commands (cons (transform h) (map transform t))))
-       (trace commands)
-       `(pipeline ,@commands)))
-    ;; FIXME: ...
-    (((and h ('pipeline _ ...)) (and t (('pipeline _ ...) ...)))
-     (cons (transform h) (map transform t)))
+       `(pipeline ,@(cons (trace commands) commands))))
+
+    ((and o (('pipeline _ ...) ...)) (map transform o))
+    
     (('command o ...) `(command ,@(map transform o)))
     (('literal o) (transform o))
     (('name o) o)
     (('number o) o)
-    (('assignment a b) `(lambda _ (assignment ,(transform a) ,(transform b))))
+
+    ;;(('assignment a b) `(assignment ,(transform a) ,(transform b)))
+
+    ;; FIXME: flatten?
+    (('assignment a (and b ('literal _ ...))) `(assignment ,(transform a) ,(transform b)))
+    (('assignment a b)
+     `(assignment ,(transform a) ',(map transform b)))
+
+
     (('for-clause name expr body)
      `(for ,(transform name) (lambda _ ,(transform expr)) (lambda _ ,@(transform body))))
     (('sequence o ...)

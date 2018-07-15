@@ -47,7 +47,7 @@
           "" (string-split s #\newline)))
 
 (define (file-to-string filename)
-  (stdout "\n\n** " filename ":")
+  (format (current-error-port) "gash: reading: ~s\n" filename)
   ((compose read-string open-input-file) filename))
 
 (define (string-to-ast string)

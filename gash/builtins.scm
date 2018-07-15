@@ -53,6 +53,7 @@
             substitution
             script
             if-clause
+            xtrace
 
             bg-command
             cd-command
@@ -502,7 +503,7 @@ Options:
   (string-join (append-map glob  o) ""))
 
 (define (sequence . args)
-  (apply append args))
+  (append-map glob (apply append args)))
 
 (define (script . o)
   o)
@@ -515,6 +516,9 @@ Options:
 
 (define (split o)
   ((compose string-tokenize string-trim-right) o))
+
+(define (xtrace o)
+  (o))
 
 (define-syntax-rule (substitution commands)
   (split (with-output-to-string (lambda _ commands))))

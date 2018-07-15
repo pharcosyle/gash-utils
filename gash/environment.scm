@@ -20,6 +20,9 @@
 (define-module (gash environment)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
+
+  #:use-module (gash io)
+
   #:export (
             %global-variables
             assignment
