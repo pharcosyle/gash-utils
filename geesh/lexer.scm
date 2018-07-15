@@ -28,6 +28,7 @@
   #:export (read-bracketed-command
             read-backquoted-command
             get-token
+            get-here-end
             get-here-doc))
 
 ;;; Commentary:
@@ -342,6 +343,9 @@ leading '$')."
              (_ (get-parameter-expansion port)))))
     (#\` (get-backquoted-command port))))
 
+;; When this parameter is true, expansion processing is enabled.
+(define expansions? (make-parameter #t))
+
 (define* (get-escape port #:optional (pred (lambda _ #t)))
   "Get an escape sequence ('\\x') from @var{port}. If @var{pred} is set,
 then the backslash will be treated as a literal backslash unless the
@@ -381,9 +385,12 @@ next character statisfies @var{pred} (or is a newline)."
          (#\" (begin
                 (get-char port)
                 `(<sh-quote> ,@(join-contiguous-strings (reverse! acc)))))
-         ((or #\$ #\`) (let ((expansion (get-expansion port)))
-                         (loop (lookahead-char port)
-                               (cons (or expansion (string chr)) acc))))
+         ((or #\$ #\`)
+          (if (expansions?)
+              (let ((expansion (get-expansion port)))
+                (loop (lookahead-char port)
+                      (cons (or expansion (string chr)) acc)))
+              (loop (next-char port) (cons (string chr) acc))))
          (#\\ (let ((escape (get-escape port
                                         (cut member <> '(#\" #\$ #\` #\\)))))
                 (loop (lookahead-char port) (append escape acc))))
@@ -435,9 +442,12 @@ next character statisfies @var{pred} (or is a newline)."
            (? blank?)
            #\newline
            #\#) (acc->token acc chr))
-      ((or #\$ #\`) (let ((expansion (get-expansion port)))
-                      (loop (lookahead-char port)
-                            (cons (or expansion (string chr)) acc))))
+      ((or #\$ #\`)
+       (if (expansions?)
+           (let ((expansion (get-expansion port)))
+             (loop (lookahead-char port)
+                   (cons (or expansion (string chr)) acc)))
+           (loop (next-char port) (cons (string chr) acc))))
       (#\\ (let ((escape (get-escape port)))
              (loop (lookahead-char port) (append escape acc))))
       (#\' (let ((quotation (get-single-quotation port)))
@@ -533,6 +543,13 @@ is a newline (or EOF)."
 
 
 ;;; Here-documents.
+
+(define (get-here-end port)
+  "Get the next lexical token from @var{port}, using the special rules
+for lexing a here-end word.  Namely, do not treat expansions
+(parameters, command substitutions, etc.) specially."
+  (parameterize ((expansions? #f))
+    (get-token port)))
 
 (define (get-quoted-here-doc end port)
   "Get a quoted here-document string from @var{port}, where @var{end}

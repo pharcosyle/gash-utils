@@ -261,6 +261,19 @@
 ;;; Here-documents.
 ;;;
 
+(define (get-here-end* str)
+  (let* ((token (call-with-input-string str get-here-end))
+         (category  (lexical-token-category token))
+         (source    (lexical-token-source token))
+         (value     (lexical-token-value token))
+         (offset    (source-location-offset source))
+         (length    (source-location-length source)))
+    `(,category (,offset . ,length) ,value)))
+
+(test-equal "Ignores expansions in here-end"
+  '(WORD (0 . 2) "$x")
+  (get-here-end* "$x"))
+
 (define* (get-here-doc* end str #:key (trim-tabs? #f) (quoted? #f))
   (call-with-input-string str
     (lambda (port)
