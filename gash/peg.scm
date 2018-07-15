@@ -218,6 +218,7 @@
     (format (current-error-port) "transform ast=~s\n" ast))
   (match ast
     (('script o ...) `(script ,@(map transform o)))
+    ;; FIXME: how to get rid of PEG's gratuitous parentheses/heterogeneous grouping
     (('pipeline o)
      (let ((commands (list (transform o))))
        (trace commands)
@@ -230,13 +231,16 @@
      (let ((commands (cons (transform h) (map transform t))))
        (trace commands)
        `(pipeline ,@commands)))
+    ;; FIXME: ...
+    (((and h ('pipeline _ ...)) (and t (('pipeline _ ...) ...)))
+     (cons (transform h) (map transform t)))
     (('command o ...) `(command ,@(map transform o)))
     (('literal o) (transform o))
     (('name o) o)
     (('number o) o)
     (('assignment a b) `(lambda _ (assignment ,(transform a) ,(transform b))))
-    (('for-clause name expr do)
-     `(for ,(transform name) (lambda _ ,(transform expr)) (lambda _ ,(transform do))))
+    (('for-clause name expr body)
+     `(for ,(transform name) (lambda _ ,(transform expr)) (lambda _ ,@(transform body))))
     (('sequence o ...)
      `(sequence ,@(fold-right (lambda (o r)
                                 (cons
