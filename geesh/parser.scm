@@ -24,7 +24,8 @@
   #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-41)
   #:use-module (system base lalr)
-  #:export (read-sh))
+  #:export (read-sh
+            read-sh-all))
 
 ;;; Commentary:
 ;;;
@@ -229,9 +230,9 @@ the same number of times.)"
 
    (program
     (linebreak complete-commands linebreak)
-    : (if (null? (cdr $2)) (car $2) (reverse! $2))
+    : (reverse! $2)
     (linebreak)
-    : (eof-object))
+    : '())
 
    (complete-commands
     (complete-commands newline-list complete-command)
@@ -785,4 +786,12 @@ port if @var{port} is unspecified)."
          (pre-lex (make-lexer port read-sh/bracketed read-sh/backquoted))
          (lex (lambda () (if stop? '*eoi* (pre-lex))))
          (parse (make-parser #:command-hook stop!)))
+    (parse lex syntax-error)))
+
+(define* (read-sh-all #:optional (port #f))
+  "Read all complete Shell commands from @var{port} (or the current
+input port if @var{port} is unspecified)."
+  (let* ((port (or port (current-input-port)))
+         (lex (make-lexer port read-sh/bracketed read-sh/backquoted))
+         (parse (make-parser)))
     (parse lex syntax-error)))

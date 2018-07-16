@@ -354,4 +354,11 @@
       (list (read-sh port)
             (read-sh port)))))
 
+(test-equal "Reads all commands"
+  '((<sh-exec> "echo" "foo")
+    (<sh-exec> "echo" "bar"))
+  (call-with-input-string "echo foo
+                           echo bar"
+    read-sh-all))
+
 (test-end)
