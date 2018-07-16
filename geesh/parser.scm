@@ -776,10 +776,11 @@ bracket."
           ((? eof-object?) #f)
           (code code))))))
 
-(define (read-sh port)
+(define* (read-sh #:optional (port #f))
   "Read a complete Shell command from @var{port} (or the current input
 port if @var{port} is unspecified)."
-  (let* ((stop? #f)
+  (let* ((port (or port (current-output-port)))
+         (stop? #f)
          (stop! (lambda () (set! stop? #t)))
          (pre-lex (make-lexer port read-sh/bracketed read-sh/backquoted))
          (lex (lambda () (if stop? '*eoi* (pre-lex))))
