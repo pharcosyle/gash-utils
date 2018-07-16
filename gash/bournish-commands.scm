@@ -33,15 +33,19 @@
   #:use-module (gash guix-build-utils)
   #:use-module (gash config)
   #:use-module (gash io)
+  #:use-module (gash util)
+
   #:export (
-            display-tabulated
+            %bournish-commands
             cat-command
+            display-tabulated
+            find-command
+            grep-command
             ls-command
             reboot-command
             rm-command
             wc-command
             which-command
-            wrap-command
             ))
 
 ;;; Commentary:
@@ -105,24 +109,21 @@ TERMINAL-WIDTH.  Use COLUMN-GAP spaces between two subsequent columns."
   (module-define! (resolve-module '(ice-9 getopt-long)) 'short-opt-rx (make-regexp "^-([a-zA-Z0-9]+)(.*)")))
  (else))
 
-(define ls-command-implementation
+(define (ls-command-implementation . args)
   ;; Run-time support procedure.
-  (case-lambda
-    (()
-     (display-tabulated (scandir ".")))
-    (args
-     (let* ((option-spec
-             '((all (single-char #\a))
-               (help)
-               (one-file-per-line (single-char #\1))
-               (version)))
-            (options (getopt-long (cons "ls" args) option-spec))
-            (all? (option-ref options 'all #f))
-            (help? (option-ref options 'help #f))
-            (one-file-per-line? (option-ref options 'one-file-per-line #f))
-            (version? (option-ref options 'version #f))
-            (files (option-ref options '() '())))
-       (cond (help? (display "Usage: ls [OPTION]... [FILE]...
+  (lambda _
+    (let* ((option-spec
+            '((all (single-char #\a))
+              (help)
+              (one-file-per-line (single-char #\1))
+              (version)))
+           (options (getopt-long (cons "ls" args) option-spec))
+           (all? (option-ref options 'all #f))
+           (help? (option-ref options 'help #f))
+           (one-file-per-line? (option-ref options 'one-file-per-line #f))
+           (version? (option-ref options 'version #f))
+           (files (option-ref options '() '())))
+      (cond (help? (display "Usage: ls [OPTION]... [FILE]...
 
 Options:
   -a, --all      do not ignore entries starting with .
@@ -130,60 +131,62 @@ Options:
       --help     display this help and exit
       --version  display version information and exit
 "))
-             (version? (format #t "ls (GASH) ~a\n" %version))
-             (else
-              (let* ((files (if (null? files) (scandir ".")
-                                (append-map (lambda (file)
-                                              (catch 'system-error
-                                                (lambda ()
-                                                  (match (stat:type (lstat file))
-                                                    ('directory
-                                                     ;; Like GNU ls, list the contents of
-                                                     ;; FILE rather than FILE itself.
-                                                     (match (scandir file
-                                                                     (match-lambda
-                                                                       ((or "." "..") #f)
-                                                                       (_ #t)))
-                                                       (#f
-                                                        (list file))
-                                                       ((files ...)
-                                                        (map (cut string-append file "/" <>)
-                                                             files))))
-                                                    (_
-                                                     (list file))))
-                                                (lambda args
-                                                  (let ((errno (system-error-errno args)))
-                                                    (format (current-error-port) "~a: ~a~%"
-                                                            file (strerror errno))
-                                                    '()))))
-                                            files)))
-                     (files (if all? files
-                                (filter (negate (cut string-prefix? "." <>)) files))))
-                (if one-file-per-line? (for-each stdout files)
-                    (display-tabulated files)))))))))
+            (version? (format #t "ls (GASH) ~a\n" %version))
+            (else
+             (let* ((files (if (null? files) (scandir ".")
+                               (append-map (lambda (file)
+                                             (catch 'system-error
+                                               (lambda ()
+                                                 (match (stat:type (lstat file))
+                                                   ('directory
+                                                    ;; Like GNU ls, list the contents of
+                                                    ;; FILE rather than FILE itself.
+                                                    (match (scandir file
+                                                                    (match-lambda
+                                                                      ((or "." "..") #f)
+                                                                      (_ #t)))
+                                                      (#f
+                                                       (list file))
+                                                      ((files ...)
+                                                       (map (cut string-append file "/" <>)
+                                                            files))))
+                                                   (_
+                                                    (list file))))
+                                               (lambda args
+                                                 (let ((errno (system-error-errno args)))
+                                                   (format (current-error-port) "~a: ~a~%"
+                                                           file (strerror errno))
+                                                   '()))))
+                                           files)))
+                    (files (if all? files
+                               (filter (negate (cut string-prefix? "." <>)) files))))
+               (if one-file-per-line? (for-each stdout files)
+                   (display-tabulated files))))))))
 
 (define ls-command (wrap-command ls-command-implementation "ls"))
 
 (define (which-command program . rest)
-  (stdout (search-path (executable-path) program)))
+  (lambda _
+    (stdout (search-path (executable-path) program))))
 
 (define (cat-command-implementation . args)
-  (fold (lambda (file p)
-          (if (string=? file "-") (dump-port (current-input-port) (current-output-port))
-            (call-with-input-file file
-              (lambda (port)
-                (dump-port port (current-output-port))))))
-        0 args))
+  (lambda _
+    (fold (lambda (file p)
+            (if (string=? file "-") (dump-port (current-input-port) (current-output-port))
+                (call-with-input-file file
+                  (lambda (port)
+                    (dump-port port (current-output-port))))))
+          0 args)))
 
 (define cat-command (wrap-command cat-command-implementation "cat"))
 
 (define (rm-command-implementation . args)
-  "Emit code for the 'rm' command."
-  (cond ((member "-r" args)
-         (for-each delete-file-recursively
-                   (apply delete (cons "-r" args))))
-        (else
-         (for-each delete-file args))))
+  (lambda _
+    (cond ((member "-r" args)
+           (for-each delete-file-recursively
+                     (apply delete (cons "-r" args))))
+          (else
+           (for-each delete-file args)))))
 
 (define rm-command (wrap-command rm-command-implementation "rm"))
 
@@ -235,12 +238,13 @@ Options:
 
 (define (wc-command . args)
   "Emit code for the 'wc' command."
-  (cond ((member "-l" args)
-         (apply wc-l-command-implementation (delete "-l" args)))
-        ((member "-c" args)
-         (apply wc-c-command-implementation (delete "-c" args)))
-        (else
-         (apply wc-command-implementation args))))
+  (lambda _
+    (cond ((member "-l" args)
+           (apply wc-l-command-implementation (delete "-l" args)))
+          ((member "-c" args)
+           (apply wc-c-command-implementation (delete "-c" args)))
+          (else
+           (apply wc-command-implementation args)))))
 
 (define (reboot-command . args)
   "Emit code for 'reboot'."
@@ -259,3 +263,114 @@ Options:
   (match (getenv "PATH")
     (#f  '())
     (str (string-tokenize str %not-colon))))
+
+(define (cp-command-implementation source dest . rest)
+  (lambda _ (copy-file source dest)))
+
+(define cp-command (wrap-command cp-command-implementation "cp"))
+
+(define (find-command-implementation . args)
+  ;; Run-time support procedure.
+  (lambda _
+    (let* ((option-spec
+            '((help)
+              (version)))
+           (options (getopt-long (cons "find" args) option-spec))
+           (help? (option-ref options 'help #f))
+           (version? (option-ref options 'version #f))
+           (files (option-ref options '() '()))
+           (files (if (null? files) '(".") files))
+           (file (car files)))
+      (when (> (length files) 1)
+        (format (current-error-port) "find: too many FILEs: ~s\n" files)
+        (error "find failed"))
+      ;; TODO: find [OPTION]... [FILE]... [EXPRESSION]...
+      ;; and options: esp: -x, -L
+      (cond (help? (display "Usage: find [OPTION]... [FILE]
+
+Options:
+  --help     display this help and exit
+  --version  display version information and exit
+"))
+            (version? (format #t "find (GASH) ~a\n" %version))
+            (else
+             (let* ((files (find-files file #:directories? #t #:fail-on-error? #t)))
+               (for-each stdout files)))))))
+
+(define find-command (wrap-command find-command-implementation "find"))
+
+(define (grep-command . args)
+  (lambda _
+    (let* ((option-spec
+            '((help)
+              (line-number (single-char #\n))
+              (files-with-matches (single-char #\l))
+              (files-without-match (single-char #\L))
+              (with-file-name (single-char #\H))
+              (no-file-name (single-char #\h))
+              (only-matching (single-char #\o))
+              (version (single-char #\V))))
+           (options (getopt-long (cons "ls" args) option-spec))
+           (help? (option-ref options 'help #f))
+           (version? (option-ref options 'version #f))
+           (files (option-ref options '() '())))
+      (cond (help? (display "Usage: grep [OPTION]... PATTERN [FILE]...
+
+Options:
+  --help                     display this help and exit
+  -h, --no-filename          suppress the file name prefix on output
+  -H, --with-filename        print file name with output lines
+  -l, --files-with-matches   print only names of FILEs with selected lines
+  -L, --files-without-match  print only names of FILEs with no selected lines
+  -n, --line-number          print line number with output lines
+  -o, --only-matching        show only the part of a line matching PATTERN
+  -V, --version              display version information and exit
+"))
+            (version? (format #t "grep (GASH) ~a\n" %version))
+            ((null? files) #t)
+            (else
+             (let* ((pattern (car files))
+                    (files (if (pair? (cdr files)) (cdr files)
+                               (list "-")))
+                    (matches (append-map (cut grep pattern <>) files)))
+               (define (display-match o)
+                 (let* ((s (grep-match-string o))
+                        (s (if (option-ref options 'only-matching #f)
+                               (substring s (grep-match-column o) (grep-match-end-column o))
+                               s))
+                        (s (if (option-ref options 'line-number #f)
+                               (string-append (number->string (grep-match-line o)) ":" s)
+                               s))
+                        (s (if (option-ref options 'with-file-name #f)
+                               (string-append (grep-match-file-name o) ":" s)
+                               s)))
+                   (stdout s)))
+               (define (files-with-matches)
+                 (delete-duplicates (map grep-match-file-name matches)))
+               (cond ((option-ref options 'files-with-matches #f)
+                      (let ((result (files-with-matches)))
+                        (and (pair? result)
+                             (for-each stdout result)
+                             0)))
+                     ((option-ref options 'files-without-match #f)
+                      (let* ((result (files-with-matches))
+                             (result (filter (negate (cut member <> result)) files)))
+                        (and (pair? result)
+                             (for-each stdout result)
+                             0)))
+                     (else
+                      (and (pair? matches)
+                           (for-each display-match matches)
+                           0)))))))))
+
+(define %bournish-commands
+  `(
+    ("cat"     . ,cat-command)
+    ("cp"      . ,cp-command)
+    ("find"    . ,find-command)
+    ("grep"    . ,grep-command)
+    ("ls"      . ,ls-command)
+    ("reboot"  . ,reboot-command)
+    ("wc"      . ,wc-command)
+    ("which"   . ,which-command)
+    ))

@@ -4,6 +4,7 @@
   #:use-module (ice-9 pretty-print)
   #:use-module (ice-9 peg)
   #:use-module (ice-9 peg codegen)
+  #:use-module (ice-9 rdelim)
   #:use-module (ice-9 regex)
 
   #:use-module (srfi srfi-1)
@@ -13,10 +14,11 @@
   #:use-module (gash environment)
   #:use-module (gash gash)
   #:use-module (gash io)
-  #:use-module (gash job)
+  #:use-module (gash script)
 
   #:export (
             parse
+            parse-string
             peg-trace?
             ))
 
@@ -63,6 +65,74 @@
             (eq? 'error x)
             (or (loop (car x))
                 (loop (cdr x)))))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;; WIP
+(define (expand identifier o) ;;identifier-string -> symbol
+  (define (expand- o)
+    (let ((dollar-identifier (string-append "$" identifier)))
+      (match o
+        ((? symbol?) o)
+        ((? string?) (if (string=? o dollar-identifier) (string->symbol identifier) o))
+        ((? list?) (map expand- o))
+        (_ o))))
+  (map expand- o))
+
+(define (tostring . args)
+  (with-output-to-string (cut map display args)))
+
+;; transform ast -> list of expr
+;; such that (map eval expr)
+(define (DEAD-transform ast)
+  (format (current-error-port) "transform=~s\n" ast)
+  (match ast
+     (('script term "&") (list (background (transform term))))
+     (('script term) `(,(transform term)))
+     (('script terms ...) (transform terms))
+     (('substitution "$(" script ")") (local-eval (cons 'substitute (cddr (car (transform script)))) (the-environment)))
+     (('substitution "`" script "`") (local-eval (cons 'substitute (cddr (car (transform script)))) (the-environment)))
+     ((('term command)) `(,(transform command)))
+     ((('term command) ...) (map transform command))
+     ((('term command) (('term commands) ...)) (map transform (cons command commands)))
+     (('compound-list terms ...) (transform terms))
+     (('if-clause "if" (expression "then" consequent "fi"))
+      `(if (equal? 0 (status:exit-val ,@(transform expression)))
+           (begin ,@(transform consequent))))
+     (('if-clause "if" (expression "then" consequent ('else-part "else" alternative) "fi"))
+      `(if (equal? 0 (status:exit-val ,@(transform expression)))
+           (begin ,@(transform consequent))
+           (begin ,@(transform alternative))))
+     (('for-clause ("for" identifier sep do-group)) #t)
+     (('for-clause "for" ((identifier "in" lst sep) do-group))
+      `(for-each (lambda (,(string->symbol identifier))
+                   (begin ,@(expand identifier (transform do-group))))
+                 (glob ,(transform lst))))
+     (('do-group "do" (command "done")) (transform command))
+     (('pipeline command) (pk 1) (let* ((command (transform command))) (or (builtin command) `(pipeline #t ,@command))))
+     (('pipeline command piped-commands) (pk 2) `(pipeline #t ,@(transform command) ,@(transform piped-commands)))
+     (('simple-command ('word (assignment name value))) `((lambda _ (let ((name ,(tostring (transform name)))
+                                                                          (value ,(tostring (transform value))))
+                                                                      (stderr "assignment: " name "=" value)
+                                                                      (set! global-variables (assoc-set! global-variables name (glob value)))))))
+     (('simple-command ('word s)) `((glob ,(transform s))))
+     (('simple-command ('word s1) ('io-redirect "<<" ('here-document s2))) `((append (glob "echo") (cons "-n" (glob ,s2))) (glob ,(transform s1))))
+     (('simple-command ('word s1) ('word s2)) `((append (glob ,(transform s1)) (glob ,(transform s2)))))
+     (('simple-command ('word s1) (('word s2) ...)) `((append (glob ,(transform s1)) (append-map glob (list ,@(map transform s2))))))
+     (('variable s) s)
+     (('literal s) (transform s))
+     (('singlequotes s) (string-concatenate `("'" ,s "'")))
+     (('doublequotes s) (string-concatenate `("\"" ,s "\"")))
+     (('backticks s) (string-concatenate `("`" ,s "`")))
+     (('delim ('singlequotes s ...)) (string-concatenate (map transform s)))
+     (('delim ('doublequotes s ...)) (string-concatenate (map transform s)))
+     (('delim ('backticks s ...)) (string-concatenate (map transform s)))
+     ((('pipe _) command) (transform command))
+     (((('pipe _) command) ...) (map (compose car transform) command))
+     ((_ o) (transform o)) ;; peel the onion: (symbol (...)) -> (...)
+     (_ ast))) ;; done
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 
 (define (parse- input)
   (define label "")
@@ -195,35 +265,9 @@
 
 (define (flatten o)
   (keyword-flatten '(and assignent command doublequotes for-clause literal name or pipeline singlequotes substitution word) o))
-(define (parse input)
-  (let* ((pt (parse- input))
-         (foo (when (> %debug-level 1) (display "tree:\n") (pretty-print pt)))
-         (flat (flatten pt))
-         (foo (when (> %debug-level 0) (display "flat:\n") (pretty-print flat)))
-         (ast (transform flat))
-         (foo (when (> %debug-level 0) (display "ast:\n") (pretty-print ast))))
-    (cond ((error? ast)
-           (stderr "error:") (pretty-print ast (current-error-port)) #f)
-          ((eq? ast 'script)
-           #t)
-          (else
-           (map (cut local-eval <> (the-environment)) ast)
-           ast))))
 
 (define (unspecified? o)
   (eq? o *unspecified*))
-
-(define (trace commands)
-  `(xtrace
-    ,(lambda _
-       (when (shell-opt? "xtrace")
-         (for-each
-          (lambda (o)
-            (match o
-              (('command (and command (? string?)) ...)
-               (format (current-error-port) "+ ~a\n" (string-join command)))
-              (_ format (current-error-port) "+ ~s <FIXME>\n" o)))
-          (reverse commands))))))
 
 (define (transform ast)
   (when (> %debug-level 1)
@@ -240,8 +284,10 @@
     ((('singlequotes _ ...) _ ...) (map transform (flatten ast)))
     ((('word _ ...) _ ...) (map transform (flatten ast)))
 
+    (('script ('pipeline ('command command ... (word (literal "&")))))
+     (background `(pipeline ',(map transform command))))
 
-    (('script o ...) `(script ,@(map transform o)))
+    (('script terms ...) `(script ,@(map transform terms)))
 
     (('pipeline o ...)
      (let ((commands (map transform o)))
@@ -254,6 +300,7 @@
 
     ;;(('assignment a b) `(assignment ,(transform a) ',(transform b)))
     ;; FIXME: to quote or not?
+    (('assignment a) `(substitution (variable ,(transform a))))
     (('assignment a b) `(assignment ,(transform a) ,(transform b)))
 
     ;; (('assignment a (and b ('literal _ ...))) `(assignment ,(transform a) ,(transform b)))
@@ -261,8 +308,8 @@
     ;;  `(assignment ,(transform a) ,(map transform b)))
 
 
-    (('for-clause name expr (and body ('pipeline _ ...)))
-     `(for ,(transform name) (lambda _ ,(transform expr)) (lambda _ ,(transform body))))
+    (('for-clause name sequence (and body ('pipeline _ ...)))
+     `(for ,(transform name) (lambda _ ,(transform sequence)) (lambda _ ,(transform body))))
     (('for-clause name expr body)
      `(for ,(transform name) (lambda _ ,(transform expr)) (lambda _ ,@(map transform body))))
     (('sequence o)
@@ -290,3 +337,37 @@
     (('word o) (transform o))
     (('word o ...) `(string-append ,@(map transform o)))
     (_ ast)))
+
+
+(define (remove-shell-comments s)
+  (string-join (map
+                (lambda (s)
+                  (let* ((n (string-index s #\#)))
+                    (if n (string-pad-right s (string-length s) #\space  0 n)
+                        s)))
+                (string-split s #\newline)) "\n"))
+
+(define (remove-escaped-newlines s)
+  (reduce (lambda (next prev)
+            (let* ((escaped? (string-suffix? "\\" next))
+                   (next (if escaped? (string-drop-right next 1) next))
+                   (sep (if escaped? "" "\n")))
+              (string-append prev sep next)))
+          "" (string-split s #\newline)))
+
+(define (parse-string string)
+  (let* ((pt ((compose parse- remove-escaped-newlines remove-shell-comments) string))
+         (foo (when (> %debug-level 1) (display "tree:\n") (pretty-print pt)))
+         (flat (flatten pt))
+         (foo (when (> %debug-level 0) (display "flat:\n") (pretty-print flat)))
+         (ast (transform flat))
+         (foo (when (> %debug-level 0) (display "ast:\n") (pretty-print ast))))
+    (cond ((error? ast)
+           (stderr "error:") (pretty-print ast (current-error-port)) #f)
+          ((eq? ast 'script)
+           #t)
+          (else ast))))
+
+(define (parse port)
+  (parse-string (read-string port)))
+

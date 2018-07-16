@@ -27,6 +27,7 @@
             %global-variables
             assignment
             set-shell-opt!
+            shell-opt?
             variable
             ))
 
@@ -60,3 +61,6 @@
                           (filter (negate (cut equal? <> name)) options)))
          (new-shell-opts (string-join new-options ":")))
     (assignment "SHELLOPTS" new-shell-opts)))
+
+(define (shell-opt? name)
+  (member name (string-split (assoc-ref %global-variables "SHELLOPTS") #\:)))

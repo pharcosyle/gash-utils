@@ -18,6 +18,15 @@ GUILE_SITE_DIR=$PREFIX/share/guile/site/$GUILE_EFFECTIVE_VERSION
 GUILE_SITE_CCACHE_DIR=$PREFIX/lib/guile/$GUILE_EFFECTIVE_VERSION/site-ccache
 GUILE_EFFECTIVE_VERSION=$(guile -c '(display (effective-version))')
 MAKEINFO=$(command -v makeinfo)
+GEESH_PREFIX=${GEESH_PREFIX-$HOME/src/geesh}
+if [ -d $GEESH_PREFIX ]; then
+    GUILE_LOAD_PATH=$GEESH_PREFIX:$GUILE_LOAD_PATH
+    GUILE_LOAD_COMPILED_PATH=$GEESH_PREFIX:$GUILE_LOAD_COMPILED_PATH
+    if ! $GUILE -c '(use-modules (geesh parser)) (exit (defined? '"'"'read-sh-all))'; then
+        echo "your geesh is too old"
+        exit 1
+    fi
+fi
 
 sed \
     -e s,@GUILE@,$GUILE,\

@@ -18,57 +18,47 @@
   #:use-module (gash environment)
   #:use-module (gash job)
   #:use-module (gash pipe)
-  #:use-module (gash peg)
   #:use-module (gash io)
+  #:use-module (gash script)
   #:use-module (gash util)
 
   #:export (main
             %debug-level
             %prefer-builtins?
-            shell-opt?))
+            parse
+            parse-string))
 
 (define %debug-level 0)       ; 1 informational, 2 verbose, 3 peg tracing
 (define %prefer-builtins? #f) ; use builtin, even if COMMAND is available in PATH?
+(define %geesh-parser? #f)    ; use Geesh parser [EXPERIMENTAL]
 
-(define (remove-shell-comments s)
-  (string-join (map
-                (lambda (s)
-                  (let* ((n (string-index s #\#)))
-                    (if n (string-pad-right s (string-length s) #\space  0 n)
-                        s)))
-                (string-split s #\newline)) "\n"))
+(define (parse-string string)
+  (let ((parser (cond (%geesh-parser? (@ (gash geesh) parse-string))
+                      (else (@ (gash peg) parse-string)))))
+    (parser string)))
 
-(define (remove-escaped-newlines s)
-  (reduce (lambda (next prev)
-            (let* ((escaped? (string-suffix? "\\" next))
-                   (next (if escaped? (string-drop-right next 1) next))
-                   (sep (if escaped? "" "\n")))
-              (string-append prev sep next)))
-          "" (string-split s #\newline)))
-
-(define (file-to-string file-name)
-  (format (current-error-port) "gash: reading: ~s\n" file-name)
-  (with-input-from-file file-name read-string))
-
-(define (string-to-ast string)
-  ((compose parse remove-escaped-newlines remove-shell-comments) string))
+(define (parse port)
+  (let ((parser (cond (%geesh-parser? (@ (gash geesh) parse))
+                      (else (@ (gash peg) parse)))))
+    (parser port)))
 
 (define (file-to-ast file-name)
-  ((compose string-to-ast file-to-string) file-name))
+  (call-with-input-file file-name parse))
 
 (define (display-help)
   (display "\
 Usage: gash [OPTION]... [FILE]...
 
 Options:
-  -c, --command=STRING Evaluate STRING and exit
-  -e, --errexit        Exit upon error
-  -d, --debug          Enable PEG tracing
-  -h, --help           Display this help
-  -p, --parse          Parse the shell script and print the parse tree
-  --prefer-builtins    Use builtins, even if command is available in PATH
-  -v, --version        Display the version
-  -x, --xtrace         Print simple command trace
+  -c, --command=STRING  Evaluate STRING and exit
+  -e, --errexit         Exit upon error
+  -d, --debug           Enable PEG tracing
+  -g, --geesh           Use Geesh parser [EXPERIMENTAL]
+  -h, --help            Display this help
+  -p, --parse           Parse the shell script and print the parse tree
+  --prefer-builtins     Use builtins, even if command is available in PATH
+  -v, --version         Display the version
+  -x, --xtrace          Print simple command trace
 "))
 
 (define (display-version)
@@ -93,6 +83,7 @@ copyleft.
                                  (help (single-char #\h))
                                  (parse (single-char #\p))
                                  (prefer-builtins)
+                                 (geesh (single-char #\g))
                                  (version (single-char #\v))
                                  (xtrace (single-char #\x))))
                   (options (getopt-long args option-spec #:stop-at-first-non-option #t ))
@@ -105,6 +96,7 @@ copyleft.
                   (version? (option-ref options 'version #f))
                   (files (option-ref options '() '())))
              (set! %prefer-builtins? (option-ref options 'prefer-builtins #f))
+             (set! %geesh-parser? (option-ref options 'geesh #f))
              (set-shell-opt! "errexit" (option-ref options 'errexit #f))
              (set-shell-opt! "xtrace" (option-ref options 'xtrace #f))
              (when (option-ref options 'debug #f)
@@ -112,19 +104,24 @@ copyleft.
              (cond
               (help? (display-help))
               (version? (display-version))
-              (command? (let ((ast (string-to-ast command?)))
-                          (exit (assoc-ref %global-variables "?"))))
+              (command? (let ((ast (parse-string command?)))
+                          (if parse? (pretty-print ast)
+                              (run ast))
+                          (exit (script-status))))
               ((pair? files)
-               (let* ((asts (map file-to-ast files))
-                      (status (assoc-ref %global-variables "?")))
-                 (exit status)))
+               (let ((asts (map file-to-ast files)))
+                 (if parse? (map pretty-print asts)
+                     (for-each run asts))
+                 (exit (script-status))))
               (#t (let* ((HOME (string-append (getenv "HOME") "/.gash_history"))
                          (thunk (lambda ()
                                   (let loop ((line (readline (prompt))))
                                     (when (not (eof-object? line))
-                                      (let* ((ast (string-to-ast line)))
+                                      (let* ((ast (parse-string line)))
                                         (when (and ast
                                                    (not (string-null? line)))
+                                          (unless parse?
+                                            (run ast))
                                           (add-history line))
                                         (loop (let ((previous (if ast "" (string-append line "\n")))
                                                     (next (readline (if ast (prompt) "> "))))
@@ -136,77 +133,6 @@ copyleft.
                     (write-history HOME)
                     (newline))))))))
     (thunk)))
-
-(define (expand identifier o) ;;identifier-string -> symbol
-  (define (expand- o)
-    (let ((dollar-identifier (string-append "$" identifier)))
-      (match o
-        ((? symbol?) o)
-        ((? string?) (if (string=? o dollar-identifier) (string->symbol identifier) o))
-        ((? list?) (map expand- o))
-        (_ o))))
-  (map expand- o))
-
-(define (DEAD-background ast)
-  (match ast
-    (('pipeline fg rest ...) `(pipeline #f ,@rest))
-    (_ ast)))
-
-(define (shell-opt? name)
-  (member name (string-split (assoc-ref %global-variables "SHELLOPTS") #\:)))
-
-(define (tostring . args)
-  (with-output-to-string (cut map display args)))
-
-;; transform ast -> list of expr
-;; such that (map eval expr)
-(define (DEAD-transform ast)
-  (format (current-error-port) "transform=~s\n" ast)
-  (match ast
-     (('script term "&") (list (background (transform term))))
-     (('script term) `(,(transform term)))
-     (('script terms ...) (transform terms))
-     (('substitution "$(" script ")") (local-eval (cons 'substitute (cddr (car (transform script)))) (the-environment)))
-     (('substitution "`" script "`") (local-eval (cons 'substitute (cddr (car (transform script)))) (the-environment)))
-     ((('term command)) `(,(transform command)))
-     ((('term command) ...) (map transform command))
-     ((('term command) (('term commands) ...)) (map transform (cons command commands)))
-     (('compound-list terms ...) (transform terms))
-     (('if-clause "if" (expression "then" consequent "fi"))
-      `(if (equal? 0 (status:exit-val ,@(transform expression)))
-           (begin ,@(transform consequent))))
-     (('if-clause "if" (expression "then" consequent ('else-part "else" alternative) "fi"))
-      `(if (equal? 0 (status:exit-val ,@(transform expression)))
-           (begin ,@(transform consequent))
-           (begin ,@(transform alternative))))
-     (('for-clause ("for" identifier sep do-group)) #t)
-     (('for-clause "for" ((identifier "in" lst sep) do-group))
-      `(for-each (lambda (,(string->symbol identifier))
-                   (begin ,@(expand identifier (transform do-group))))
-                 (glob ,(transform lst))))
-     (('do-group "do" (command "done")) (transform command))
-     (('pipeline command) (pk 1) (let* ((command (transform command))) (or (builtin command) `(pipeline #t ,@command))))
-     (('pipeline command piped-commands) (pk 2) `(pipeline #t ,@(transform command) ,@(transform piped-commands)))
-     (('simple-command ('word (assignment name value))) `((lambda _ (let ((name ,(tostring (transform name)))
-                                                                          (value ,(tostring (transform value))))
-                                                                      (stderr "assignment: " name "=" value)
-                                                                      (set! global-variables (assoc-set! global-variables name (glob value)))))))
-     (('simple-command ('word s)) `((glob ,(transform s))))
-     (('simple-command ('word s1) ('io-redirect "<<" ('here-document s2))) `((append (glob "echo") (cons "-n" (glob ,s2))) (glob ,(transform s1))))
-     (('simple-command ('word s1) ('word s2)) `((append (glob ,(transform s1)) (glob ,(transform s2)))))
-     (('simple-command ('word s1) (('word s2) ...)) `((append (glob ,(transform s1)) (append-map glob (list ,@(map transform s2))))))
-     (('variable s) s)
-     (('literal s) (transform s))
-     (('singlequotes s) (string-concatenate `("'" ,s "'")))
-     (('doublequotes s) (string-concatenate `("\"" ,s "\"")))
-     (('backticks s) (string-concatenate `("`" ,s "`")))
-     (('delim ('singlequotes s ...)) (string-concatenate (map transform s)))
-     (('delim ('doublequotes s ...)) (string-concatenate (map transform s)))
-     (('delim ('backticks s ...)) (string-concatenate (map transform s)))
-     ((('pipe _) command) (transform command))
-     (((('pipe _) command) ...) (map (compose car transform) command))
-     ((_ o) (transform o)) ;; peel the onion: (symbol (...)) -> (...)
-     (_ ast))) ;; done
 
 (define prompt
   (let* ((l (string #\001))

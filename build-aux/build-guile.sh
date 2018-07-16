@@ -27,6 +27,9 @@ export GUILE_AUTO_COMPILE
 export GUILE_LOAD_PATH
 export GUILE_LOAD_COMPILED_PATH
 
+GUILE_LOAD_PATH=$HOME/src/geesh:$GUILE_LOAD_PATH
+GUILE_LOAD_COMPILED_PATH=$HOME/src/geesh:$GUILE_LOAD_COMPILED_PATH
+
 GUILE_LOAD_PATH=$(pwd):$GUILE_LOAD_PATH
 GUILE_LOAD_COMPILED_PATH=$(pwd):$GUILE_LOAD_COMPILED_PATH
 GUILE=${GUILE-$(command -v guile)}
@@ -37,15 +40,17 @@ set -e
 
 SCM_FILES="
 gash/bournish-commands.scm
+gash/guix-build-utils.scm
 gash/builtins.scm
 gash/config.scm
 gash/environment.scm
-gash/guix-build-utils.scm
+gash/geesh.scm
 gash/gash.scm
 gash/io.scm
 gash/job.scm
 gash/peg.scm
 gash/pipe.scm
+gash/script.scm
 gash/util.scm
 "
 

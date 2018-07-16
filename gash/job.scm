@@ -7,18 +7,21 @@
   #:use-module (gash io)
   #:use-module (gash util)
 
-  #:export (bg
+  #:export (
+            bg
             fg
+            display-job
+            job-table
             job?
             job-add-process
             job-control-init
             job-debug-id
             job-setup-process
             job-status
-            jobs-command
             new-job
             report-jobs
-            wait))
+            wait
+            ))
 
 (define-record-type <process>
   (make-process pid command status)
@@ -66,9 +69,6 @@
 (define (display-job job)
   (stdout "[" (job-id job) "] " (map status->state (job-status job)) "\t\t"
           (job-command job)))
-
-(define (jobs-command)
-  (for-each (lambda (job) (display-job job)) (reverse job-table)))
 
 (define (job-status job)
   (map process-status (job-processes job)))

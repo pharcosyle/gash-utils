@@ -34,6 +34,7 @@
             dump-port
             file-name-predicate
             find-files
+            grep*
             grep
             <grep-match>
             grep-match-file-name
@@ -163,17 +164,24 @@ transferred and the continuation of the transfer as a thunk."
   (column grep-match-column)
   (end-column grep-match-end-column))
 
-(define (grep regexp file)
-  (call-with-input-file file
-    (lambda (in)
-      (let loop ((line (read-line in)) (ln 1) (matches '()))
-        (if (eof-object? line) (reverse matches)
-            (let* ((m (list-matches regexp line))
-                   (m (and (pair? m) (car m))))
-              (loop (read-line in) (1+ ln)
-                    (if m (cons (make-grep-match file
-                                                 (match:string m)
-                                                 ln
-                                                 (match:start m)
-                                                 (match:end m)) matches)
-                        matches))))))))
+(define* (grep* pattern #:key (port (current-input-port)) (file-name "<stdin>"))
+  ;; FIXME: collect later?  for scripting usage implicit collect is
+  ;; nice; for pipeline usage not so much
+  (let loop ((line (read-line port)) (ln 1) (matches '()))
+    (if (eof-object? line) (reverse matches)
+        (let* ((m (list-matches pattern line))
+               (m (and (pair? m) (car m))))
+          (loop (read-line port) (1+ ln)
+                (if m (cons (make-grep-match file-name
+                                             (match:string m)
+                                             ln
+                                             (match:start m)
+                                             (match:end m)) matches)
+                    matches))))))
+
+(define (grep pattern file)
+  (cond ((and (string? file)
+              (not (equal? file "-"))) (call-with-input-file file
+                                         (lambda (in)
+                                           (grep* pattern #:port in #:file-name file))))
+        (else (grep* pattern))))
