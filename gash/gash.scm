@@ -46,19 +46,21 @@
               (string-append prev sep next)))
           "" (string-split s #\newline)))
 
-(define (file-to-string filename)
-  (format (current-error-port) "gash: reading: ~s\n" filename)
-  ((compose read-string open-input-file) filename))
+(define (file-to-string file-name)
+  (format (current-error-port) "gash: reading: ~s\n" file-name)
+  (with-input-from-file file-name read-string))
 
 (define (string-to-ast string)
   ((compose parse remove-escaped-newlines remove-shell-comments) string))
 
-(define (file-to-ast filename)
-  ((compose string-to-ast file-to-string) filename))
+(define (file-to-ast file-name)
+  ((compose string-to-ast file-to-string) file-name))
 
 (define (display-help)
   (display "\
-gash [options]
+Usage: gash [OPTION]... [FILE]...
+
+Options:
   -c, --command=STRING Evaluate STRING and exit
   -e, --errexit        Exit upon error
   -d, --debug          Enable PEG tracing
@@ -254,7 +256,7 @@ copyleft.
         path)))
 
 
-(define (filename-completion text continue?)
+(define (file-name-completion text continue?)
   (if continue?
       (next->file-completion)
       (let* ((dir (slash (if (isdir? text) text (dirname text))))
@@ -285,4 +287,4 @@ copyleft.
       (next->binary-completion)))
 
 (define (completion text continue?)
-  (or (filename-completion text continue?) (search-binary-in-path-completion text continue?)))
+  (or (file-name-completion text continue?) (search-binary-in-path-completion text continue?)))
