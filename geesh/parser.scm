@@ -230,9 +230,9 @@ the same number of times.)"
 
    (program
     (linebreak complete-commands linebreak)
-    : (reverse! $2)
+    : (if (null? (cdr $2)) (car $2) (reverse! $2))
     (linebreak)
-    : '())
+    : (eof-object))
 
    (complete-commands
     (complete-commands newline-list complete-command)
@@ -794,4 +794,7 @@ input port if @var{port} is unspecified)."
   (let* ((port (or port (current-input-port)))
          (lex (make-lexer port read-sh/bracketed read-sh/backquoted))
          (parse (make-parser)))
-    (parse lex syntax-error)))
+    (match (parse lex syntax-error)
+      ((? eof-object?) '())
+      (((? symbol? tag) . rest) `((,tag . ,rest)))
+      (x x))))

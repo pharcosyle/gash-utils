@@ -361,4 +361,12 @@
                            echo bar"
     read-sh-all))
 
+(test-equal "Reads all commands and returns a list for one command"
+  '((<sh-exec> "echo" "foo"))
+  (call-with-input-string "echo foo" read-sh-all))
+
+(test-equal "Reads all commands and returns a list for no commands"
+  '()
+  (call-with-input-string "" read-sh-all))
+
 (test-end)
