@@ -23,7 +23,8 @@
             make-environment
             environment?
             var-ref
-            set-var!))
+            set-var!
+            environment->environ))
 
 ;;; Commentary:
 ;;;
@@ -51,3 +52,19 @@
   (set-environment-vars! env (acons name val
                                     (environment-vars env))))
 
+(define* (environment->environ env #:optional (bindings '()))
+  "Convert the environment variables from @var{env} into a list of
+@code{\"name=value\"} strings (an @dfn{environ}).  If @var{bindings}
+is set to a list of pairs of strings, those name-value pairs take
+precedence over the ones in @var{env}."
+  (let loop ((env-vars (append bindings (environment-vars env)))
+             (acc '())
+             (seen '()))
+    (match env-vars
+      (((name . value) . rest)
+       (if (member name seen)
+           (loop rest acc seen)
+           (loop rest
+                 (cons (string-append name "=" value) acc)
+                 (cons name seen))))
+      (() acc))))

@@ -18,6 +18,7 @@
 
 (define-module (test-environment)
   #:use-module (geesh environment)
+  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-64)
   #:use-module (tests automake))
 
@@ -54,5 +55,52 @@
   #f
   (let ((env (make-environment '())))
     (var-ref env "FOO")))
+
+;;;
+;;; Making an 'environ'.
+;;;
+
+(define (subset? lst1 lst2)
+  "Test if @var{lst1} is a subset of @var{lst2}."
+  (every (lambda (x) (member x lst2)) lst1))
+
+(define (set=? lst1 lst2)
+  "Test if @var{lst1} is @code{equal?} to @var{lst2} without respect
+to order."
+  (and (subset? lst1 lst2)
+       (subset? lst2 lst1)))
+
+(test-equal "Creates environ from empty environment"
+  '()
+  (let ((env (make-environment '())))
+    (environment->environ env)))
+
+(test-assert "Creates environ from environment"
+  (let* ((env (make-environment '(("FOO" . "abc")
+                                  ("BAR" . "def"))))
+         (environ (environment->environ env)))
+    (set=? environ '("FOO=abc" "BAR=def"))))
+
+(test-assert "Creates environ from empty environment and bindings"
+  (let* ((env (make-environment '()))
+         (bindings '(("FOO" . "abc")
+                     ("BAR" . "def")))
+         (environ (environment->environ env bindings)))
+    (set=? environ '("FOO=abc" "BAR=def"))))
+
+(test-assert "Creates environ from environment and bindings"
+  (let* ((env (make-environment '(("FOO" . "abc")
+                                  ("BAZ" . "ghi"))))
+         (bindings '(("BAR" . "def")
+                     ("QUUX" . "jkl")))
+         (environ (environment->environ env bindings)))
+    (set=? environ '("FOO=abc" "BAR=def" "BAZ=ghi" "QUUX=jkl"))))
+
+(test-assert "Bindings override environment when creating an environ"
+  (let* ((env (make-environment '(("FOO" . "abc")
+                                  ("BAR" . "def"))))
+         (bindings '(("FOO" . "ghi")))
+         (environ (environment->environ env bindings)))
+    (set=? environ '("FOO=ghi" "BAR=def"))))
 
 (test-end)
