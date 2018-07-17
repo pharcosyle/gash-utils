@@ -1,5 +1,5 @@
 ;;; The Geesh Shell Interpreter
-;;; Copyright 2017 Timothy Sample <samplet@ngyro.com>
+;;; Copyright 2017, 2018 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Geesh.
 ;;;
@@ -17,6 +17,9 @@
 ;;; along with Geesh.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (geesh repl)
+  #:use-module (geesh environment)
+  #:use-module (geesh eval)
+  #:use-module (geesh parser)
   #:use-module (ice-9 rdelim)
   #:export (run-repl))
 
@@ -28,8 +31,10 @@
 
 (define (run-repl)
   (format #t "$ ")
-  (let loop ((line (read-line)))
-    (unless (eof-object? line)
-      (format #t "~a~%$ " line)
-      (loop (read-line))))
+  (let loop ((env (make-environment '()))
+             (exp (read-sh (current-input-port))))
+    (unless (eof-object? exp)
+      (eval-sh env exp)
+      (format #t "$ ")
+      (loop env (read-sh (current-input-port)))))
   #t)
