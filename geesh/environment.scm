@@ -46,9 +46,12 @@
                           vars)))
 
 (define (var-ref env name)
+  "Get the value of the variable @var{name} in @var{env}.  If
+@var{name} is unset, return @code{#f}."
   (assoc-ref (environment-vars env) name))
 
 (define (set-var! env name val)
+  "Set the variable @var{name} to @var{val} in @var{env}."
   (set-environment-vars! env (acons name val
                                     (environment-vars env))))
 
