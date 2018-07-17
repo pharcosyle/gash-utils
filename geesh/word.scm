@@ -112,7 +112,7 @@ and arithmetic substitions using the environment @var{env}."
     (('<sh-cmd-sub> . exps)
      ((eval-cmd-sub) exps))
     (('<sh-ref> name)
-     (or (var-ref env name) ""))
+     (var-ref* env name))
     (('<sh-ref-or> name default)
      (or (var-ref env name)
          (word->qword env (or default ""))))
@@ -150,7 +150,7 @@ and arithmetic substitions using the environment @var{env}."
     (('<sh-ref-skip-min> name pattern) (error "Not implemented"))
     (('<sh-ref-skip-max> name pattern) (error "Not implemented"))
     (('<sh-ref-length> name)
-     (number->string (string-length (or (var-ref env name) ""))))
+     (number->string (string-length (var-ref* env name))))
     (_ (map (cut word->qword env <>) word))))
 
 (define* (expand-word env word #:key (split? #t) (rhs-tildes? #f))

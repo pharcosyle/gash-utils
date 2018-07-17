@@ -23,6 +23,7 @@
             make-environment
             environment?
             var-ref
+            var-ref*
             set-var!
             environment->environ))
 
@@ -49,6 +50,11 @@
   "Get the value of the variable @var{name} in @var{env}.  If
 @var{name} is unset, return @code{#f}."
   (assoc-ref (environment-vars env) name))
+
+(define (var-ref* env name)
+  "Get the value of the variable @var{name} in @var{env}.  If
+@var{name} is unset return @code{\"\"}."
+  (or (var-ref env name) ""))
 
 (define (set-var! env name val)
   "Set the variable @var{name} to @var{val} in @var{env}."
