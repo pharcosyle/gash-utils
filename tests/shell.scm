@@ -120,4 +120,11 @@
              (('misc-error _ _ ("Command not found.") _) #t)
              (_ #f))))))))
 
+(test-equal "Executes regular built-ins"
+  "foo bar\n"
+  (let ((env (make-environment '())))
+    (with-output-to-string
+      (lambda ()
+        (sh:exec env "echo" "foo" "bar")))))
+
 (test-end)

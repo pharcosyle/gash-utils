@@ -1,4 +1,5 @@
 (define-module (geesh shell)
+  #:use-module (geesh built-ins)
   #:use-module (geesh environment)
   #:use-module (ice-9 match)
   #:export (sh:exec-let
@@ -47,7 +48,19 @@ it cannot be found, return @code{#f}."
   "Find and execute @var{name} with arguments @var{args}, environment
 @var{env}, and extra environment variable bindings @var{bindings}."
   (if (slashless? name)
-      (or (and=> (find-utility env name)
+      (or (and=> (search-special-built-ins name)
+                 (lambda (proc)
+                   (for-each (match-lambda
+                               ((name . value)
+                                (set-var! env name value)))
+                             bindings)
+                   (apply proc env args)))
+          ;; TODO: Functions.
+          (and=> (search-built-ins name)
+                 (lambda (proc)
+                   ;; TODO: Use 'bindings' here.
+                   (apply proc env args)))
+          (and=> (find-utility env name)
                  (lambda (path)
                    (exec-utility env bindings path name args)))
           (error "Command not found."))
