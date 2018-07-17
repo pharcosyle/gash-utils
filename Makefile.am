@@ -41,6 +41,7 @@ MODULES =                                       \
   geesh/lexer.scm                               \
   geesh/parser.scm                              \
   geesh/repl.scm                                \
+  geesh/shell.scm                               \
   geesh/word.scm
 
 bin_SCRIPTS =                                   \
@@ -51,6 +52,7 @@ TESTS =                                         \
   tests/lexer.scm                               \
   tests/parser.scm                              \
   tests/repl.scm                                \
+  tests/shell.scm                               \
   tests/word.scm
 
 CLEANFILES =                                    \

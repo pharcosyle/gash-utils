@@ -1,0 +1,4 @@
+(define-module (tests config)
+  #:export (*guile-path*))
+
+(define *guile-path* "@GUILE@")
