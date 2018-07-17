@@ -54,3 +54,5 @@
   #f
   (let ((env (make-environment '())))
     (var-ref env "FOO")))
+
+(test-end)
