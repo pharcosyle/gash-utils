@@ -54,7 +54,6 @@ TESTS =                                         \
   tests/environment.scm                         \
   tests/lexer.scm                               \
   tests/parser.scm                              \
-  tests/repl.scm                                \
   tests/shell.scm                               \
   tests/word.scm
 
