@@ -40,6 +40,7 @@ MODULES =                                       \
   geesh/built-ins/echo.scm                      \
   geesh/built-ins.scm                           \
   geesh/environment.scm                         \
+  geesh/eval.scm                                \
   geesh/lexer.scm                               \
   geesh/parser.scm                              \
   geesh/repl.scm                                \
