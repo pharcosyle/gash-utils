@@ -86,6 +86,11 @@
   '(<sh-with-redirects> ((>& 2 "1")) #f)
   (parse "2>&1"))
 
+(test-equal "Parses command with prefix redirect and no arguments"
+  '(<sh-with-redirects> ((< 0 "bar"))
+     (<sh-exec> "cat"))
+  (parse "<bar cat"))
+
 (test-equal "Parses assignments"
   '(<sh-set!> ("FOO" "bar"))
   (parse "FOO=bar"))

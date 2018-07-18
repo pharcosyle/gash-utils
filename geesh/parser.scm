@@ -475,7 +475,9 @@ the same number of times.)"
         (match redirects
           (() `(<sh-exec-let> ,assignments ,$2))
           (_ `(<sh-with-redirects> ,redirects
-                (<sh-exec-let> ,assignments ,$2)))))
+                ,(if (null? assignments)
+                     `(<sh-exec> ,$2)
+                     `(<sh-exec-let> ,assignments ,$2))))))
     (cmd-prefix)
     : (let*-values (((redirects assignments*) (partition io-redirect? $1))
                     ((assignments) (map split-assignment assignments*)))
