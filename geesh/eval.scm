@@ -51,6 +51,9 @@
 (define (exp->thunk env exp)
   (lambda () (eval-sh env exp)))
 
+(define (exps->thunk env exps)
+  (lambda () (eval-sh env `(<sh-begin> ,@exps))))
+
 (define (eval-sh env exp)
   "Evaluate the Shell expression @var{exp} in the context of the Shell
 environment @var{env}."
@@ -68,6 +71,8 @@ environment @var{env}."
                                                #:split? #f
                                                #:rhs-tildes? #t)))
                names words))
+    (('<sh-subshell> . sub-exps)
+     (sh:subshell env (exps->thunk env sub-exps)))
     (('<sh-with-redirects> (redirs ..1) sub-exp)
      (match sub-exp
        ;; For "simple commands" we have to observe a special order of
