@@ -55,6 +55,8 @@
   "Evaluate the Shell expression @var{exp} in the context of the Shell
 environment @var{env}."
   (match exp
+    (('<sh-begin> . sub-exps)
+     (for-each (cut eval-sh env <>) sub-exps))
     (('<sh-exec> words ..1)
      (let ((args (append-map (cut eval-word env <>) words)))
        (match args
