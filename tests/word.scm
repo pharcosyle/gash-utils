@@ -60,6 +60,14 @@ the `set' built-in for details on these options.)"
   '("foo" "bar")
   (expand-word #f '("foo bar")))
 
+(test-equal "Splits a word on leading space"
+  '("foo" "bar")
+  (expand-word #f '("foo" " bar")))
+
+(test-equal "Splits a word on trailing space"
+  '("foo" "bar")
+  (expand-word #f '("foo " "bar")))
+
 (test-equal "Ignores leading spaces"
   '("foo")
   (expand-word #f '(" foo")))

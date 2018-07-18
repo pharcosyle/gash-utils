@@ -75,12 +75,13 @@ set @var{ifs}."
       (str (let ((str-parts (string-split str ifs)))
              (if (every string-null? str-parts)
                  '(wedge)
-                 (infix 'wedge (filter (compose not string-null?)
-                                       str-parts)))))))
+                 (filter (lambda (x)
+                           (or (eq? x 'wedge) (not (string-null? x))))
+                         (infix 'wedge str-parts)))))))
 
   (let ((wedged (append-map (cut wedge-apart <> ifs)
                             (normalize-word qword))))
-    (list-split wedged 'wedge)))
+    (filter pair? (list-split wedged 'wedge))))
 
 (define (remove-quotes qword)
   "Remove quote forms from @var{qword} and concatenate the result into a
