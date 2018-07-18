@@ -299,6 +299,10 @@
   '(HERE-DOC (0 . 7) (<sh-quote> "$x\n"))
   (get-here-doc* "eof" "$x\neof" #:quoted? #t))
 
+(test-equal "Lexes a multi-line quoted here-document"
+  '(HERE-DOC (0 . 8) (<sh-quote> "a\nb\n"))
+  (get-here-doc* "eof" "a\nb\neof" #:quoted? #t))
+
 (test-equal "Lexes a here-document with tab trimming"
   '(HERE-DOC (0 . 15) (<sh-quote> "foo\nbar\n"))
   (get-here-doc* "eof" "\tfoo\n\tbar\n\teof" #:trim-tabs? #t))

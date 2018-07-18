@@ -561,7 +561,7 @@ marks the end of the here-document."
         (let ((line* (string-trim-right line #\newline)))
           (if (string=? line* end)
               `(<sh-quote> ,(string-concatenate-reverse acc))
-              (loop (get-line port) (cons line acc)))))))
+              (loop (read-line port 'concat) (cons line acc)))))))
 
 (define (get-unquoted-here-doc end port)
   "Get an unquoted here-document string from @var{port}, where
