@@ -34,6 +34,22 @@
   ;; FIXME: Set the 'eval-cmd-sub' parameter.
   (expand-word env word #:split? split? #:rhs-tildes? rhs-tildes?))
 
+(define (eval-redir env redir)
+  "Evaluate the redirect @var{redir} in environment @var{env}."
+  (match-let* (((op fd word) redir)
+               (field (eval-word env word #:split? #f)))
+    (match op
+      ((or '>& '<&)
+       (let ((n (string->number field)))
+         (cond
+          ((and n (exact-integer? n)) `(,op ,fd ,n))
+          ((string=? field "-") `(,op ,fd -))
+          (else (throw 'bad-dup)))))
+      (_ `(,op ,fd ,field)))))
+
+(define (exp->thunk env exp)
+  (lambda () (eval-sh env exp)))
+
 (define (eval-sh env exp)
   "Evaluate the Shell expression @var{exp} in the context of the Shell
 environment @var{env}."
@@ -42,4 +58,20 @@ environment @var{env}."
      (let ((args (append-map (cut eval-word env <>) words)))
        (match args
          ((name . args) (apply sh:exec env name args))
-         (() #f))))))
+         (() #f))))
+    (('<sh-with-redirects> (redirs ..1) sub-exp)
+     (match sub-exp
+       ;; For "simple commands" we have to observe a special order of
+       ;; evaluation: first command words, then redirects, and finally
+       ;; assignment words.
+       (('<sh-exec> words ..1)
+        (let ((args (append-map (cut eval-word env <>) words))
+              (redirs (map (cut eval-redir env <>) redirs)))
+          (match args
+            ((name . args)
+             (sh:with-redirects env redirs
+               (lambda ()
+                 (apply sh:exec env name args))))
+            (() #f))))
+       (_ (sh:with-redirects env (map (cut eval-redir env <>) redirs)
+            (exp->thunk env sub-exp)))))))
