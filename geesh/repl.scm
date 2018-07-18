@@ -30,7 +30,7 @@
 ;;; Code:
 
 (define (run-repl)
-  (let loop ((env (make-environment '()))
+  (let loop ((env (make-environment (environ->alist (environ))))
              (exp (read-sh (current-input-port))))
     (unless (eof-object? exp)
       (eval-sh env exp)
