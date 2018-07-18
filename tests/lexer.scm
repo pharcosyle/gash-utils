@@ -242,7 +242,7 @@
   (tokenize "\"foo\n#<'\""))
 
 (test-equal "Respects escapes for special characters in double quotations"
-  '((WORD (0 . 10) (<sh-quote> "foo" (<sh-quote> "\"") "bar")))
+  '((WORD (0 . 10) (<sh-quote> ("foo" (<sh-quote> "\"") "bar"))))
   (tokenize "\"foo\\\"bar\""))
 
 (test-equal "Ignores escapes for normal characters in double quotations"
@@ -292,7 +292,7 @@
   (get-here-doc* "eof" "foo\neof"))
 
 (test-equal "Lexes a here-document with an expansion"
-  '(HERE-DOC (0 . 7) (<sh-quote> (<sh-ref> "x") "\n"))
+  '(HERE-DOC (0 . 7) (<sh-quote> ((<sh-ref> "x") "\n")))
   (get-here-doc* "eof" "$x\neof"))
 
 (test-equal "Lexes a quoted here-document with an expansion"
@@ -324,7 +324,7 @@
   (get-here-doc* "eof" "foo\neofeof\neof"))
 
 (test-equal "Lexes a here-document with here-end after an expansion"
-  '(HERE-DOC (0 . 12) (<sh-quote> (<sh-ref> "x") "eof\n"))
+  '(HERE-DOC (0 . 12) (<sh-quote> ((<sh-ref> "x") "eof\n")))
   (get-here-doc* "eof" "${x}eof\neof"))
 
 (test-equal "Lexes a here-document with here-end after an escape"

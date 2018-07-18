@@ -384,7 +384,9 @@ next character statisfies @var{pred} (or is a newline)."
        (match chr
          (#\" (begin
                 (get-char port)
-                `(<sh-quote> ,@(join-contiguous-strings (reverse! acc)))))
+                `(<sh-quote> ,(match (join-contiguous-strings (reverse! acc))
+                                ((word) word)
+                                (words words)))))
          ((or #\$ #\`)
           (if (expansions?)
               (let ((expansion (get-expansion port)))
@@ -586,13 +588,17 @@ marks the end of the here-document."
            (or (eof-object? chr)
                (char=? chr #\newline)))
       (get-char port)
-      `(<sh-quote> ,@(join-contiguous-strings (reverse! acc))))
+      `(<sh-quote> ,(match (join-contiguous-strings (reverse! acc))
+                      ((word) word)
+                      (words words))))
      ;; We've hit EOF prematurely.
      ((eof-object? chr)
       ;; XXX: Following Bash, we should issue a warning here.
       (let* ((end-str (list->string (reverse! end-acc)))
              (acc (if (string-null? end-str) acc (cons end-str acc))))
-        `(<sh-quote> ,@(join-contiguous-strings (reverse! acc)))))
+        `(<sh-quote> ,(match (join-contiguous-strings (reverse! acc))
+                        ((word) word)
+                        (words words)))))
      ;; We've read another character from the end string.
      ((and (pair? end)
            (char=? (car end) chr))
