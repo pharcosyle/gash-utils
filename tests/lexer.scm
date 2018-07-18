@@ -340,7 +340,7 @@
   (parameterize ((read-bracketed-command
                   (lambda (port)
                     (string-for-each (lambda _ (read-char port)) "foo")
-                    '(<sh-exec> "foo"))))
+                    '((<sh-exec> "foo")))))
     (tokenize "$(foo)")))
 
 ;;;
@@ -352,7 +352,7 @@
   (parameterize ((read-backquoted-command
                   (lambda (port)
                     (string-for-each (lambda _ (read-char port)) "foo")
-                    '(<sh-exec> "foo"))))
+                    '((<sh-exec> "foo")))))
     (tokenize "`foo`")))
 
 (test-end)

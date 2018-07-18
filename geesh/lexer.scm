@@ -322,7 +322,7 @@ leading '$')."
     (#\(
      (let ((result ((read-bracketed-command) port)))
        (match (get-char port)
-         (#\) `(<sh-cmd-sub> ,result)))))))
+         (#\) `(<sh-cmd-sub> ,@result)))))))
 
 (define (get-backquoted-command port)
   "Get a backquoted command ('`...`') from @var{port}."
@@ -330,7 +330,7 @@ leading '$')."
     (#\`
      (let ((result ((read-backquoted-command) port)))
        (match (get-char port)
-         (#\` `(<sh-cmd-sub> ,result)))))))
+         (#\` `(<sh-cmd-sub> ,@result)))))))
 
 (define (get-expansion port)
   "Get an expansion ('$name', '${...}', '$(...)', or '`...`') from

@@ -40,7 +40,7 @@ redir ::= ('> fdes word)
 word  ::= string
         | (word ...)
         | ('<sh-quote> word)
-        | ('<sh-cmd-sub> sync ...)
+        | ('<sh-cmd-sub> [list] ...)
         | ('<sh-ref> var)
         | ('<sh-ref-or> var [word])
         | ('<sh-ref-or*> var [word])

@@ -766,7 +766,8 @@ bracket."
          (parse (make-parser #:open-bracket-hook incr-bracket-depth!
                              #:close-bracket-hook decr-bracket-depth!)))
     (match (parse lex syntax-error)
-      ((? eof-object?) #f)
+      ((? eof-object?) '())
+      (((? symbol? tag) . rest) `((,tag . ,rest)))
       (code code))))
 
 (define (read-sh/backquoted port)
@@ -776,7 +777,8 @@ bracket."
       (let ((lex (make-lexer port read-sh/bracketed read-sh/backquoted))
             (parse (make-parser)))
         (match (parse lex syntax-error)
-          ((? eof-object?) #f)
+          ((? eof-object?) '())
+          (((? symbol? tag) . rest) `((,tag . ,rest)))
           (code code))))))
 
 (define* (read-sh #:optional (port #f))

@@ -314,12 +314,12 @@
   (parse "echo $(foo $(bar))"))
 
 (test-equal "Parses empty bracketed command substitions"
-  '(<sh-exec> "echo" (<sh-cmd-sub> #f))
+  '(<sh-exec> "echo" (<sh-cmd-sub>))
   (parse "echo $()"))
 
 (test-equal "Parses multiline bracketed command substitions"
-  '(<sh-exec> "echo" (<sh-cmd-sub> ((<sh-exec> "foo")
-                                    (<sh-exec> "bar"))))
+  '(<sh-exec> "echo" (<sh-cmd-sub> (<sh-exec> "foo")
+                                   (<sh-exec> "bar")))
   (parse "echo $(foo
                  bar)"))
 
@@ -336,12 +336,12 @@
   (parse "echo `foo \\`bar\\``"))
 
 (test-equal "Parses empty backquoted command substitions"
-  '(<sh-exec> "echo" (<sh-cmd-sub> #f))
+  '(<sh-exec> "echo" (<sh-cmd-sub>))
   (parse "echo ``"))
 
 (test-equal "Parses multiline backquoted command substitions"
-  '(<sh-exec> "echo" (<sh-cmd-sub> ((<sh-exec> "foo")
-                                    (<sh-exec> "bar"))))
+  '(<sh-exec> "echo" (<sh-cmd-sub> (<sh-exec> "foo")
+                                   (<sh-exec> "bar")))
   (parse "echo `foo
                 bar`"))
 
