@@ -57,7 +57,7 @@
     (var-ref env "FOO")))
 
 ;;;
-;;; Making an 'environ'.
+;;; Making and reading 'environs'.
 ;;;
 
 (define (subset? lst1 lst2)
@@ -102,5 +102,10 @@ to order."
          (bindings '(("FOO" . "ghi")))
          (environ (environment->environ env bindings)))
     (set=? environ '("FOO=ghi" "BAR=def"))))
+
+(test-assert "Creates an alist from an environ"
+  (let* ((environ '("FOO=abc" "BAR=def"))
+         (alist (environ->alist environ)))
+    (set=? alist '(("FOO" . "abc") ("BAR" . "def")))))
 
 (test-end)

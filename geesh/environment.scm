@@ -18,14 +18,17 @@
 
 (define-module (geesh environment)
   #:use-module (ice-9 match)
+  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
+  #:use-module (srfi srfi-26)
   #:export (<environment>
             make-environment
             environment?
             var-ref
             var-ref*
             set-var!
-            environment->environ))
+            environment->environ
+            environ->alist))
 
 ;;; Commentary:
 ;;;
@@ -77,3 +80,10 @@ precedence over the ones in @var{env}."
                  (cons (string-append name "=" value) acc)
                  (cons name seen))))
       (() acc))))
+
+(define (environ->alist environ)
+  (define (string-split-1 str char_pred)
+    (and=> (string-index str char_pred)
+           (lambda (index)
+             `(,(substring str 0 index) . ,(substring str (1+ index))))))
+  (filter-map (cut string-split-1 <> #\=) environ))
