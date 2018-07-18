@@ -336,11 +336,11 @@
 ;;;
 
 (test-equal "Recognizes a bracketed command substition"
-  '((WORD (0 . 6) (<sh-cmd-sub> (<sh-cmd> "foo"))))
+  '((WORD (0 . 6) (<sh-cmd-sub> (<sh-exec> "foo"))))
   (parameterize ((read-bracketed-command
                   (lambda (port)
                     (string-for-each (lambda _ (read-char port)) "foo")
-                    '(<sh-cmd> "foo"))))
+                    '(<sh-exec> "foo"))))
     (tokenize "$(foo)")))
 
 ;;;
@@ -348,11 +348,11 @@
 ;;;
 
 (test-equal "Recognizes a backquoted command substition"
-  '((WORD (0 . 5) (<sh-cmd-sub> (<sh-cmd> "foo"))))
+  '((WORD (0 . 5) (<sh-cmd-sub> (<sh-exec> "foo"))))
   (parameterize ((read-backquoted-command
                   (lambda (port)
                     (string-for-each (lambda _ (read-char port)) "foo")
-                    '(<sh-cmd> "foo"))))
+                    '(<sh-exec> "foo"))))
     (tokenize "`foo`")))
 
 (test-end)
