@@ -32,8 +32,11 @@
 ;;; Code:
 
 (define* (eval-word env word #:key (split? #t) (rhs-tildes? #f))
-  ;; FIXME: Set the 'eval-cmd-sub' parameter.
-  (expand-word env word #:split? split? #:rhs-tildes? rhs-tildes?))
+  (parameterize ((eval-cmd-sub (lambda (exps)
+                                 (sh:substitute-command env
+                                   (lambda ()
+                                     (for-each (cut eval-sh env <>) exps))))))
+    (expand-word env word #:split? split? #:rhs-tildes? rhs-tildes?)))
 
 (define (eval-redir env redir)
   "Evaluate the redirect @var{redir} in environment @var{env}."
