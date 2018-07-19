@@ -17,6 +17,7 @@
 ;;; along with Geesh.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (geesh eval)
+  #:use-module (geesh environment)
   #:use-module (geesh shell)
   #:use-module (geesh word)
   #:use-module (ice-9 match)
@@ -59,6 +60,12 @@ environment @var{env}."
        (match args
          ((name . args) (apply sh:exec env name args))
          (() #f))))
+    (('<sh-set!> (names words) ..1)
+     (for-each (lambda (name word)
+                 (set-var! env name (eval-word env word
+                                               #:split? #f
+                                               #:rhs-tildes? #t)))
+               names words))
     (('<sh-with-redirects> (redirs ..1) sub-exp)
      (match sub-exp
        ;; For "simple commands" we have to observe a special order of
