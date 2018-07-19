@@ -311,4 +311,18 @@
 
 ;; TODO: Read-write tests, closing tests, clobbering tests.
 
+
+;;; Subshells.
+
+(test-equal "Subshells cannot change variables"
+  "foo"
+  (let ((env (make-environment '(("x" . "foo")))))
+    (sh:subshell env
+      (lambda ()
+        (set-var! env "x" "bar")))
+    (var-ref env "x")))
+
+;; TODO: Test other means of manipulating the environment and exit
+;; statuses.
+
 (test-end)

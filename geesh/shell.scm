@@ -5,6 +5,7 @@
   #:use-module (srfi srfi-26)
   #:export (sh:exec-let
             sh:exec
+            sh:subshell
             sh:with-redirects))
 
 ;;; Commentary:
@@ -149,3 +150,14 @@ filename used for the here-document contents."
       (lambda ()
         (flush-all-ports)
         (for-each restore-saved-fdes! (reverse saved-fds))))))
+
+
+;;; Subshells.
+
+(define (sh:subshell env thunk)
+  "Run @var{thunk} in a subshell environment."
+  (match (primitive-fork)
+    (0 (thunk)
+       (primitive-exit))
+    (pid (match-let (((pid . status) (waitpid pid)))
+           (set-var! env "?" (number->string (status:exit-val status)))))))
