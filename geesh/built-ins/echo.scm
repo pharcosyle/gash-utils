@@ -26,5 +26,8 @@
 ;;; Code:
 
 (define (echo env . args)
-  (display (string-join args " "))
-  (newline))
+  (let* ((n? (and (pair? args) (string=? (car args) "-n")))
+         (args (if n? (cdr args) args)))
+    (display (string-join args " "))
+    (unless n?
+      (newline))))
