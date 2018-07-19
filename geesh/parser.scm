@@ -283,7 +283,7 @@ the same number of times.)"
     (pipe-sequence)
     : (if (null? (cdr $1)) (car $1) $1)
     (Bang pipe-sequence)
-    : `(<sh-bang> ,$2))
+    : `(<sh-not> ,$2))
 
    (pipe-sequence
     (command)
