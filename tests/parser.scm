@@ -126,8 +126,8 @@
 ;; Pipelines
 
 (test-equal "Parses pipelines"
-  '(<sh-pipe> ((<sh-exec> "cat" "foo.txt")
-               (<sh-exec> "grep" "bar")))
+  '(<sh-pipeline> ((<sh-exec> "cat" "foo.txt")
+                   (<sh-exec> "grep" "bar")))
   (parse "cat foo.txt | grep bar"))
 
 ;; Brace groups and subshells

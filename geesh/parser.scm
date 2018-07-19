@@ -289,7 +289,7 @@ the same number of times.)"
     (command)
     : `(,$1)
     (pipe-sequence PIPE linebreak command)
-    : `(<sh-pipe> ,(append $1 (list $4))))
+    : `(<sh-pipeline> ,(append $1 (list $4))))
 
    (command
     (simple-command)

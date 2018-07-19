@@ -10,7 +10,7 @@ exp   ::= pipe
         | ('<sh-not> pipe)
 
 pipe  ::= cmd*
-        | ('<sh-pipe> cmd* ...)
+        | ('<sh-pipeline> cmd* ...)
 
 cmd*  ::= cmd
         | ('<sh-defun> name sync ...)
