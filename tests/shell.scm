@@ -94,4 +94,30 @@
        (sh:exec env utility)
        (file-exists? sentinal)))))
 
+(test-assert "Executes a utility by searching PATH"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((utility (string-append directory "/utility"))
+           (sentinal (string-append directory "/sentinal.txt"))
+           (env (make-environment `(("PATH" . ,directory)))))
+       (make-script utility
+         (with-output-to-file ,sentinal
+           (lambda ()
+             (display "x"))))
+       (sh:exec env "utility")
+       (file-exists? sentinal)))))
+
+(test-assert "Throws error if a utility cannot be found"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((env (make-environment `(("PATH" . ,directory)))))
+       (catch #t
+         (lambda ()
+           (sh:exec env "utility")
+           #f)
+         (lambda args
+           (match args
+             (('misc-error _ _ ("Command not found.") _) #t)
+             (_ #f))))))))
+
 (test-end)

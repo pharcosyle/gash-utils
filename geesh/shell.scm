@@ -22,12 +22,38 @@ will be @var{args}."
       (pid (match-let (((pid . status) (waitpid pid)))
              (set-var! env "?" (number->string (status:exit-val status))))))))
 
+(define (slashless? s)
+  "Test if the string @var{s} does not contain any slashes ('/')."
+  (not (string-index s #\/)))
+
+(define (split-search-path s)
+  "Split the search path string @var{s}."
+  (if (string-null? s) '() (string-split s #\:)))
+
+(define (find-utility env name)
+  "Search for the path of the utility @var{name} using @var{env}.  If
+it cannot be found, return @code{#f}."
+  (let loop ((prefixes (split-search-path (var-ref* env "PATH"))))
+    (and (pair? prefixes)
+         (let* ((prefix (car prefixes))
+                (path (if (string-suffix? "/" prefix)
+                          (string-append prefix name)
+                          (string-append prefix "/" name))))
+           (if (access? path X_OK)
+               path
+               (loop (cdr prefixes)))))))
+
 (define (sh:exec-let env bindings name . args)
-  "Execute @var{name} with arguments @var{args}, environment
+  "Find and execute @var{name} with arguments @var{args}, environment
 @var{env}, and extra environment variable bindings @var{bindings}."
-  (exec-utility env bindings name name args))
+  (if (slashless? name)
+      (or (and=> (find-utility env name)
+                 (lambda (path)
+                   (exec-utility env bindings path name args)))
+          (error "Command not found."))
+      (exec-utility env bindings name name args)))
 
 (define (sh:exec env name . args)
-  "Execute @var{name} with arguments @var{args} and environment
-@var{env}."
+  "Find and execute @var{name} with arguments @var{args} and
+environment @var{env}."
   (apply sh:exec-let env '() name args))
