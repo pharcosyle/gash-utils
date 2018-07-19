@@ -8,4 +8,5 @@
    (eval . (put '<sh-while> 'scheme-indent-function 1))
    (eval . (put '<sh-with-redirects> 'scheme-indent-function 1))
    (eval . (put 'call-with-backquoted-input-port 'scheme-indent-function 1))
-   (eval . (put 'make-script 'scheme-indent-function 1)))))
+   (eval . (put 'make-script 'scheme-indent-function 1))
+   (eval . (put 'sh:with-redirects 'scheme-indent-function 2)))))

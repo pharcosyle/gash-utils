@@ -127,4 +127,188 @@
       (lambda ()
         (sh:exec env "echo" "foo" "bar")))))
 
+
+;;; Redirects.
+
+;; TODO: Tame this mess with some syntax.
+
+(test-equal "Redirects built-in standard output to file"
+  "foo\n"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((foo (string-append directory "/foo.txt"))
+           (env (make-environment '())))
+       (sh:with-redirects env `((> 1 ,foo))
+         (lambda ()
+           (display "foo")
+           (newline)))
+       (call-with-input-file foo get-string-all)))))
+
+(test-equal "Redirects built-in standard error to file"
+  "foo\n"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((foo (string-append directory "/foo.txt"))
+           (env (make-environment '())))
+       (sh:with-redirects env `((> 2 ,foo))
+         (lambda ()
+           (display "foo" (current-error-port))
+           (newline (current-error-port))))
+       (call-with-input-file foo get-string-all)))))
+
+(test-equal "Redirects external standard output to file"
+  "foo\n"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((utility (string-append directory "/utility"))
+           (foo (string-append directory "/foo.txt"))
+           (env (make-environment '())))
+       (make-script utility
+         (display "foo")
+         (newline))
+       (sh:with-redirects env `((> 1 ,foo))
+         (lambda ()
+           (sh:exec env utility)))
+       (call-with-input-file foo get-string-all)))))
+
+(test-equal "Redirects external standard error to file"
+  "foo\n"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((utility (string-append directory "/utility"))
+           (foo (string-append directory "/foo.txt"))
+           (env (make-environment '())))
+       (make-script utility
+         (display "foo" (current-error-port))
+         (newline (current-error-port)))
+       (sh:with-redirects env `((> 2 ,foo))
+         (lambda ()
+           (sh:exec env utility)))
+       (call-with-input-file foo get-string-all)))))
+
+(test-equal "Redirects built-in standard input from file"
+  "foo\n"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((foo (string-append directory "/foo.txt"))
+           (output (string-append directory "/output.txt"))
+           (env (make-environment '())))
+       (with-output-to-file foo
+         (lambda ()
+           (display "foo")
+           (newline)))
+       (sh:with-redirects env `((< 0 ,foo))
+         (lambda ()
+           (with-output-to-file output
+             (lambda ()
+               (display (get-string-all (current-input-port)))))))
+       (call-with-input-file output get-string-all)))))
+
+(test-equal "Redirects external standard input from file"
+  "foo\n"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((utility (string-append directory "/utility"))
+           (foo (string-append directory "/foo.txt"))
+           (output (string-append directory "/output.txt"))
+           (env (make-environment '())))
+       (with-output-to-file foo
+         (lambda ()
+           (display "foo")
+           (newline)))
+       (make-script utility
+         (use-modules (ice-9 textual-ports))
+         (with-output-to-file ,output
+           (lambda ()
+             (display (get-string-all (current-input-port))))))
+       (sh:with-redirects env `((< 0 ,foo))
+         (lambda ()
+           (sh:exec env utility)))
+       (call-with-input-file output get-string-all)))))
+
+;; These next two tests are non-deterministic, so we need to allow
+;; multiple right answers.  (This is preferred to using 'force-output'
+;; because we want to be sure that 'sh:with-redirects' handles
+;; left-over buffered output.)
+
+(test-assert "Redirects built-in standard error to standard output"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((foo (string-append directory "/foo.txt"))
+           (env (make-environment '())))
+       (sh:with-redirects env `((> 1 ,foo) (>& 2 1))
+         (lambda ()
+           (display "foo")
+           (newline)
+           (display "bar" (current-error-port))
+           (newline (current-error-port))))
+       (let ((result (call-with-input-file foo get-string-all)))
+         (or (string=? result "foo\nbar\n")
+             (string=? result "bar\nfoo\n")))))))
+
+(test-assert "Redirects external standard error to standard output"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((utility (string-append directory "/utility"))
+           (foo (string-append directory "/foo.txt"))
+           (env (make-environment '())))
+       (make-script utility
+         (display "foo")
+         (newline)
+         (display "bar" (current-error-port))
+         (newline (current-error-port)))
+       (sh:with-redirects env `((> 1 ,foo) (>& 2 1))
+         (lambda ()
+           (sh:exec env utility)))
+       (let ((result (call-with-input-file foo get-string-all)))
+         (or (string=? result "foo\nbar\n")
+             (string=? result "bar\nfoo\n")))))))
+
+(test-equal "Appends standard output to file"
+  "foo\nbar\n"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((foo (string-append directory "/foo.txt"))
+           (env (make-environment '())))
+       (with-output-to-file foo
+         (lambda ()
+           (display "foo")
+           (newline)))
+       (sh:with-redirects env `((>> 1 ,foo))
+         (lambda ()
+           (display "bar")
+           (newline)))
+       (call-with-input-file foo get-string-all)))))
+
+(test-equal "Redirects here-document to standard input"
+  "foo\n"
+  (let ((env (make-environment '())))
+    (with-output-to-string
+      (lambda ()
+        (sh:with-redirects env '((<< 0 "foo\n"))
+          (lambda ()
+            (display (get-string-all (current-input-port)))))))))
+
+(test-equal "Allows here-document and file redirect"
+  "foo\n"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((foo (string-append directory "/foo.txt"))
+           (env (make-environment '())))
+       (sh:with-redirects env `((> 1 ,foo) (<< 0 "foo\n"))
+         (lambda ()
+           (display (get-string-all (current-input-port)))))
+       (call-with-input-file foo get-string-all)))))
+
+(test-equal "Uses last here-document specified"
+  "foo\n"
+  (let ((env (make-environment '())))
+    (with-output-to-string
+      (lambda ()
+        (sh:with-redirects env '((<< 0 "bar\n") (<< 0 "foo\n"))
+          (lambda ()
+            (display (get-string-all (current-input-port)))))))))
+
+;; TODO: Read-write tests, closing tests, clobbering tests.
+
 (test-end)
