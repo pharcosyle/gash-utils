@@ -281,15 +281,19 @@ the same number of times.)"
 
    (pipeline
     (pipe-sequence)
-    : (if (null? (cdr $1)) (car $1) $1)
+    : (if (null? (cdr $1))
+          (car $1)
+          `(<sh-pipeline> ,@(reverse! $1)))
     (Bang pipe-sequence)
-    : `(<sh-not> ,$2))
+    : `(<sh-not> ,(if (null? (cdr $2))
+                      (car $2)
+                      `(<sh-pipeline> ,@(reverse! $2)))))
 
    (pipe-sequence
     (command)
     : `(,$1)
     (pipe-sequence PIPE linebreak command)
-    : `(<sh-pipeline> ,(append $1 (list $4))))
+    : (cons $4 $1))
 
    (command
     (simple-command)

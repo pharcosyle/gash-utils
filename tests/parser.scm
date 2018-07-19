@@ -123,11 +123,20 @@
              (<sh-exec> "echo" "baz"))
   (parse "echo foo || echo bar && echo baz"))
 
+(test-equal "Parses negations"
+  '(<sh-not> (<sh-exec> "echo" "foo"))
+  (parse "! echo foo"))
+
+(test-equal "Parses negated pipelines"
+  '(<sh-not> (<sh-pipeline> (<sh-exec> "echo" "foo")
+                            (<sh-exec> "echo" "bar")))
+  (parse "! echo foo | echo bar"))
+
 ;; Pipelines
 
 (test-equal "Parses pipelines"
-  '(<sh-pipeline> ((<sh-exec> "cat" "foo.txt")
-                   (<sh-exec> "grep" "bar")))
+  '(<sh-pipeline> (<sh-exec> "cat" "foo.txt")
+                  (<sh-exec> "grep" "bar"))
   (parse "cat foo.txt | grep bar"))
 
 ;; Brace groups and subshells
