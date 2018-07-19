@@ -7,6 +7,7 @@ sync  ::= exp
 exp   ::= pipe
         | ('<sh-and> exp_1 exp_2)
         | ('<sh-or> exp_1 exp_2)
+        | ('<sh-not> pipe)
 
 pipe  ::= cmd*
         | ('<sh-pipe> cmd* ...)
