@@ -325,4 +325,90 @@
 ;; TODO: Test other means of manipulating the environment and exit
 ;; statuses.
 
+
+;;; Command substitutions.
+
+(test-equal "Substitutes output from built-in"
+  "foo"
+  (let ((env (make-environment '())))
+    (sh:substitute-command env
+      (lambda ()
+        (display "foo")))))
+
+(test-equal "Substitutions ignore standard error for built-ins"
+  "foo"
+  (let ((env (make-environment '())))
+    (sh:substitute-command env
+      (lambda ()
+        (display "foo")
+        (display "bar" (current-error-port))))))
+
+(test-equal "Substitutions have null standard input for built-ins"
+  ""
+  (let ((env (make-environment '())))
+    (sh:substitute-command env
+      (lambda ()
+        (display (get-string-all (current-input-port)))))))
+
+(test-equal "Substitutes output from external utilities"
+  "foo"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((utility (string-append directory "/utility"))
+           (env (make-environment '())))
+       (make-script utility
+         (display "foo"))
+       (sh:substitute-command env
+         (lambda ()
+           (sh:exec env utility)))))))
+
+(test-equal "Substitutions ignore standard error for external utilities"
+  "foo"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((utility (string-append directory "/utility"))
+           (env (make-environment '())))
+       (make-script utility
+         (display "foo")
+         (display "bar" (current-error-port)))
+       (sh:substitute-command env
+         (lambda ()
+           (sh:exec env utility)))))))
+
+(test-equal "Substitutions have null standard input for external utilities"
+  ""
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((utility (string-append directory "/utility"))
+           (env (make-environment '())))
+       (make-script utility
+         (use-modules (ice-9 textual-ports))
+         (display (get-string-all (current-input-port))))
+       (sh:substitute-command env
+         (lambda ()
+           (sh:exec env utility)))))))
+
+(test-equal "Trailing newlines are trimmed from substitutions"
+  "foo"
+  (let ((env (make-environment '())))
+    (sh:substitute-command env
+      (lambda ()
+        (display "foo")
+        (newline)))))
+
+(test-equal "Non-trailing newlines are preserved in substitutions"
+  "\nfoo\nbar"
+  (let ((env (make-environment '())))
+    (sh:substitute-command env
+      (lambda ()
+        (newline)
+        (display "foo")
+        (newline)
+        (display "bar")))))
+
+(test-equal "Empty substitutions produce empty strings"
+  ""
+  (let ((env (make-environment '())))
+    (sh:substitute-command env noop)))
+
 (test-end)

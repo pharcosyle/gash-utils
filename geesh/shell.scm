@@ -2,10 +2,12 @@
   #:use-module (geesh built-ins)
   #:use-module (geesh environment)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 textual-ports)
   #:use-module (srfi srfi-26)
   #:export (sh:exec-let
             sh:exec
             sh:subshell
+            sh:substitute-command
             sh:with-redirects))
 
 ;;; Commentary:
@@ -152,12 +154,35 @@ filename used for the here-document contents."
         (for-each restore-saved-fdes! (reverse saved-fds))))))
 
 
-;;; Subshells.
+;;; Subshells and command substitution.
 
-(define (sh:subshell env thunk)
-  "Run @var{thunk} in a subshell environment."
+(define* (%subshell thunk)
+  "Run @var{thunk} in a new process and return the ID of the new
+process."
   (match (primitive-fork)
     (0 (thunk)
        (primitive-exit))
-    (pid (match-let (((pid . status) (waitpid pid)))
-           (set-var! env "?" (number->string (status:exit-val status)))))))
+    (pid pid)))
+
+(define (sh:subshell env thunk)
+  "Run @var{thunk} in a subshell environment."
+  (match-let* ((pid (%subshell thunk))
+               ((pid . status) (waitpid pid)))
+    (set-var! env "?" (number->string (status:exit-val status)))))
+
+(define (sh:substitute-command env thunk)
+  "Run @var{thunk} in a subshell environment and return its output as
+a string."
+  (match-let* (((sink . source) (pipe))
+               (thunk* (lambda ()
+                         (close-port sink)
+                         (let ((redirs `((< 0 "/dev/null")
+                                         (>& 1 ,(fileno source))
+                                         (> 2 "/dev/null"))))
+                           (sh:with-redirects env redirs thunk))))
+               (pid (%subshell thunk*)))
+    (close-port source)
+    (match-let ((result (string-trim-right (get-string-all sink) #\newline))
+                ((pid . status) (waitpid pid)))
+      (set-var! env "?" (number->string (status:exit-val status)))
+      result)))
