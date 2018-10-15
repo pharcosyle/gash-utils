@@ -289,6 +289,37 @@
           (lambda ()
             (display (get-string-all (current-input-port)))))))))
 
+(test-equal "Redirects work with string ports"
+  "foo\n"
+  (let ((env (make-environment '())))
+    (with-input-from-string "bar\n"
+      (lambda ()
+        (setvbuf (current-input-port) 'none)
+        (with-output-to-string
+          (lambda ()
+            (sh:with-redirects env '((<< 0 "foo\n"))
+              (lambda ()
+                (display (get-string-all (current-input-port)))))))))))
+
+(test-equal "Does not use buffered input from current-input-port"
+  "foo\n"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((bar-baz (string-append directory "/bar-baz.txt"))
+           (env (make-environment '())))
+       (with-output-to-file bar-baz
+         (lambda ()
+           (display "bar\nbaz\n")))
+       (with-input-from-file bar-baz
+         (lambda ()
+           (setvbuf (current-input-port) 'block 8)
+           (get-line (current-input-port))
+           (with-output-to-string
+             (lambda ()
+               (sh:with-redirects env '((<< 0 "foo\n"))
+                 (lambda ()
+                   (display (get-string-all (current-input-port)))))))))))))
+
 (test-equal "Allows here-document and file redirect"
   "foo\n"
   (call-with-temporary-directory

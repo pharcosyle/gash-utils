@@ -3,6 +3,7 @@
   #:use-module (geesh environment)
   #:use-module (ice-9 match)
   #:use-module (ice-9 textual-ports)
+  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
   #:export (sh:exec-let
             sh:exec
@@ -17,6 +18,35 @@
 ;;;
 ;;; Code:
 
+(define *fd-count* 3)
+
+(define (fd->current-port fd)
+  "Return the current port (e.g. @code{current-input-port})
+corresponding to the the Shell file descriptor @var{fd}."
+  (match fd
+    (0 current-input-port)
+    (1 current-output-port)
+    (2 current-error-port)))
+
+(define (install-current-ports!)
+  "Install all current ports into their usual file descriptors.  For
+example, if @code{current-input-port} is a @code{file-port?}, make the
+process file descriptor 0 refer to the file open for
+@code{current-input-port}.  If any current port is a @code{port?} but
+not a @code{file-port?}, its corresponding file descriptor will refer
+to @file{/dev/null}."
+  ;; XXX: Input/output ports?  Closing other FDs?
+  (for-each (lambda (i)
+              (match ((fd->current-port i))
+                ((? file-port? port)
+                 (dup port i))
+                ((? input-port? port)
+                 (dup (open-file "/dev/null" "r") i))
+                ((? output-port? port)
+                 (dup (open-file "/dev/null" "w") i))
+                (_ #t)))
+            (iota *fd-count*)))
+
 (define (exec-utility env bindings path name args)
   "Execute @var{path} as a subprocess with environment @var{env} and
 extra environment variables @var{bindings}.  The first argument given
@@ -24,7 +54,8 @@ to the new process will be @var{name}, and the rest of the arguments
 will be @var{args}."
   (let ((utility-env (environment->environ env bindings)))
     (match (primitive-fork)
-      (0 (apply execle path utility-env name args))
+      (0 (install-current-ports!)
+         (apply execle path utility-env name args))
       (pid (match-let (((pid . status) (waitpid pid)))
              (set-var! env "?" (number->string (status:exit-val status))))))))
 
@@ -79,79 +110,71 @@ environment @var{env}."
 
 ;;; Redirects.
 
-(define (save-and-install-redirect! env redir)
-  "Install the redirect @var{redir} into the current process and
-return a pair consisting of the file descriptor that has been changed
-and a dup'ed copy of its old value.  If @var{redir} is a here-document
-redirect, the return value is a pair where the first element is the
-pair previously described and the second element is the temporary
-filename used for the here-document contents."
+(define (save-and-set-redirect env redir)
+  "Update the current port parameters according to @code{redir}, and
+return a pair consisting of the Shell file descriptor that has been
+changed and a copy of its old value."
 
-  (define* (save-and-dup2! fd target #:optional (open-flags 0))
-    (let ((saved-fd (catch 'system-error
-                      (lambda () (dup fd))
-                      (lambda data
-                        (unless (= EBADF (system-error-errno data))
-                          (apply throw data))
-                        #f))))
+  (define* (save-and-set fd target #:optional (open-flags 0))
+    (let ((saved-port ((fd->current-port fd))))
       (match target
-        ((? string?) (dup2 (open-fdes target open-flags) fd))
+        ((? port?) ((fd->current-port fd) target))
+        ((? string?) ((fd->current-port fd) (open target open-flags)))
         ;; TODO: Verify open-flags.
-        ((? integer?) (dup2 target fd))
-        (#f (close-fdes fd)))
-      `(,fd . ,saved-fd)))
+        ((? integer?) ((fd->current-port fd) ((fd->current-port target))))
+        (#f (close-port (fd->current-port fd))))
+      `(,fd . ,saved-port)))
 
   (match redir
     (('< (? integer? fd) (? string? filename))
-     (save-and-dup2! fd filename O_RDONLY))
+     (save-and-set fd filename O_RDONLY))
     (('> (? integer? fd) (? string? filename))
      ;; TODO: Observe noclobber.
-     (save-and-dup2! fd filename (logior O_WRONLY O_CREAT O_TRUNC)))
+     (save-and-set fd filename (logior O_WRONLY O_CREAT O_TRUNC)))
     (('>! (? integer? fd) (? string? filename))
-     (save-and-dup2! fd filename (logior O_WRONLY O_CREAT O_TRUNC)))
+     (save-and-set fd filename (logior O_WRONLY O_CREAT O_TRUNC)))
     (('>> fd filename)
-     (save-and-dup2! fd filename (logior O_WRONLY O_CREAT O_APPEND)))
+     (save-and-set fd filename (logior O_WRONLY O_CREAT O_APPEND)))
     (('<> fd filename)
-     (save-and-dup2! fd filename (logior O_RDWR O_CREAT)))
+     (save-and-set fd filename (logior O_RDWR O_CREAT)))
     (('<& (? integer? fd1) (? integer? fd2))
-     (save-and-dup2! fd1 fd2))
+     (save-and-set fd1 fd2))
     (('<& (? integer? fd) '-)
-     (save-and-dup2! fd #f))
+     (save-and-set fd #f))
     (('>& (? integer? fd1) (? integer? fd2))
-     (save-and-dup2! fd1 fd2))
+     (save-and-set fd1 fd2))
     (('>& (? integer? fd) '-)
-     (save-and-dup2! fd #f))
+     (save-and-set fd #f))
     (('<< (? integer? fd) text)
-     (let ((port (mkstemp! (string-copy "/tmp/geesh-here-doc-XXXXXX"))))
+     (let ((port (tmpfile)))
        (display text port)
        (seek port 0 SEEK_SET)
-       `(,(save-and-dup2! fd (port->fdes port)) . ,(port-filename port))))))
+       (save-and-set fd port)))))
 
-(define (restore-saved-fdes! fd-pair)
-  "Restore a file-descriptor to its previous state as described by
-@var{fd-pair}, where @var{fd-pair} is a return value of
-@code{save-and-install-redirect!}."
-  (match fd-pair
-    (((fd . saved-fd) . filename)
-     (restore-saved-fdes! `(,fd . ,saved-fd))
-     (delete-file filename))
-    ((fd . #f)
-     (close-fdes fd))
+(define (restore-saved-port saved-port)
+  "Restore a Shell file descriptor to its previous state as described
+by @var{saved-port}, where @var{saved-port} is a return value of
+@code{save-and-set-redirect}."
+  (match saved-port
     ((fd . saved-fd)
-     (dup2 saved-fd fd))))
+     (let ((port ((fd->current-port fd))))
+       ((fd->current-port fd) saved-fd)
+       (unless (any (cut eq? port <>)
+                    (map (lambda (fd)
+                           ((fd->current-port fd)))
+                         (iota *fd-count*)))
+         (close port))))))
 
 (define (sh:with-redirects env redirs thunk)
   "Call @var{thunk} with the redirects @var{redirs} in effect."
-  (let ((saved-fds #f))
+  (let ((saved-ports #f))
     (dynamic-wind
       (lambda ()
-        (flush-all-ports)
-        (set! saved-fds
-          (map (cut save-and-install-redirect! env <>) redirs)))
+        (set! saved-ports
+          (map (cut save-and-set-redirect env <>) redirs)))
       thunk
       (lambda ()
-        (flush-all-ports)
-        (for-each restore-saved-fdes! (reverse saved-fds))))))
+        (for-each restore-saved-port (reverse saved-ports))))))
 
 
 ;;; Subshells and command substitution.
@@ -176,10 +199,12 @@ a string."
   (match-let* (((sink . source) (pipe))
                (thunk* (lambda ()
                          (close-port sink)
-                         (let ((redirs `((< 0 "/dev/null")
-                                         (>& 1 ,(fileno source))
-                                         (> 2 "/dev/null"))))
-                           (sh:with-redirects env redirs thunk))))
+                         (let ((in (open-file "/dev/null" "r"))
+                               (err (open-file "/dev/null" "w")))
+                           (parameterize ((current-input-port in)
+                                          (current-output-port source)
+                                          (current-error-port err))
+                             (thunk)))))
                (pid (%subshell thunk*)))
     (close-port source)
     (match-let ((result (string-trim-right (get-string-all sink) #\newline))
