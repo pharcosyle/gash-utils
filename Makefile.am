@@ -38,6 +38,7 @@ test-list: ; @echo $(TESTS)
 
 MODULES =                                       \
   geesh/built-ins/echo.scm                      \
+  geesh/built-ins/read.scm                      \
   geesh/built-ins.scm                           \
   geesh/environment.scm                         \
   geesh/eval.scm                                \

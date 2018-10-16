@@ -65,7 +65,7 @@
     ("kill" . ,undefined)
     ("newgrp" . ,undefined)
     ("pwd" . ,undefined)
-    ("read" . ,undefined)
+    ("read" . ,(@@ (geesh built-ins read) main))
     ("true" . ,undefined)
     ("umask" . ,undefined)
     ("unalias" . ,undefined)
