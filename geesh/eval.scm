@@ -70,6 +70,9 @@ environment @var{env}."
        (match args
          ((name . args) (apply sh:exec env name args))
          (() #f))))
+    (('<sh-for> (name (words ...)) . sub-exps)
+     (sh:for env `(,name ,(append-map (cut eval-word env <>) words))
+       (exps->thunk env sub-exps)))
     (('<sh-not> exp)
      (sh:not env (exp->thunk env exp)))
     (('<sh-or> exp1 exp2)
