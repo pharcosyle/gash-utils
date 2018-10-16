@@ -5,8 +5,11 @@
   #:use-module (ice-9 textual-ports)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
-  #:export (sh:exec-let
+  #:export (sh:and
+            sh:exec-let
             sh:exec
+            sh:not
+            sh:or
             sh:pipeline
             sh:subshell
             sh:substitute-command
@@ -267,3 +270,27 @@ of each thunk sent to the input of the next thunk."
       (match-let* ((pid (last pids))
                    ((pid . status) (waitpid pid)))
         (set-var! env "?" (number->string (status:exit-val status)))))))
+
+
+;;; Boolean expressions.
+
+(define (sh:and env thunk1 thunk2)
+  "Run @var{thunk1} then, if the @code{$?} variable is zero in @var{env},
+run @var{thunk2}."
+  (thunk1)
+  (when (string=? (var-ref* env "?") "0")
+    (thunk2)))
+
+(define (sh:or env thunk1 thunk2)
+  "Run @var{thunk1} then, if the @code{$?} variable is nonzero in
+@var{env}, run @var{thunk2}."
+  (thunk1)
+  (unless (string=? (var-ref* env "?") "0")
+    (thunk2)))
+
+(define (sh:not env thunk)
+  "Run @var{thunk} and then invert the @code{$?} variable in @var{env}."
+  (thunk)
+  (if (string=? (var-ref* env "?") "0")
+      (set-var! env "?" "1")
+      (set-var! env "?" "0")))
