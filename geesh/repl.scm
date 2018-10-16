@@ -32,7 +32,8 @@
 (define (run-repl)
   (let loop ((env (make-environment (environ->alist (environ))))
              (exp (read-sh (current-input-port))))
-    (unless (eof-object? exp)
-      (eval-sh env exp)
-      (loop env (read-sh (current-input-port)))))
-  #t)
+    (if (eof-object? exp)
+        (or (and=> (var-ref env "?") string->number) 0)
+        (begin
+          (eval-sh env exp)
+          (loop env (read-sh (current-input-port)))))))
