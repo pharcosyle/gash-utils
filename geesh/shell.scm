@@ -8,6 +8,7 @@
   #:export (sh:and
             sh:exec-let
             sh:exec
+            sh:for
             sh:not
             sh:or
             sh:pipeline
@@ -294,3 +295,16 @@ run @var{thunk2}."
   (if (string=? (var-ref* env "?") "0")
       (set-var! env "?" "1")
       (set-var! env "?" "0")))
+
+
+;;; Loops.
+
+(define (sh:for env bindings thunk)
+  "Run @var{thunk} for each binding in @var{bindings}.  The value of
+@var{bindings} have the form @code{(@var{name} (@var{value} ...))}."
+  (set-var! env "?" "0")
+  (match-let (((name (values ...)) bindings))
+    (for-each (lambda (value)
+                (set-var! env name value)
+                (thunk))
+              values)))
