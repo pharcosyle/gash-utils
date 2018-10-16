@@ -68,6 +68,8 @@ environment @var{env}."
        (match args
          ((name . args) (apply sh:exec env name args))
          (() #f))))
+    (('<sh-pipeline> cmd*s ..1)
+     (apply sh:pipeline env (map (cut exp->thunk env <>) cmd*s)))
     (('<sh-set!> (names words) ..1)
      (for-each (lambda (name word)
                  (set-var! env name (eval-word env word
