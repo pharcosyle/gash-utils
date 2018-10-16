@@ -56,7 +56,7 @@
     ("bg" . ,undefined)
     ("cd" . ,undefined)
     ("command" . ,undefined)
-    ("false" . ,undefined)
+    ("false" . ,(@@ (geesh built-ins false) main))
     ("fc" . ,undefined)
     ("fg" . ,undefined)
     ("getopts" . ,undefined)
