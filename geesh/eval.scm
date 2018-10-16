@@ -61,6 +61,8 @@
   "Evaluate the Shell expression @var{exp} in the context of the Shell
 environment @var{env}."
   (match exp
+    (('<sh-and> exp1 exp2)
+     (sh:and env (exp->thunk env exp1) (exp->thunk env exp2)))
     (('<sh-begin> . sub-exps)
      (for-each (cut eval-sh env <>) sub-exps))
     (('<sh-exec> words ..1)
@@ -68,6 +70,10 @@ environment @var{env}."
        (match args
          ((name . args) (apply sh:exec env name args))
          (() #f))))
+    (('<sh-not> exp)
+     (sh:not env (exp->thunk env exp)))
+    (('<sh-or> exp1 exp2)
+     (sh:or env (exp->thunk env exp1) (exp->thunk env exp2)))
     (('<sh-pipeline> cmd*s ..1)
      (apply sh:pipeline env (map (cut exp->thunk env <>) cmd*s)))
     (('<sh-set!> (names words) ..1)
