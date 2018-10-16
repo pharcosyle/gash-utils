@@ -95,12 +95,14 @@ it cannot be found, return @code{#f}."
                                ((name . value)
                                 (set-var! env name value)))
                              bindings)
-                   (apply proc env args)))
+                   (let ((exit-val (apply proc env args)))
+                     (set-var! env "?" (number->string exit-val)))))
           ;; TODO: Functions.
           (and=> (search-built-ins name)
                  (lambda (proc)
                    ;; TODO: Use 'bindings' here.
-                   (apply proc env args)))
+                   (let ((exit-val (apply proc env args)))
+                     (set-var! env "?" (number->string exit-val)))))
           (and=> (find-utility env name)
                  (lambda (path)
                    (exec-utility env bindings path name args)))
