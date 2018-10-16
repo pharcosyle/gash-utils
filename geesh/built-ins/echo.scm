@@ -30,4 +30,5 @@
          (args (if n? (cdr args) args)))
     (display (string-join args " "))
     (unless n?
-      (newline))))
+      (newline))
+    0))
