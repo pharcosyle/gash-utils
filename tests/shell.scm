@@ -442,4 +442,81 @@
   (let ((env (make-environment '())))
     (sh:substitute-command env noop)))
 
+
+;; Pipelines.
+
+(test-equal "Built-ins are connected by pipelines"
+  "foo"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((foo (string-append directory "/foo.txt"))
+           (env (make-environment '())))
+       (sh:pipeline env
+                    (lambda ()
+                      (display "foo\n"))
+                    (lambda ()
+                      (with-output-to-file foo
+                        (lambda ()
+                          (display (get-line (current-input-port)))))))
+       (call-with-input-file foo get-string-all)))))
+
+(test-equal "External utilities are connected by pipelines"
+  "foo"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((utility1 (string-append directory "utility1"))
+           (utility2 (string-append directory "utility2"))
+           (foo (string-append directory "/foo.txt"))
+           (env (make-environment '())))
+       (make-script utility1
+         (display "foo\n"))
+       (make-script utility2
+         (use-modules (ice-9 textual-ports))
+         (with-output-to-file ,foo
+           (lambda ()
+             (display (get-line (current-input-port))))))
+       (sh:pipeline env
+                    (lambda ()
+                      (sh:exec env utility1))
+                    (lambda ()
+                      (sh:exec env utility2)))
+       (call-with-input-file foo get-string-all)))))
+
+(test-equal "Externals and built-ins are connected by pipelines"
+  "foo"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((utility (string-append directory "/utility"))
+           (foo (string-append directory "/foo.txt"))
+           (env (make-environment '())))
+       (make-script utility
+         (display "foo\n"))
+       (sh:pipeline env
+                    (lambda ()
+                      (sh:exec env utility))
+                    (lambda ()
+                      (with-output-to-file foo
+                        (lambda ()
+                          (display (get-line (current-input-port)))))))
+       (call-with-input-file foo get-string-all)))))
+
+(test-equal "Built-ins and externals are connected by pipelines"
+  "foo"
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((utility (string-append directory "/utility"))
+           (foo (string-append directory "/foo.txt"))
+           (env (make-environment '())))
+       (make-script utility
+         (use-modules (ice-9 textual-ports))
+         (with-output-to-file ,foo
+           (lambda ()
+             (display (get-line (current-input-port))))))
+       (sh:pipeline env
+                    (lambda ()
+                      (display "foo\n"))
+                    (lambda ()
+                      (sh:exec env utility)))
+       (call-with-input-file foo get-string-all)))))
+
 (test-end)

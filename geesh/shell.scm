@@ -7,6 +7,7 @@
   #:use-module (srfi srfi-26)
   #:export (sh:exec-let
             sh:exec
+            sh:pipeline
             sh:subshell
             sh:substitute-command
             sh:with-redirects))
@@ -211,3 +212,58 @@ a string."
                 ((pid . status) (waitpid pid)))
       (set-var! env "?" (number->string (status:exit-val status)))
       result)))
+
+
+;;; Pipelines.
+
+(define (swap-and-shift-pairs pairs)
+  "Swap and shift @var{pairs} over by one.  For example, the list
+@code{((a . b) (c . d))} becomes @code{((#f . b) (a . d) (c . #f))}"
+  (let ((kons (lambda (pair acc)
+                (match-let (((a . b) pair))
+                  (match acc
+                    ((head . rest) `(,b (,a . ,head) ,@rest))
+                    (() `(,b (,a . #f))))))))
+    (match (fold-right kons '() pairs)
+      ((head . rest) `((#f . ,head) ,@rest))
+      (() '()))))
+
+(define (make-pipes xs)
+  "Cons each element of @var{xs} to a pair of ports such that the first
+port is an input port connected to the second port of the previous
+element's pair, and the second port is an output port connected to the
+first port of next element's pair.  The first pair will have @code{#f}
+for an input port and the last will have @code{#f} as an output port."
+  (match xs
+    (() '())
+    ((x) `((,x . (#f . #f))))
+    (_ (let ((pipes (map (lambda (x) (pipe)) (cdr xs))))
+         (map cons xs (swap-and-shift-pairs pipes))))))
+
+(define (plumb env in out thunk)
+  "Run @var{thunk} in a new process with @code{current-input-port} set
+to @var{in} and @code{current-output-port} set to @var{out}.  If
+@var{in} or @var{out} is @code{#f}, the corresponding ``current'' port
+is left unchanged."
+  (let* ((thunk* (lambda ()
+                   (let ((in (or in (current-input-port)))
+                         (out (or out (current-output-port))))
+                     (parameterize ((current-input-port in)
+                                    (current-output-port out))
+                       (thunk)))))
+         (pid (%subshell thunk*)))
+    (when in (close-port in))
+    (when out (close-port out))
+    pid))
+
+(define (sh:pipeline env . thunks)
+  "Run each thunk in @var{thunks} in its own process with the output
+of each thunk sent to the input of the next thunk."
+  (let ((pids (map (match-lambda
+                     ((thunk . (source . sink))
+                      (plumb env source sink thunk)))
+                   (make-pipes thunks))))
+    (unless (null? pids)
+      (match-let* ((pid (last pids))
+                   ((pid . status) (waitpid pid)))
+        (set-var! env "?" (number->string (status:exit-val status)))))))
