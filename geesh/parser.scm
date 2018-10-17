@@ -444,7 +444,7 @@ the same number of times.)"
 
    (function-definition
     (fname LPAREN! RPAREN! linebreak function-body)
-    : `(<sh-define> (,$1) ,$5))
+    : `(<sh-defun> ,$1 ,$5))
 
    (function-body
     (compound-command)

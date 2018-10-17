@@ -304,7 +304,7 @@
 ;; Functions
 
 (test-equal "Parses functions"
-  '(<sh-define> ("foo")
+  '(<sh-defun> "foo"
      (<sh-exec> "echo" "foo"))
   (parse "foo() { echo foo; }"))
 

@@ -1,7 +1,7 @@
 ((scheme-mode
   .
   ((eval . (put '<sh-case> 'scheme-indent-function 1))
-   (eval . (put '<sh-define> 'scheme-indent-function 1))
+   (eval . (put '<sh-defun> 'scheme-indent-function 1))
    (eval . (put '<sh-exec-let> 'scheme-indent-function 1))
    (eval . (put '<sh-for> 'scheme-indent-function 1))
    (eval . (put '<sh-until> 'scheme-indent-function 1))
