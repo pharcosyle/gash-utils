@@ -217,6 +217,8 @@
      (handle number))
     (((? unspecified?))
      (handle #t))
+    (((? unspecified?) t ... #t)
+     #t)
     (_ (handle (apply pipeline+ #t commands)))))
 
 (define* (builtin ast #:key prefer-builtin?)
