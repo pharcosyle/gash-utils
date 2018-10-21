@@ -48,6 +48,7 @@
             glob
             if-clause
             ignore-error
+            literal
             pipeline
             run
             script
@@ -143,6 +144,9 @@
 
 (define (xtrace o)
   (o))
+
+(define (literal o)
+  o)
 
 (define (word . o)
   (define (flatten o)

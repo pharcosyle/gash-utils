@@ -307,27 +307,15 @@
     ;; (('assignment a b)
     ;;  `(assignment ,(transform a) ,(map transform b)))
 
-
     (('for-clause name sequence (and body ('pipeline _ ...)))
      `(for ,(transform name) (lambda _ ,(transform sequence)) (lambda _ ,(transform body))))
     (('for-clause name expr body)
      `(for ,(transform name) (lambda _ ,(transform expr)) (lambda _ ,@(map transform body))))
     (('sequence o)
-     `(sequence ,@(fold-right (lambda (o r)
-                                      (cons
-                                       (match o
-                                         (('substitution x) (transform o))
-                                         (_ `(list ,(transform o))))
-                                       r))
-                                    '() o)))
+     `(sequence (string-split ,(transform o) #\space)))
     (('sequence o ...)
-     `(sequence ,@(fold-right (lambda (o r)
-                                      (cons
-                                       (match o
-                                         (('substitution x) (transform o))
-                                         (_ `(list ,(transform o))))
-                                       r))
-                                    '() o)))
+     `(sequence (quote ,(map transform o))))
+
     (('substitution o) `(substitution ,(transform o)))
     (('if-clause expr then) `(if-clause ,(transform expr) ,(transform then)))
     (('if-clause expr then else) `(if-clause ,(transform expr) ,(transform then) ,(transform else)))
