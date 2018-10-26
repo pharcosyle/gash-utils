@@ -27,7 +27,7 @@
   #:use-module (rnrs io ports)
   #:use-module (gash guix-build-utils)
   #:export (extract-ustar-archive
-            write-ustar-archive))
+            create-ustar-archive))
 
 (define (fmt-error fmt . args)
   (error (apply format #f fmt args)))
@@ -37,9 +37,9 @@
 (define* (bytevector-pad
           bv len #:optional (byte 0) (start 0) (end (bytevector-length bv)))
   (when (< len (- end start))
-        (fmt-error
-         "bytevector-pad: truncation would occur: len ~a, start ~a, end ~a, bv ~s"
-         len start end bv))
+    (fmt-error
+     "bytevector-pad: truncation would occur: len ~a, start ~a, end ~a, bv ~s"
+     len start end bv))
   (let ((result (make-bytevector len byte)))
     (bytevector-copy! bv start result 0 (- end start))
     result))
@@ -57,10 +57,10 @@
 (define ustar-charset
   #;
   (char-set-union (ucs-range->char-set #x20 #x23)
-                  (ucs-range->char-set #x25 #x40)
-                  (ucs-range->char-set #x41 #x5B)
-                  (ucs-range->char-set #x5F #x60)
-                  (ucs-range->char-set #x61 #x7B))
+  (ucs-range->char-set #x25 #x40)
+  (ucs-range->char-set #x41 #x5B)
+  (ucs-range->char-set #x5F #x60)
+  (ucs-range->char-set #x61 #x7B))
   char-set:ascii)
 
 (define (valid-ustar-char? c)
@@ -68,12 +68,12 @@
 
 (define (ustar-string n str name)
   (unless (>= n (string-length str))
-          (fmt-error "~a is too long (max ~a): ~a" name n str))
+    (fmt-error "~a is too long (max ~a): ~a" name n str))
   (unless (string-every valid-ustar-char? str)
-          (fmt-error "~a contains unsupported character(s): ~s in ~s"
-                     name
-                     (string-filter (negate valid-ustar-char?) str)
-                     str))
+    (fmt-error "~a contains unsupported character(s): ~s in ~s"
+               name
+               (string-filter (negate valid-ustar-char?) str)
+               str))
   (bytevector-pad (string->utf8 str) n))
 
 (define (ustar-0string n str name)
@@ -84,9 +84,9 @@
   (unless (and (integer? num)
                (exact? num)
                (not (negative? num)))
-          (fmt-error "~a is not a non-negative exact integer: ~a" name num))
+    (fmt-error "~a is not a non-negative exact integer: ~a" name num))
   (unless (< num (expt 8 (- n 1)))
-          (fmt-error "~a is too large (max ~a): ~a" name (expt 8 (- n 1)) num))
+    (fmt-error "~a is too large (max ~a): ~a" name (expt 8 (- n 1)) num))
   (bytevector-pad (string->utf8 (string-pad (number->string num 8)
                                             (- n 1)
                                             #\0))
@@ -113,8 +113,8 @@
 (define* (write-ustar-record
           port bv #:optional (start 0) (end (bytevector-length bv)))
   (when (< 512 (- end start))
-        (fmt-error "write-ustar-record: record too long: start ~s, end ~s, bv ~s"
-                   start end bv))
+    (fmt-error "write-ustar-record: record too long: start ~s, end ~s, bv ~s"
+               start end bv))
   ;; We could have used 'bytevector-pad' here,
   ;; but instead use a method that avoids allocation.
   (put-bytevector port bv start end)
@@ -134,15 +134,15 @@
 ;; Like 'call-with-port', but also closes PORT if an error occurs.
 (define (call-with-port* port proc)
   (dynamic-wind
-      (lambda () #f)
-      (lambda () (proc port))
-      (lambda () (close port))))
+    (lambda () #f)
+    (lambda () (proc port))
+    (lambda () (close port))))
 
 (define (call-with-dirstream* dirstream proc)
   (dynamic-wind
-      (lambda () #f)
-      (lambda () (proc dirstream))
-      (lambda () (closedir dirstream))))
+    (lambda () #f)
+    (lambda () (proc dirstream))
+    (lambda () (closedir dirstream))))
 
 (define (files-in-directory dir)
   (call-with-dirstream* (opendir dir)
@@ -301,12 +301,12 @@
                     checksum))
            header))))
 
-(define (write-ustar-header port path st)
+(define* (write-ustar-header port path st #:key group mtime numeric-owner? owner)
   (let* ((type  (stat:type st))
          (perms  (stat:perms st))
-         (mtime  (stat:mtime st))
-         (uid    (stat:uid st))
-         (gid    (stat:gid st))
+         (mtime  (or mtime (stat:mtime st)))
+         (uid    (or owner (stat:uid st)))
+         (gid    (or group (stat:gid st)))
          (uname  (or (false-if-exception (passwd:name (getpwuid uid)))
                      ""))
          (gname  (or (false-if-exception (group:name (getgrgid gid)))
@@ -396,31 +396,31 @@
                              %uname %gname %dev-major %dev-minor
                              %prefix))))))
 
-(define (write-ustar-path port path)
-  (let* ((path (if (string-every file-name-separator? path)
-                   file-name-separator-string
-                   (string-trim-right path file-name-separator?)))
-         (st  (lstat path))
+(define* (write-ustar-file port file-name #:key group mtime numeric-owner? owner)
+  (let* ((file-name (if (string-every file-name-separator? file-name)
+                        file-name-separator-string
+                        (string-trim-right file-name file-name-separator?)))
+         (st  (lstat file-name))
          (type (stat:type st))
          (size (stat:size st)))
-    (write-ustar-header port path st)
+    (write-ustar-header port file-name st #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner)
     (case type
       ((regular)
-       (call-with-port* (open-file path "rb")
+       (call-with-port* (open-file file-name "rb")
          (lambda (in)
            (let ((buf (make-bytevector 512)))
              (let loop ((left size))
                (when (positive? left)
-                     (let* ((asked (min left 512))
-                            (obtained (get-bytevector-n! in buf 0 asked)))
-                       (when (or (eof-object? obtained)
-                                 (< obtained asked))
-                             (fmt-error "~a: file appears to have shrunk" path))
-                       (write-ustar-record port buf 0 obtained)
-                       (loop (- left obtained)))))))))
+                 (let* ((asked (min left 512))
+                        (obtained (get-bytevector-n! in buf 0 asked)))
+                   (when (or (eof-object? obtained)
+                             (< obtained asked))
+                     (fmt-error "~a: file appears to have shrunk" file-name))
+                   (write-ustar-record port buf 0 obtained)
+                   (loop (- left obtained)))))))))
       ((directory)
-       (for-each (lambda (path) (write-ustar-path port path))
-                 (files-in-directory path))))))
+       (for-each (lambda (file-name) (write-ustar-file port file-name))
+                 (files-in-directory file-name))))))
 
 (define (extract-ustar-file port header)
   (let* ((size (ustar-header-size header))
@@ -459,20 +459,21 @@
               (apply format #f message args))
       (exit 1))))
 
-(define (write-ustar-archive output-path paths)
-  (catch #t
-         (lambda ()
-           (call-with-port* (open-file output-path "wb")
-             (lambda (out)
-               (for-each (lambda (path)
-                           (write-ustar-path out path))
-                         paths)
-               (write-ustar-footer out))))
-         (lambda (key subr message args . rest)
-           (false-if-exception (delete-file output-path))
-           (format (current-error-port) "ERROR: ~a\n"
-                   (apply format #f message args))
-           (exit 1))))
+(define* (create-ustar-archive file-name files #:key group mtime numeric-owner? owner)
+  (catch 'fubar
+    (lambda ()
+      (call-with-port* (open-file file-name "wb")
+        (lambda (out)
+          (for-each
+           (cut write-ustar-file out <>
+                #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner)
+           files)
+          (write-ustar-footer out))))
+    (lambda (key subr message args . rest)
+      (false-if-exception (delete-file file-name))
+      (format (current-error-port) "ERROR: ~a\n"
+              (apply format #f message args))
+      (exit 1))))
 
 ;;; Local Variables:
 ;;; mode: scheme

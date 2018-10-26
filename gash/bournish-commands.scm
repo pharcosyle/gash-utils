@@ -368,9 +368,14 @@ Options:
   (lambda _
     (let* ((option-spec
 	    '((create (single-char #\c))
+              (group (value #t))
               (extract (single-char #\x))
               (file (single-char #\f) (value #t))
               (help (single-char #\h))
+              (mtime (value #t))
+              (numeric-owner?)
+              (owner (value #t))
+              (sort (value #t))
 	      (version (single-char #\V))))
            (args (cons "tar" args))
 	   (options (getopt-long args option-spec))
@@ -384,16 +389,34 @@ Options:
       (cond ((or help? usage?) (format (if usage? (current-error-port) #t)
                                        "\
 Usage: tar [OPTION]... [FILE]...
-  -c, --create           create a new archive
-  -f, --file=ARCHIVE     use archive file or device ARCHIVE
-  -h, --help             display this help
-  -V, --version          display version
-  -x, --extract          extract files from an archive
+  -c, --create               create a new archive
+  -f, --file=ARCHIVE         use archive file or device ARCHIVE
+      --group=NAME           force NAME as group for added files
+  -h, --help                 display this help
+      --mtime=DATE-OR-FILE   set mtime for added files from DATE-OR-FILE
+      --numeric-owner        always use numbers for user/group names
+      --owner=NAME           force NAME as owner for added files
+      --sort=ORDER           directory sorting order: none (default), name or
+                             inode
+  -V, --version              display version
+  -x, --extract              extract files from an archive
 ")
              (exit (if usage? 2 0)))
             (version? (format #t "tar (GASH) ~a\n" %version) (exit 0))
             (create?
-             (write-ustar-archive file files))
+             (let ((files (if (not (option-ref options 'sort #f)) files
+                              (sort files string<)))
+                   (group (and=> (option-ref options 'group #f) string->number))
+                   (mtime (and=> (option-ref options 'mtime #f) string->number))
+                   (numeric-owner? (option-ref options 'numeric-owner? #f))
+                   (owner (and=> (option-ref options 'owner #f) string->number)))
+              (apply create-ustar-archive
+                     `(,file
+                       ,files
+                       ,@(if group `(#:group ,group) '())
+                       ,@(if mtime `(#:mtime ,mtime) '())
+                       ,@(if numeric-owner? `(#:numeric-owner? ,numeric-owner?) '())
+                       ,@(if owner `(#:owner ,owner) '())))))
             (extract?
              (extract-ustar-archive file files))))))
 
