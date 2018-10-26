@@ -364,6 +364,10 @@ Options:
                            (for-each display-match matches)
                            0)))))))))
 
+(define (multi-opt options name)
+  (let ((opt? (lambda (o) (and (eq? (car o) name) (cdr o)))))
+    (filter-map opt? options)))
+
 (define (tar-command . args)
   (lambda _
     (let* ((option-spec
@@ -373,19 +377,24 @@ Options:
               (file (single-char #\f) (value #t))
               (help (single-char #\h))
               (mtime (value #t))
+              (list (single-char #\t))
               (numeric-owner?)
               (owner (value #t))
               (sort (value #t))
-	      (version (single-char #\V))))
+	      (verbose (single-char #\v))
+              (version (single-char #\V))))
            (args (cons "tar" args))
 	   (options (getopt-long args option-spec))
            (create? (option-ref options 'create #f))
+           (list? (option-ref options 'list #f))
            (extract? (option-ref options 'extract #f))
            (file (option-ref options 'file "/dev/stdout"))
 	   (files (option-ref options '() '()))
 	   (help? (option-ref options 'help #f))
-	   (usage? (and (not help?) (not (or (and create? (pair? files)) extract?))))
-	   (version? (option-ref options 'version #f)))
+	   (usage? (and (not help?) (not (or (and create? (pair? files))
+                                             extract? list?))))
+	   (verbosity (length (multi-opt options 'verbose)))
+           (version? (option-ref options 'version #f)))
       (cond ((or help? usage?) (format (if usage? (current-error-port) #t)
                                        "\
 Usage: tar [OPTION]... [FILE]...
@@ -398,7 +407,9 @@ Usage: tar [OPTION]... [FILE]...
       --owner=NAME           force NAME as owner for added files
       --sort=ORDER           directory sorting order: none (default), name or
                              inode
+  -t, --list                 list the contents of an archive
   -V, --version              display version
+  -v, --verbose              verbosely list files processed
   -x, --extract              extract files from an archive
 ")
              (exit (if usage? 2 0)))
@@ -416,9 +427,13 @@ Usage: tar [OPTION]... [FILE]...
                        ,@(if group `(#:group ,group) '())
                        ,@(if mtime `(#:mtime ,mtime) '())
                        ,@(if numeric-owner? `(#:numeric-owner? ,numeric-owner?) '())
-                       ,@(if owner `(#:owner ,owner) '())))))
+                       ,@(if owner `(#:owner ,owner) '())
+                       ,@(if owner `(#:owner ,owner) '())
+                       #:verbosity ,verbosity))))
             (extract?
-             (extract-ustar-archive file files))))))
+             (extract-ustar-archive file files #:verbosity verbosity))
+            (list?
+             (list-ustar-archive file files #:verbosity (1+ verbosity)))))))
 
 (define %bournish-commands
   `(

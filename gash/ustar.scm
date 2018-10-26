@@ -26,8 +26,9 @@
   #:use-module (rnrs bytevectors)
   #:use-module (rnrs io ports)
   #:use-module (gash guix-build-utils)
-  #:export (extract-ustar-archive
-            create-ustar-archive))
+  #:export (create-ustar-archive
+            extract-ustar-archive
+            list-ustar-archive))
 
 (define (fmt-error fmt . args)
   (error (apply format #f fmt args)))
@@ -396,7 +397,7 @@
                              %uname %gname %dev-major %dev-minor
                              %prefix))))))
 
-(define* (write-ustar-file port file-name #:key group mtime numeric-owner? owner)
+(define* (write-ustar-file port file-name #:key group mtime numeric-owner? owner verbosity)
   (let* ((file-name (if (string-every file-name-separator? file-name)
                         file-name-separator-string
                         (string-trim-right file-name file-name-separator?)))
@@ -422,51 +423,70 @@
        (for-each (lambda (file-name) (write-ustar-file port file-name))
                  (files-in-directory file-name))))))
 
-(define (extract-ustar-file port header)
+(define (ustar-header-file-name header)
+  (let ((name (ustar-header-name header))
+        (prefix (ustar-header-prefix header)))
+    (if (string-null? prefix) name
+        (string-append prefix "/" name))))
+
+(define* (extract-ustar-file port header #:key (extract? #t))
   (let* ((size (ustar-header-size header))
-         (name (ustar-header-name header))
-         (prefix (ustar-header-prefix header))
-         (file-name (if (string-null? prefix) name
-                        (string-append prefix "/" name)))
-         (dir (dirname file-name)))
-    (mkdir-p dir)
-    (with-output-to-file file-name
-      (lambda _
-        (let loop ((record (read-ustar-record port)) (wrote 0))
-          (let* ((read (+ wrote 512))
-                 (block (if (< read size) record
-                            (sub-bytevector record 0 (- size wrote)))))
-            (display (bv->ustar-0string block "block"))
-            (and (not (eof-object? record))
-                 (< read size)
-                 (loop (read-ustar-record port) read))))))
-    (chmod file-name (ustar-header-mode header))
-    (let ((mtime (ustar-header-mtime header)))
-      (utime file-name mtime mtime))))
+         (file-name (ustar-header-file-name header))
+         (dir (dirname file-name))
+         (thunk (lambda _
+                  (let loop ((record (read-ustar-record port)) (wrote 0))
+                    (let* ((read (+ wrote 512))
+                           (block (if (< read size) record
+                                      (sub-bytevector record 0 (- size wrote)))))
+                      (when extract?
+                        (display (bv->ustar-0string block "block")))
+                      (and (not (eof-object? record))
+                           (< read size)
+                           (loop (read-ustar-record port) read)))))))
+    (when extract?
+      (mkdir-p dir))
+    (if extract? (with-output-to-file file-name thunk)
+        (thunk))
+    (when extract?
+      (chmod file-name (ustar-header-mode header))
+      (let ((mtime (ustar-header-mtime header)))
+        (utime file-name mtime mtime)))))
 
-(define (extract-ustar-archive file-name files)
+(define (display-rwx perm)
+  (display (if (zero? (logand perm 4)) "-" "r"))
+  (display (if (zero? (logand perm 2)) "-" "w"))
+  (display (if (zero? (logand perm 1)) "-" "x")))
+
+(define* (display-header header #:key verbose?)
+  (when verbose?
+    (let ((mode (ustar-header-mode header))
+          (uid  (ustar-header-uid header))
+          (gid  (ustar-header-gid header))
+          (size (ustar-header-size header))
+          (date (strftime "%c" (localtime (ustar-header-mtime header)))))
+      (display "-")
+      (display-rwx (ash mode -6))
+      (display-rwx (ash (logand mode #o70) -3))
+      (display-rwx (logand mode #o7))
+      (display " ")
+      (format #t "~8s" uid)
+      (display " ")
+      (format #t "~8s" gid)
+      (format #t "~8d" size)
+      (display " ")
+      (display date)
+      (display " ")))
+  (display (ustar-header-file-name header))
+  (newline))
+
+(define* (create-ustar-archive file-name files #:key group mtime numeric-owner? owner verbosity)
   (catch #t
-    (lambda ()
-      (call-with-port* (open-file file-name "rb")
-        (lambda (in)
-          (let loop ((header (read-ustar-header in)))
-            (when (and header
-                       (not (eof-object? header)))
-              (extract-ustar-file in header)
-              (loop (read-ustar-header in)))))))
-    (lambda (key subr message args . rest)
-      (format (current-error-port) "ERROR: ~a\n"
-              (apply format #f message args))
-      (exit 1))))
-
-(define* (create-ustar-archive file-name files #:key group mtime numeric-owner? owner)
-  (catch 'fubar
     (lambda ()
       (call-with-port* (open-file file-name "wb")
         (lambda (out)
           (for-each
            (cut write-ustar-file out <>
-                #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner)
+                #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:verbosity verbosity)
            files)
           (write-ustar-footer out))))
     (lambda (key subr message args . rest)
@@ -474,6 +494,26 @@
       (format (current-error-port) "ERROR: ~a\n"
               (apply format #f message args))
       (exit 1))))
+
+(define* (extract-ustar-archive file-name files #:key (extract? #t) verbosity)
+  (catch #t
+    (lambda ()
+      (call-with-port* (open-file file-name "rb")
+        (lambda (in)
+          (let loop ((header (read-ustar-header in)))
+            (when (and header
+                       (not (eof-object? header)))
+              (unless (zero? verbosity)
+                (display-header header #:verbose? (not (zero? verbosity))))
+              (extract-ustar-file in header #:extract? extract?)
+              (loop (read-ustar-header in)))))))
+    (lambda (key subr message args . rest)
+      (format (current-error-port) "ERROR: ~a\n"
+              (apply format #f message args))
+      (exit 1))))
+
+(define* (list-ustar-archive file-name files #:key verbosity)
+  (extract-ustar-archive file-name files #:extract? #:verbosity verbosity))
 
 ;;; Local Variables:
 ;;; mode: scheme
