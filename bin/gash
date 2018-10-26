@@ -1,0 +1,6 @@
+#! /home/janneke/.guix-profile/bin/guile \
+--no-auto-compile -e main -L "/usr/local/share/guile/site/" -C "/usr/local/lib/guile//site-ccache" -L . -C . -s
+!#
+(define (main args)
+  (setenv "SHELL" ((compose canonicalize-path car command-line)))
+  ((@ (gash gash) main) (command-line)))

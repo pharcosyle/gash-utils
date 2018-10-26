@@ -33,6 +33,7 @@
   #:use-module (gash guix-build-utils)
   #:use-module (gash config)
   #:use-module (gash io)
+  #:use-module (gash ustar)
   #:use-module (gash util)
 
   #:export (
@@ -310,7 +311,7 @@ Options:
               (no-file-name (single-char #\h))
               (only-matching (single-char #\o))
               (version (single-char #\V))))
-           (options (getopt-long (cons "ls" args) option-spec))
+           (options (getopt-long (cons "grep" args) option-spec))
            (help? (option-ref options 'help #f))
            (version? (option-ref options 'version #f))
            (files (option-ref options '() '())))
@@ -363,6 +364,39 @@ Options:
                            (for-each display-match matches)
                            0)))))))))
 
+(define (tar-command . args)
+  (lambda _
+    (let* ((option-spec
+	    '((create (single-char #\c))
+              (extract (single-char #\x))
+              (file (single-char #\f) (value #t))
+              (help (single-char #\h))
+	      (version (single-char #\V))))
+           (args (cons "tar" args))
+	   (options (getopt-long args option-spec))
+           (create? (option-ref options 'create #f))
+           (extract? (option-ref options 'extract #f))
+           (file (option-ref options 'file "/dev/stdout"))
+	   (files (option-ref options '() '()))
+	   (help? (option-ref options 'help #f))
+	   (usage? (and (not help?) (not (or (and create? (pair? files)) extract?))))
+	   (version? (option-ref options 'version #f)))
+      (cond ((or help? usage?) (format (if usage? (current-error-port) #t)
+                                       "\
+Usage: tar [OPTION]... [FILE]...
+  -c, --create           create a new archive
+  -f, --file=ARCHIVE     use archive file or device ARCHIVE
+  -h, --help             display this help
+  -V, --version          display version
+  -x, --extract          extract files from an archive
+")
+             (exit (if usage? 2 0)))
+            (version? (format #t "tar (GASH) ~a\n" %version) (exit 0))
+            (create?
+             (write-ustar-archive file files))
+            (extract?
+             (read-ustar-archive file files))))))
+
 (define %bournish-commands
   `(
     ("cat"     . ,cat-command)
@@ -371,6 +405,7 @@ Options:
     ("grep"    . ,grep-command)
     ("ls"      . ,ls-command)
     ("reboot"  . ,reboot-command)
+    ("tar"     . ,tar-command)
     ("wc"      . ,wc-command)
     ("which"   . ,which-command)
     ))

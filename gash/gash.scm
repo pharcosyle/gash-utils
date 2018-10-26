@@ -15,6 +15,8 @@
   #:use-module (ice-9 regex)
 
   #:use-module (gash config)
+  #:use-module (gash builtins)
+  #:use-module (gash bournish-commands)
   #:use-module (gash environment)
   #:use-module (gash job)
   #:use-module (gash pipe)
@@ -46,8 +48,11 @@
   (call-with-input-file file-name parse))
 
 (define (display-help)
-  (display "\
+  (let ((builtins (sort (map car (append %bournish-commands ;;%builtin-commands
+                                         )) string<)))
+    (display (string-append "\
 Usage: gash [OPTION]... [FILE]...
+  or gash [OPTION]... -- BUILTIN [ARG]...
 
 Options:
   -c, --command=STRING  Evaluate STRING and exit
@@ -59,7 +64,10 @@ Options:
   --prefer-builtins     Use builtins, even if command is available in PATH
   -v, --version         Display the version
   -x, --xtrace          Print simple command trace
-"))
+
+Builtins:
+  " (string-join builtins) "
+"))))
 
 (define (display-version)
   (display (string-append "
@@ -86,7 +94,9 @@ copyleft.
                                  (geesh (single-char #\g))
                                  (version (single-char #\v))
                                  (xtrace (single-char #\x))))
-                  (options (getopt-long args option-spec #:stop-at-first-non-option #t ))
+                  (builtin-command-line (and=> (member "--" args) cdr))
+                  (args (take-while (negate (cut equal? <> "--")) args))
+                  (options (getopt-long args option-spec #:stop-at-first-non-option #t))
                   (command? (option-ref options 'command #f))
                   (opt? (lambda (name) (lambda (o) (and (eq? (car o) name) (cdr o)))))
                   (debug (length (filter-map (opt? 'debug) options)))
@@ -113,6 +123,11 @@ copyleft.
                  (if parse? (map pretty-print asts)
                      (for-each run asts))
                  (exit (script-status))))
+              (builtin-command-line
+               (let* ((builtin (car builtin-command-line))
+                      (args (cdr builtin-command-line))
+                      (command (assoc-ref %bournish-commands builtin)))
+                 ((apply command args))))
               (#t (let* ((HOME (string-append (getenv "HOME") "/.gash_history"))
                          (thunk (lambda ()
                                   (let loop ((line (readline (prompt))))

@@ -1,12 +1,23 @@
-#! /bin/sh
-# -*-scheme-*-
-exec ${GUILE-guile} -L $(dirname $0) -L $(dirname $(dirname $0)) -C $(dirname $0) -C $(dirname $(dirname $0)) --no-auto-compile -e '(tar)' -s $0 "$@"
+#! @GUILE@ \
+--no-auto-compile -e main -L "@GUILE_SITE_DIR@" -C "@GUILE_SITE_CCACHE_DIR@" -L . -C . -s
 !#
-(define-module (tar)
-  #:export (main))
-
-(set! %load-path (append '("@GUILE_SITE_DIR@") %load-path))
-(set! %load-compiled-path (append '("@GUILE_SITE_CCACHE_DIR@") %load-compiled-path))
+;;; Gash --- Guile As SHell
+;;; Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;;
+;;; This file is part of Gash.
+;;;
+;;; Gash is free software; you can redistribute it and/or modify it
+;;; under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation; either version 3 of the License, or (at
+;;; your option) any later version.
+;;;
+;;; Gash is distributed in the hope that it will be useful, but
+;;; WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;;; GNU General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with Gash.  If not, see <http://www.gnu.org/licenses/>.
 
 (define (main args)
-  ((@ (gash tar) main) (command-line)))
+  ((@ (gash gash) main) (cons* (car (command-line)) "--" "tar" (cdr (command-line)))))
