@@ -1,7 +1,15 @@
 *.go
 *~
+/bin/cat
+/bin/cp
+/bin/find
 /bin/gash
+/bin/grep
+/bin/ls
+/bin/reboot
 /bin/tar
+/bin/wc
+/bin/which
 /.config.make
 /doc/version.texi
 /gash/config.scm

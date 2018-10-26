@@ -20,4 +20,4 @@
 ;;; along with Gash.  If not, see <http://www.gnu.org/licenses/>.
 
 (define (main args)
-  ((@ (gash gash) main) (cons* (car (command-line)) "--" "tar" (cdr (command-line)))))
+  ((@ (gash gash) main) (cons* (car (command-line)) "--" "@builtin@" (cdr (command-line)))))

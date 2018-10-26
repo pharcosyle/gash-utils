@@ -51,7 +51,6 @@ gash/job.scm
 gash/peg.scm
 gash/pipe.scm
 gash/script.scm
-gash/tar.scm
 gash/ustar.scm
 gash/util.scm
 "
@@ -68,8 +67,16 @@ for i in $SCM_FILES; do
 done
 
 SCRIPTS="
+bin/cat
+bin/cp
+bin/find
 bin/gash
+bin/grep
+bin/ls
+bin/reboot
 bin/tar
+bin/wc
+bin/which
 "
 
 for i in $SCRIPTS; do

@@ -34,12 +34,26 @@ sed \
     -e s,@GUILE_SITE_CCACHE_DIR@,$GUILE_SITE_CCACHE_DIR,\
     bin/gash.in > bin/gash
 chmod +x bin/gash
-sed \
-    -e s,@GUILE@,$GUILE,\
-    -e s,@GUILE_SITE_DIR@,$GUILE_SITE_DIR,\
-    -e s,@GUILE_SITE_CCACHE_DIR@,$GUILE_SITE_CCACHE_DIR,\
-    bin/tar.in > bin/tar
-chmod +x bin/tar
+BUILTINS="
+cat
+cp
+find
+grep
+ls
+reboot
+tar
+wc 
+which
+"
+for builtin in $BUILTINS; do
+    sed \
+        -e s,@GUILE@,$GUILE,\
+        -e s,@GUILE_SITE_DIR@,$GUILE_SITE_DIR,\
+        -e s,@GUILE_SITE_CCACHE_DIR@,$GUILE_SITE_CCACHE_DIR,\
+        -e s,@builtin@,$builtin,\
+    bin/builtin.in > bin/$builtin
+    chmod +x bin/$builtin
+done
 cat > .config.make <<EOF
 BASH=$BASH
 GUILE=$GUILE
