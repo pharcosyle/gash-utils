@@ -25,12 +25,14 @@
   #:use-module (srfi srfi-9 gnu)
 
   #:use-module (ice-9 ftw)
+  #:use-module (ice-9 match)
   #:use-module (ice-9 regex)
   #:use-module (ice-9 rdelim)
 
   #:use-module (rnrs bytevectors)
   #:use-module (rnrs io ports)
   #:export (
+            delete-file-recursively
             dump-port
             file-name-predicate
             find-files
@@ -129,6 +131,31 @@ also be included.  If FAIL-ON-ERROR? is true, raise an exception upon error."
                             dir
                             stat)
           string<?)))
+
+(define* (delete-file-recursively dir
+                                  #:key follow-mounts?)
+  "Delete DIR recursively, like `rm -rf', without following symlinks.  Don't
+follow mount points either, unless FOLLOW-MOUNTS? is true.  Report but ignore
+errors."
+  (let ((dev (stat:dev (lstat dir))))
+    (file-system-fold (lambda (dir stat result)    ; enter?
+                        (or follow-mounts?
+                            (= dev (stat:dev stat))))
+                      (lambda (file stat result)   ; leaf
+                        (delete-file file))
+                      (const #t)                   ; down
+                      (lambda (dir stat result)    ; up
+                        (rmdir dir))
+                      (const #t)                   ; skip
+                      (lambda (file stat errno result)
+                        (format (current-error-port)
+                                "warning: failed to delete ~a: ~a~%"
+                                file (strerror errno)))
+                      #t
+                      dir
+
+                      ;; Don't follow symlinks.
+                      lstat)))
 
 (define* (dump-port in out
                     #:key (buffer-size 16384)
