@@ -395,7 +395,7 @@ Usage: tar [OPTION]... [FILE]...
             (create?
              (write-ustar-archive file files))
             (extract?
-             (read-ustar-archive file files))))))
+             (extract-ustar-archive file files))))))
 
 (define %bournish-commands
   `(

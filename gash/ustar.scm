@@ -19,11 +19,14 @@
 
 (define-module (gash ustar)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-9 gnu)
+  #:use-module (srfi srfi-26)
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
   #:use-module (rnrs bytevectors)
   #:use-module (rnrs io ports)
-  #:export (read-ustar-archive
+  #:use-module (gash guix-build-utils)
+  #:export (extract-ustar-archive
             write-ustar-archive))
 
 (define (fmt-error fmt . args)
@@ -92,14 +95,17 @@
 (define (checksum-bv bv)
   (let ((len (bytevector-length bv)))
     (let loop ((i 0) (sum 0))
-      (if (< i len)
-          (loop (+ i 1) (+ sum (bytevector-u8-ref bv i)))
-          sum))))
+      (if (= i len) sum
+          (loop (+ i 1) (+ sum (bytevector-u8-ref bv i)))))))
 
 (define (checksum . bvs)
   (fold + 0 (map checksum-bv bvs)))
 
 (define nuls (make-bytevector 512 0))
+
+;; read a ustar record of exactly 512 bytes.
+(define (read-ustar-record port)
+  (get-bytevector-n port 512))
 
 ;; write a ustar record of exactly 512 bytes, starting with the
 ;; segment of BV between START (inclusive) and END (exclusive), and
@@ -172,6 +178,129 @@
                         (substring path (+ i 1) len))))
           (else (too-long)))))
 
+(define (bv->ustar-string bv name)
+  (string-trim-right (bv->ustar-0string bv name) (compose zero? char->integer)))
+
+(define (bv->ustar-number bv name)
+  (let ((string (bv->ustar-string bv name)))
+    (or (string->number string 8) 0)))
+
+(define (bv->ustar-0string bv name)
+  (bytevector->string bv (make-transcoder (latin-1-codec))))
+
+(define-immutable-record-type <ustar-header>
+  (make-ustar-header name
+                     mode
+                     uid
+                     gid
+                     size
+                     mtime
+                     checksum
+                     ;; space
+                     type-flag
+                     link-name
+                     magic
+                     version
+                     uname
+                     gname
+                     dev-major
+                     dev-minor
+                     prefix)
+  ustar-header?
+  (name      ustar-header-name     )
+  (mode      ustar-header-mode     )
+  (uid       ustar-header-uid      )
+  (gid       ustar-header-gid      )
+  (size      ustar-header-size     )
+  (mtime     ustar-header-mtime    )
+  (checksum  ustar-header-checksum )
+  ;;(space     ustar-header-space    )
+  (type-flag ustar-header-type-flag)
+  (link-name ustar-header-link-name)
+  (magic     ustar-header-magic    )
+  (version   ustar-header-version  )
+  (uname     ustar-header-uname    )
+  (gname     ustar-header-gname    )
+  (dev-major ustar-header-dev-major)
+  (dev-minor ustar-header-dev-minor)
+  (prefix    ustar-header-prefix   ))
+
+(define ustar-header-field-size-alist
+  '((name           . 100)
+    (mode           .   8)
+    (uid            .   8)
+    (gid            .   8)
+    (size           .  12)
+    (mtime          .  12)
+    (checksum       .   7)
+    (space          .   1)
+    (type-flag      .   1)
+    (link-name      . 100)
+    (magic          .   6)
+    (version        .   2)
+    (uname          .  32)
+    (gname          .  32)
+    (dev-major      .   8)
+    (dev-minor      .   8)
+    (prefix         . 155)))
+
+(define (ustar-footer? bv)
+  (every zero? (array->list bv)))
+
+(define (sub-bytevector bv offset size)
+  (let ((sub (make-bytevector size)))
+    (bytevector-copy! bv offset sub 0 size)
+    sub))
+
+(define (read-ustar-header port)
+  (define offset
+    (let ((offset 0))
+      (lambda (. args)
+        (if (null? args) offset
+            (let ((n (car args)))
+              (set! offset (+ offset n))
+              n)))))
+  (let ((%record (read-ustar-record port)))
+    (and (not (eof-object? %record))
+         (not (ustar-footer? %record))
+         (let* ((field-bv-alist
+                 `((dummy-checksum . ,(string->utf8 "        "))
+                   ,@(map
+                      (match-lambda ((field . size)
+                                     (cons field (sub-bytevector %record (offset) (offset size)))))
+                      ustar-header-field-size-alist)))
+                (checksum-fields '(name mode uid gid size mtime
+                                        dummy-checksum
+                                        type-flag link-name magic version
+                                        uname gname dev-major dev-minor
+                                        prefix))
+                (checksum (apply checksum (map (cut assoc-ref field-bv-alist <>)
+                                               checksum-fields)))
+                (header
+                 (make-ustar-header
+                  (bv->ustar-string (assoc-ref field-bv-alist 'name     ) "file name"        )
+                  (bv->ustar-number (assoc-ref field-bv-alist 'mode     ) "file mode"        )
+                  (bv->ustar-number (assoc-ref field-bv-alist 'uid      ) "user id"          )
+                  (bv->ustar-number (assoc-ref field-bv-alist 'gid      ) "group id"         )
+                  (bv->ustar-number (assoc-ref field-bv-alist 'size     ) "file size"        )
+                  (bv->ustar-number (assoc-ref field-bv-alist 'mtime    ) "modification time")
+                  (bv->ustar-number (assoc-ref field-bv-alist 'checksum ) "checksum"         )
+                  ;; (bv->ustar-string (assoc-ref field-bv-alist 'space    ) "space"            )
+                  (bv->ustar-string (assoc-ref field-bv-alist 'type-flag) "type flag"        )
+                  (bv->ustar-string (assoc-ref field-bv-alist 'link-name) "link name"        )
+                  (bv->ustar-string (assoc-ref field-bv-alist 'magic    ) "magic field"      )
+                  (bv->ustar-string (assoc-ref field-bv-alist 'version  ) "version number"   )
+                  (bv->ustar-string (assoc-ref field-bv-alist 'uname    ) "user name"        )
+                  (bv->ustar-string (assoc-ref field-bv-alist 'gname    ) "group name"       )
+                  (bv->ustar-number (assoc-ref field-bv-alist 'dev-major) "dev major"        )
+                  (bv->ustar-number (assoc-ref field-bv-alist 'dev-minor) "dev minor"        )
+                  (bv->ustar-string (assoc-ref field-bv-alist 'prefix   ) "directory name"   ))))
+           (when (not (= (ustar-header-checksum header) checksum))
+             (error "checksum mismatch, expected: ~s, got: ~s\n"
+                    (ustar-header-checksum header)
+                    checksum))
+           header))))
+
 (define (write-ustar-header port path st)
   (let* ((type  (stat:type st))
          (perms  (stat:perms st))
@@ -188,11 +317,11 @@
                   (else 0)))
 
          (type-flag (case type
-                      ((regular)      "0")
-                      ((symlink)      "2")
+                      ((regular)       "0")
+                      ((symlink)       "2")
                       ((char-special)  "3")
                       ((block-special) "4")
-                      ((directory)    "5")
+                      ((directory)     "5")
                       ((fifo)          "6")
                       (else (fmt-error "~a: unsupported file type ~a"
                                        path type))))
@@ -229,43 +358,43 @@
 
     (receive (prefix name) (ustar-path-name-split full-path path)
 
-             (let* ((%name      (ustar-string  100 name      "file name"))
-                    (%mode      (ustar-number    8 perms    "file mode"))
-                    (%uid      (ustar-number    8 uid      "user id"))
-                    (%gid      (ustar-number    8 gid      "group id"))
-                    (%size      (ustar-number  12 size      "file size"))
-                    (%mtime    (ustar-number  12 mtime    "modification time"))
-                    (%type-flag (ustar-string    1 type-flag "type flag"))
-                    (%link-name (ustar-string  100 link-name "link name"))
-                    (%magic    (ustar-0string  6 "ustar"  "magic field"))
-                    (%version  (ustar-string    2 "00"      "version number"))
-                    (%uname    (ustar-0string  32 uname    "user name"))
-                    (%gname    (ustar-0string  32 gname    "group name"))
-                    (%dev-major (ustar-number    8 dev-major "dev major"))
-                    (%dev-minor (ustar-number    8 dev-minor "dev minor"))
-                    (%prefix    (ustar-string  155 prefix    "directory name"))
+      (let* ((%name      (ustar-string  100 name      "file name"))
+             (%mode      (ustar-number    8 perms     "file mode"))
+             (%uid       (ustar-number    8 uid       "user id"))
+             (%gid       (ustar-number    8 gid       "group id"))
+             (%size      (ustar-number   12 size      "file size"))
+             (%mtime     (ustar-number   12 mtime     "modification time"))
+             (%type-flag (ustar-string    1 type-flag "type flag"))
+             (%link-name (ustar-string  100 link-name "link name"))
+             (%magic     (ustar-0string   6 "ustar"   "magic field"))
+             (%version   (ustar-string    2 "00"      "version number"))
+             (%uname     (ustar-0string  32 uname     "user name"))
+             (%gname     (ustar-0string  32 gname     "group name"))
+             (%dev-major (ustar-number    8 dev-major "dev major"))
+             (%dev-minor (ustar-number    8 dev-minor "dev minor"))
+             (%prefix    (ustar-string  155 prefix    "directory name"))
 
-                    (%dummy-checksum (string->utf8 "        "))
+             (%dummy-checksum (string->utf8 "        "))
 
-                    (%checksum
-                     (bytevector-append
-                      (ustar-number
-                       7
-                       (checksum %name %mode %uid %gid %size %mtime
-                                 %dummy-checksum
-                                 %type-flag %link-name %magic %version
-                                 %uname %gname %dev-major %dev-minor
-                                 %prefix)
-                       "checksum")
-                      (string->utf8 " "))))
+             (%checksum
+              (bytevector-append
+               (ustar-number
+                7
+                (checksum %name %mode %uid %gid %size %mtime
+                          %dummy-checksum
+                          %type-flag %link-name %magic %version
+                          %uname %gname %dev-major %dev-minor
+                          %prefix)
+                "checksum")
+               (string->utf8 " "))))
 
-               (write-ustar-record port
-                                   (bytevector-append
-                                    %name %mode %uid %gid %size %mtime
-                                    %checksum
-                                    %type-flag %link-name %magic %version
-                                    %uname %gname %dev-major %dev-minor
-                                    %prefix))))))
+        (write-ustar-record port
+                            (bytevector-append
+                             %name %mode %uid %gid %size %mtime
+                             %checksum
+                             %type-flag %link-name %magic %version
+                             %uname %gname %dev-major %dev-minor
+                             %prefix))))))
 
 (define (write-ustar-path port path)
   (let* ((path (if (string-every file-name-separator? path)
@@ -293,8 +422,42 @@
        (for-each (lambda (path) (write-ustar-path port path))
                  (files-in-directory path))))))
 
-(define (read-ustar-archive)
-  (format (current-error-port) "TODO\n"))
+(define (extract-ustar-file port header)
+  (let* ((size (ustar-header-size header))
+         (name (ustar-header-name header))
+         (prefix (ustar-header-prefix header))
+         (file-name (if (string-null? prefix) name
+                        (string-append prefix "/" name)))
+         (dir (dirname file-name)))
+    (mkdir-p dir)
+    (with-output-to-file file-name
+      (lambda _
+        (let loop ((record (read-ustar-record port)) (wrote 0))
+          (let* ((read (+ wrote 512))
+                 (block (if (< read size) record
+                            (sub-bytevector record 0 (- size wrote)))))
+            (display (bv->ustar-0string block "block"))
+            (and (not (eof-object? record))
+                 (< read size)
+                 (loop (read-ustar-record port) read))))))
+    (chmod file-name (ustar-header-mode header))
+    (let ((mtime (ustar-header-mtime header)))
+      (utime file-name mtime mtime))))
+
+(define (extract-ustar-archive file-name files)
+  (catch #t
+    (lambda ()
+      (call-with-port* (open-file file-name "rb")
+        (lambda (in)
+          (let loop ((header (read-ustar-header in)))
+            (when (and header
+                       (not (eof-object? header)))
+              (extract-ustar-file in header)
+              (loop (read-ustar-header in)))))))
+    (lambda (key subr message args . rest)
+      (format (current-error-port) "ERROR: ~a\n"
+              (apply format #f message args))
+      (exit 1))))
 
 (define (write-ustar-archive output-path paths)
   (catch #t
