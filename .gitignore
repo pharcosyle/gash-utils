@@ -1,6 +1,7 @@
 *.go
 *~
 /bin/gash
+/bin/tar
 /.config.make
 /doc/version.texi
 /gash/config.scm

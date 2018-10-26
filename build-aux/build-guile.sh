@@ -51,6 +51,8 @@ gash/job.scm
 gash/peg.scm
 gash/pipe.scm
 gash/script.scm
+gash/tar.scm
+gash/ustar.scm
 gash/util.scm
 "
 
@@ -67,6 +69,7 @@ done
 
 SCRIPTS="
 bin/gash
+bin/tar
 "
 
 for i in $SCRIPTS; do

@@ -34,6 +34,12 @@ sed \
     -e s,@GUILE_SITE_CCACHE_DIR@,$GUILE_SITE_CCACHE_DIR,\
     bin/gash.in > bin/gash
 chmod +x bin/gash
+sed \
+    -e s,@GUILE@,$GUILE,\
+    -e s,@GUILE_SITE_DIR@,$GUILE_SITE_DIR,\
+    -e s,@GUILE_SITE_CCACHE_DIR@,$GUILE_SITE_CCACHE_DIR,\
+    bin/tar.in > bin/tar
+chmod +x bin/tar
 cat > .config.make <<EOF
 BASH=$BASH
 GUILE=$GUILE

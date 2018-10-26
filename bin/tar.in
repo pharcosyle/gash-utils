@@ -1,0 +1,12 @@
+#! /bin/sh
+# -*-scheme-*-
+exec ${GUILE-guile} -L $(dirname $0) -L $(dirname $(dirname $0)) -C $(dirname $0) -C $(dirname $(dirname $0)) --no-auto-compile -e '(tar)' -s $0 "$@"
+!#
+(define-module (tar)
+  #:export (main))
+
+(set! %load-path (append '("@GUILE_SITE_DIR@") %load-path))
+(set! %load-compiled-path (append '("@GUILE_SITE_CCACHE_DIR@") %load-compiled-path))
+
+(define (main args)
+  ((@ (gash tar) main) (command-line)))

@@ -63,14 +63,14 @@ Options:
 
 (define (display-version)
   (display (string-append "
-GASH " %version "
+gash (GASH) " %version "
 
-Copryright (C) 2016,2017,2018 R.E.W. van Beusekom <rutger.van.beusekom@gmail.com>
+Copyright (C) 2016,2017,2018 R.E.W. van Beusekom <rutger.van.beusekom@gmail.com>
+and others.
 
-This is gash, Guile As SHell.  Gash is free software and is covered by
+This is Gash, Guile As SHell.  Gash is free software and is covered by
 the GNU General Public License version 3 or later, see COPYING for the
 copyleft.
-
 ")))
 
 (define (main args)

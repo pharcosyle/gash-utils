@@ -4,12 +4,14 @@
 default: all
 
 .config.make: makefile
+
+bin/gash: bin/gash.in | do-configure
+bin/tar: bin/tar.in | do-configure
+
+do-configure:
 	./configure --prefix=$(PREFIX)
 
-bin/gash: bin/gash.in
-	./configure --prefix=$(PREFIX)
-
-all: all-go bin/gash
+all: all-go do-configure
 
 all-go:
 	build-aux/build-guile.sh
