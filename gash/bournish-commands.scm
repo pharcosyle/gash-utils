@@ -116,11 +116,13 @@ TERMINAL-WIDTH.  Use COLUMN-GAP spaces between two subsequent columns."
     (let* ((option-spec
             '((all (single-char #\a))
               (help)
+              (long (single-char #\l))
               (one-file-per-line (single-char #\1))
               (version)))
            (options (getopt-long (cons "ls" args) option-spec))
            (all? (option-ref options 'all #f))
            (help? (option-ref options 'help #f))
+           (long? (option-ref options 'long #f))
            (one-file-per-line? (option-ref options 'one-file-per-line #f))
            (version? (option-ref options 'version #f))
            (files (option-ref options '() '())))
@@ -128,9 +130,10 @@ TERMINAL-WIDTH.  Use COLUMN-GAP spaces between two subsequent columns."
 
 Options:
   -a, --all      do not ignore entries starting with .
-  -1             list one file per line
       --help     display this help and exit
+  -l, --long     use a long listing format
       --version  display version information and exit
+  -1             list one file per line
 "))
             (version? (format #t "ls (GASH) ~a\n" %version))
             (else
@@ -161,8 +164,9 @@ Options:
                                            files)))
                     (files (if all? files
                                (filter (negate (cut string-prefix? "." <>)) files))))
-               (if one-file-per-line? (for-each stdout files)
-                   (display-tabulated files))))))))
+               (cond (long? (for-each (lambda (f) (display-file f) (newline)) files))
+                     (one-file-per-line? (for-each stdout files))
+                     (else (display-tabulated files)))))))))
 
 (define ls-command (wrap-command ls-command-implementation "ls"))
 
