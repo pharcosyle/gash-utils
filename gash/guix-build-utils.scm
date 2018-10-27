@@ -20,6 +20,11 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Gash.  If not, see <http://www.gnu.org/licenses/>.
 
+;;; Commentary:
+
+;;; The initial guix-build-utils.scm was taken from Guix.
+
+;;; Code:
 
 (define-module (gash guix-build-utils)
   #:use-module (srfi srfi-1)

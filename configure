@@ -70,7 +70,17 @@ SHELL=$BASH
 VERSION=$VERSION
 EOF
 
+BZIP2=$(command -v bzip2)
+COMPRESS=$(command -v compress)
+[ -z "$COMPRESS" ] && COMPRESS=$PWD/bin/compress
+GZIP=$(command -v gzip)
+XZ=$(command -v xz)
+
 sed \
+    -e "s,@BZIP2@,$BZIP2,"\
+    -e "s,@COMPRESS@,$COMPRESS,"\
+    -e "s,@GZIP@,$GZIP,"\
+    -e "s,@XZ@,$XZ,"\
     -e "s,@VERSION@,$VERSION,"\
     gash/config.scm.in > gash/config.scm
 

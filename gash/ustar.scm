@@ -445,7 +445,8 @@
                    (write-ustar-record port buf 0 obtained)
                    (loop (- left obtained)))))))))
       ((directory)
-       (for-each (lambda (file-name) (write-ustar-file port file-name))
+       (for-each (lambda (file-name) (write-ustar-file port file-name
+                                                       #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:verbosity verbosity))
                  (files-in-directory file-name))))))
 
 (define (ustar-header-file-name header)
@@ -454,7 +455,7 @@
     (if (string-null? prefix) name
         (string-append prefix "/" name))))
 
-(define* (extract-ustar-file port header #:key (extract? #t))
+(define* (read-ustar-file port header #:key (extract? #t))
   (let* ((size (ustar-header-size header))
          (file-name (ustar-header-file-name header))
          (dir (dirname file-name))
@@ -497,7 +498,7 @@
 
 (define* (write-ustar-port out files #:key group mtime numeric-owner? owner verbosity)
   (catch #t
-    (lambda ()
+    (lambda _
       (for-each
        (cut write-ustar-file out <>
             #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:verbosity verbosity)
@@ -511,7 +512,7 @@
 
 (define* (write-ustar-archive file-name files #:key group mtime numeric-owner? owner verbosity)
   (catch #t
-    (lambda ()
+    (lambda _
       (call-with-port* (open-file file-name "wb")
         (cut write-ustar-port <> files
              #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:verbosity verbosity)))
@@ -521,36 +522,36 @@
               (apply format #f message args))
       (exit 1))))
 
-(define* (extract-ustar-port in files #:key (extract? #t) verbosity)
+(define* (read-ustar-port in files #:key (extract? #t) verbosity)
   (catch #t
-    (lambda ()
+    (lambda _
       (let loop ((header (read-ustar-header in)))
         (when (and header
                    (not (eof-object? header)))
           (unless (zero? verbosity)
             (display-header header #:verbose? (> verbosity 1)))
-          (extract-ustar-file in header #:extract? extract?)
+          (read-ustar-file in header #:extract? extract?)
           (loop (read-ustar-header in)))))
     (lambda (key subr message args . rest)
       (format (current-error-port) "ERROR: ~a\n"
               (apply format #f message args))
       (exit 1))))
 
-(define* (extract-ustar-archive file-name files #:key (extract? #t) verbosity)
-  (catch 'foo
-    (lambda ()
+(define* (read-ustar-archive file-name files #:key (extract? #t) verbosity)
+  (catch #t
+    (lambda _
       (call-with-port* (open-file file-name "rb")
-        (cut extract-ustar-port <> files #:extract? extract? verbosity)))
+        (cut read-ustar-port <> files #:extract? extract? #:verbosity verbosity)))
     (lambda (key subr message args . rest)
       (format (current-error-port) "ERROR: ~a\n"
               (apply format #f message args))
       (exit 1))))
 
 (define* (list-ustar-archive file-name files #:key verbosity)
-  (extract-ustar-archive file-name files #:extract? #f #:verbosity verbosity))
+  (read-ustar-archive file-name files #:extract? #f #:verbosity verbosity))
 
-(define* (list-ustar-port in file-name files #:key verbosity)
-  (extract-ustar-port file-name files #:extract? #f #:verbosity verbosity))
+(define* (list-ustar-port in files #:key verbosity)
+  (read-ustar-port in files #:extract? #f #:verbosity verbosity))
 
 ;;; Local Variables:
 ;;; mode: scheme

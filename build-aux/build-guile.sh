@@ -41,6 +41,7 @@ set -e
 SCM_FILES="
 gash/bournish-commands.scm
 gash/guix-build-utils.scm
+gash/guix-utils.scm
 gash/builtins.scm
 gash/compress.scm
 gash/config.scm

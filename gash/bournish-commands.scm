@@ -19,6 +19,12 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Gash.  If not, see <http://www.gnu.org/licenses/>.
 
+;;; Commentary:
+
+;;; The initial bournish.scm was taken from Guix.
+
+;;; Code:
+
 (define-module (gash bournish-commands)
   #:use-module (ice-9 ftw)
   #:use-module (ice-9 getopt-long)
@@ -31,6 +37,7 @@
   #:use-module (srfi srfi-26)
 
   #:use-module (gash guix-build-utils)
+  #:use-module (gash guix-utils)
   #:use-module (gash compress)
   #:use-module (gash config)
   #:use-module (gash io)
@@ -377,6 +384,10 @@ Options:
   (lambda _
     (let* ((option-spec
 	    '((create (single-char #\c))
+              (compress (single-char #\Z))
+              (gzip (single-char #\z))
+              (bzip2 (single-char #\j))
+              (xz (single-char #\J))
               (group (value #t))
               (extract (single-char #\x))
               (file (single-char #\f) (value #t))
@@ -390,6 +401,15 @@ Options:
               (version (single-char #\V))))
            (args (cons "tar" args))
 	   (options (getopt-long args option-spec))
+           (compress? (option-ref options 'compress #f))
+           (bzip2? (option-ref options 'bzip2 #f))
+           (gzip? (option-ref options 'gzip #f))
+           (xz? (option-ref options 'xz #f))
+           (compression (cond (bzip2? 'bzip2)
+                              (compress? 'compress)
+                              (gzip? 'gzip)
+                              (xz? 'xz)
+                              (else #f)))
            (create? (option-ref options 'create #f))
            (list? (option-ref options 'list #f))
            (extract? (option-ref options 'extract #f))
@@ -416,6 +436,8 @@ Usage: tar [OPTION]... [FILE]...
   -V, --version              display version
   -v, --verbose              verbosely list files processed
   -x, --extract              extract files from an archive
+  -z, --gzip                 filter the archive through gzip
+  -Z, --compress             filter the archive through compress
 ")
              (exit (if usage? 2 0)))
             (version? (format #t "tar (GASH) ~a\n" %version) (exit 0))
@@ -426,16 +448,18 @@ Usage: tar [OPTION]... [FILE]...
                    (mtime (and=> (option-ref options 'mtime #f) string->number))
                    (numeric-owner? (option-ref options 'numeric-owner? #f))
                    (owner (and=> (option-ref options 'owner #f) string->number)))
-               (if (equal? file "-")
-                   (apply write-ustar-port (current-output-port)
-                          `(,file
-                            ,files
-                            ,@(if group `(#:group ,group) '())
-                            ,@(if mtime `(#:mtime ,mtime) '())
-                            ,@(if numeric-owner? `(#:numeric-owner? ,numeric-owner?) '())
-                            ,@(if owner `(#:owner ,owner) '())
-                            ,@(if owner `(#:owner ,owner) '())
-                            #:verbosity ,verbosity))
+               (if (or compression (equal? file "-"))
+                   (let ((port (if (equal? file "-") (current-output-port)
+                                   (open-file file "wb"))))
+                     (call-with-compressed-output-port compression port
+                       (cut apply write-ustar-port <>
+                            `(,files
+                              ,@(if group `(#:group ,group) '())
+                              ,@(if mtime `(#:mtime ,mtime) '())
+                              ,@(if numeric-owner? `(#:numeric-owner? ,numeric-owner?) '())
+                              ,@(if owner `(#:owner ,owner) '())
+                              ,@(if owner `(#:owner ,owner) '())
+                              #:verbosity ,verbosity))))
                    (apply write-ustar-archive
                           `(,file
                             ,files
@@ -446,11 +470,19 @@ Usage: tar [OPTION]... [FILE]...
                             ,@(if owner `(#:owner ,owner) '())
                             #:verbosity ,verbosity)))))
             (extract?
-             (if (equal? file "-") (read-ustar-port (current-input-port) files #:verbosity verbosity)
+             (if (or compression (equal? file "-"))
+                 (let ((port (if (equal? file "-") (current-input-port)
+                                 (open-file file "rb"))))
+                   (call-with-decompressed-port compression port
+                     (cut read-ustar-port <> files #:verbosity verbosity)))
                  (read-ustar-archive file files #:verbosity verbosity)))
             (list?
-             (if (equal? file "-") (list-ustar-port (current-input-port) files #:verbosity (1+ verbosity))
-              (list-ustar-archive file files #:verbosity (1+ verbosity))))))))
+             (if (or compression (equal? file "-"))
+                 (let ((port (if (equal? file "-") (current-input-port)
+                                 (open-file file "rb"))))
+                   (call-with-decompressed-port compression port
+                     (cut list-ustar-port <> files #:verbosity (1+ verbosity))))
+                 (list-ustar-archive file files #:verbosity (1+ verbosity))))))))
 
 (define (compress-command . args)
   (lambda _
