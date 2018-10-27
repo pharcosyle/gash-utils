@@ -1,7 +1,8 @@
 #! @GUILE@ \
---no-auto-compile -e main -L "@GUILE_SITE_DIR@" -C "@GUILE_SITE_CCACHE_DIR@" -L . -C . -s
+--no-auto-compile -e main -L @GUILE_SITE_DIR@ -C @GUILE_SITE_CCACHE_DIR@ -L . -C . -s
 !#
 ;;; Gash --- Guile As SHell
+;;; Copyright © 2016,2017,2018 R.E.W. van Beusekom <rutger.van.beusekom@gmail.com>
 ;;; Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
 ;;;
 ;;; This file is part of Gash.

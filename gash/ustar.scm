@@ -497,18 +497,10 @@
     (newline)))
 
 (define* (write-ustar-port out files #:key group mtime numeric-owner? owner verbosity)
-  (catch #t
-    (lambda _
-      (for-each
-       (cut write-ustar-file out <>
-            #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:verbosity verbosity)
-       files)
-      (write-ustar-footer out))
-    (lambda (key subr message args . rest)
-      (false-if-exception (delete-file file-name))
-      (format (current-error-port) "ERROR: ~a\n"
-              (apply format #f message args))
-      (exit 1))))
+  (for-each
+   (cut write-ustar-file out <>
+        #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:verbosity verbosity)
+   files))
 
 (define* (write-ustar-archive file-name files #:key group mtime numeric-owner? owner verbosity)
   (catch #t
@@ -523,19 +515,13 @@
       (exit 1))))
 
 (define* (read-ustar-port in files #:key (extract? #t) verbosity)
-  (catch #t
-    (lambda _
-      (let loop ((header (read-ustar-header in)))
-        (when (and header
-                   (not (eof-object? header)))
-          (unless (zero? verbosity)
-            (display-header header #:verbose? (> verbosity 1)))
-          (read-ustar-file in header #:extract? extract?)
-          (loop (read-ustar-header in)))))
-    (lambda (key subr message args . rest)
-      (format (current-error-port) "ERROR: ~a\n"
-              (apply format #f message args))
-      (exit 1))))
+  (let loop ((header (read-ustar-header in)))
+    (when (and header
+               (not (eof-object? header)))
+      (unless (zero? verbosity)
+        (display-header header #:verbose? (> verbosity 1)))
+      (read-ustar-file in header #:extract? extract?)
+      (loop (read-ustar-header in)))))
 
 (define* (read-ustar-archive file-name files #:key (extract? #t) verbosity)
   (catch #t

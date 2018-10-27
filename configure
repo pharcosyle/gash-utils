@@ -35,6 +35,7 @@ sed \
     bin/gash.in > bin/gash
 chmod +x bin/gash
 BUILTINS="
+bash
 cat
 compress
 cp
@@ -42,6 +43,7 @@ find
 grep
 ls
 reboot
+sh
 tar
 wc 
 which

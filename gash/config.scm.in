@@ -37,7 +37,11 @@
   "@BZIP2@")
 
 (define %compress
-  "@COMPRESS@")
+  (let ((compress "@COMPRESS@")
+        (reloc (string-append (dirname (car (command-line))) "/compress")))
+    (cond ((getenv "COMPRESS"))
+          ((file-exists? compress) compress)
+          ((file-exists? reloc) reloc))))
 
 (define %gzip
   "@GZIP@")

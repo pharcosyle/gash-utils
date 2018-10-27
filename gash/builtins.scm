@@ -167,7 +167,7 @@ Options:
                   (cond (builtin (format #t "~a is a shell builtin\n" command)
                                  0)
                         (else (let ((program (PATH-search-path command)))
-                                (if (string? program) (begin (format #t "~a hashed (~a)\n" command ) 0)
+                                (if (string? program) (begin (format #t "~a hashed (~a)\n" command program) 0)
                                     1))))))
                ((option-ref options 'show #f)
                 (let* ((command (car files))
@@ -217,7 +217,7 @@ Options:
                   (cond (builtin (format #t "~a is a shell builtin\n" command)
                                  0)
                         (else (let ((program (PATH-search-path command)))
-                                (if (string? program) (begin (format #t "~a hashed (~a)\n" command ) 0)
+                                (if (string? program) (begin (format #t "~a hashed (~a)\n" command program) 0)
                                     1))))))))))))
 
 (define test-command
