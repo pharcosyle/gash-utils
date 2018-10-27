@@ -456,7 +456,7 @@ Usage: tar [OPTION]... [FILE]...
            (stdout? (option-ref options 'stdout #f))
 	   (files (option-ref options '() '()))
 	   (help? (option-ref options 'help #f))
-	   (usage? (and (not help?) (or (and (null? files) (not stdout?)))))
+	   (usage? (and (not help?) (or (and (null? files) (isatty? (current-input-port))))))
 	   (verbose? (option-ref options 'verbose #f))
            (version? (option-ref options 'version #f)))
       (cond ((or help? usage?) (format (if usage? (current-error-port) #t)
@@ -471,8 +471,10 @@ Usage: compress [OPTION]... [FILE]...
 ")
              (exit (if usage? 2 0)))
             (version? (format #t "compress (GASH) ~a\n" %version) (exit 0))
-            (decompress? (uncompress-file (car files) verbose?))
-            (else (compress-file (car files) bits verbose?))))))
+            (decompress? (if (pair? files) (uncompress-file (car files) verbose?)
+                             (uncompress-port (current-input-port) (current-output-port) verbose?)))
+            (else (if (pair? files) (compress-file (car files) bits verbose?)
+                      (compress-port (current-input-port) (current-output-port) bits verbose?)))))))
 
 (define %bournish-commands
   `(
