@@ -226,6 +226,16 @@
   (dev-minor ustar-header-dev-minor)
   (prefix    ustar-header-prefix   ))
 
+(define (ustar-header-type header)
+  (let ((file-types #(regular - symlink char-special block-special directory fifo))
+        (type (string->number (ustar-header-type-flag header))))
+    (when (or (not type)
+              (< type 0)
+              (>= type (vector-length file-types)))
+      (fmt-error "~a: unsupported file type ~a"
+                 (ustar-header-file-name header) type))
+    (vector-ref file-types (string->number (ustar-header-type-flag header)))))
+
 (define ustar-header-field-size-alist
   '((name           . 100)
     (mode           .   8)
@@ -404,6 +414,10 @@
          (st  (lstat file-name))
          (type (stat:type st))
          (size (stat:size st)))
+    (unless (zero? verbosity)
+      (if (> verbosity 1) (display-file file-name st)
+          (display file-name))
+      (newline))
     (write-ustar-header port file-name st #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner)
     (case type
       ((regular)
@@ -452,32 +466,23 @@
       (let ((mtime (ustar-header-mtime header)))
         (utime file-name mtime mtime)))))
 
-(define (display-rwx perm)
-  (display (if (zero? (logand perm 4)) "-" "r"))
-  (display (if (zero? (logand perm 2)) "-" "w"))
-  (display (if (zero? (logand perm 1)) "-" "x")))
+(define (ustar-header->stat header)
+  (let* ((stat-size 17)
+         (si (list->vector (iota stat-size)))
+         (st (make-vector stat-size 0)))
+    (vector-set! st (stat:mode si) (ustar-header-mode header))
+    (vector-set! st (stat:uid si) (ustar-header-uid header))
+    (vector-set! st (stat:gid si) (ustar-header-gid header))
+    (vector-set! st (stat:size si) (ustar-header-size header))
+    (vector-set! st (stat:mtime si) (ustar-header-mtime header))
+    (vector-set! st (stat:type si) (ustar-header-type header))
+    st))
 
 (define* (display-header header #:key verbose?)
-  (when verbose?
-    (let ((mode (ustar-header-mode header))
-          (uid  (ustar-header-uid header))
-          (gid  (ustar-header-gid header))
-          (size (ustar-header-size header))
-          (date (strftime "%c" (localtime (ustar-header-mtime header)))))
-      (display "-")
-      (display-rwx (ash mode -6))
-      (display-rwx (ash (logand mode #o70) -3))
-      (display-rwx (logand mode #o7))
-      (display " ")
-      (format #t "~8s" uid)
-      (display " ")
-      (format #t "~8s" gid)
-      (format #t "~8d" size)
-      (display " ")
-      (display date)
-      (display " ")))
-  (display (ustar-header-file-name header))
-  (newline))
+  (let ((file-name (ustar-header-file-name header)))
+    (if verbose? (display-file (ustar-header-file-name header) (ustar-header->stat header))
+        (display file-name))
+    (newline)))
 
 (define* (create-ustar-archive file-name files #:key group mtime numeric-owner? owner verbosity)
   (catch #t
@@ -504,7 +509,7 @@
             (when (and header
                        (not (eof-object? header)))
               (unless (zero? verbosity)
-                (display-header header #:verbose? (not (zero? verbosity))))
+                (display-header header #:verbose? (> verbosity 1)))
               (extract-ustar-file in header #:extract? extract?)
               (loop (read-ustar-header in)))))))
     (lambda (key subr message args . rest)
@@ -513,7 +518,7 @@
       (exit 1))))
 
 (define* (list-ustar-archive file-name files #:key verbosity)
-  (extract-ustar-archive file-name files #:extract? #:verbosity verbosity))
+  (extract-ustar-archive file-name files #:extract? #f #:verbosity verbosity))
 
 ;;; Local Variables:
 ;;; mode: scheme

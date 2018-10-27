@@ -3,6 +3,7 @@
 ;;; Copyright © 2013 Andreas Enge <andreas@enge.fr>
 ;;; Copyright © 2013 Nikita Karetnikov <nikita@karetnikov.org>
 ;;; Copyright © 2015, 2018 Mark H Weaver <mhw@netris.org>
+;;; Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
 ;;;
 ;;; This file is part of Gash.
 ;;;
@@ -23,6 +24,7 @@
 (define-module (gash guix-build-utils)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9 gnu)
+  #:use-module (srfi srfi-26)
 
   #:use-module (ice-9 ftw)
   #:use-module (ice-9 match)
@@ -33,6 +35,7 @@
   #:use-module (rnrs io ports)
   #:export (
             delete-file-recursively
+            display-file
             dump-port
             file-name-predicate
             find-files
@@ -238,3 +241,44 @@ transferred and the continuation of the transfer as a thunk."
                  (loop tail path)
                  (apply throw args))))))
       (() #t))))
+
+(define* (display-file file-name #:optional st)
+  (define (display-rwx perm sticky)
+    (display (if (zero? (logand perm 4)) "-" "r"))
+    (display (if (zero? (logand perm 2)) "-" "w"))
+    (display (let ((x (logand perm 1)))
+               (if (zero? sticky) (if (zero? x) "-" "x")
+                   (if (= sticky 1) (if (zero? x) "T" "t")
+                       (if (zero? x) "S" "s"))))))
+  (define (display-bcdfsl type)
+    (display
+     (case type
+       ((block-special) "b")
+       ((char-special) "c")
+       ((directory) "d")
+       ((fifo) "p")
+       ((regular) "-")
+       ((socket) "s")
+       ((symlink) "l")
+       (else "?"))))
+  (let* ((mode (stat:mode st))
+         (uid  (stat:uid st))
+         (gid  (stat:gid st))
+         (size (stat:size st))
+         (date (strftime "%c" (localtime (stat:mtime st))))
+         (sticky (ash mode -9)))
+    (display-bcdfsl (stat:type st))
+    (display-rwx (ash mode -6) (logand sticky 4))
+    (display-rwx (ash (logand mode #o70) -3) (logand sticky 2))
+    (display-rwx (logand mode #o7) (logand sticky 1))
+    (display " ")
+    (let ((ent (catch #t (compose passwd:name (cut getpwuid uid)) (const uid))))
+      (format #t "~8a" ent))
+    (display " ")
+    (let ((ent (catch #t (compose group:name (cut getgrgid gid)) (const gid))))
+      (format #t "~8a" ent))
+    (format #t "~8d" size)
+    (display " ")
+    (display date)
+    (display " "))
+  (display file-name))
