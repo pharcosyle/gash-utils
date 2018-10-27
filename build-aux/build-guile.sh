@@ -42,12 +42,14 @@ SCM_FILES="
 gash/bournish-commands.scm
 gash/guix-build-utils.scm
 gash/builtins.scm
+gash/compress.scm
 gash/config.scm
 gash/environment.scm
 gash/geesh.scm
 gash/gash.scm
 gash/io.scm
 gash/job.scm
+gash/lzw.scm
 gash/peg.scm
 gash/pipe.scm
 gash/script.scm
@@ -68,6 +70,7 @@ done
 
 SCRIPTS="
 bin/cat
+bin/compress
 bin/cp
 bin/find
 bin/gash

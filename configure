@@ -36,6 +36,7 @@ sed \
 chmod +x bin/gash
 BUILTINS="
 cat
+compress
 cp
 find
 grep

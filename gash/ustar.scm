@@ -17,6 +17,14 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Gash.  If not, see <http://www.gnu.org/licenses/>.
 
+;;; Commentary:
+
+;;; The initial ustar.scm was taken from the Guile100 challenge
+;;; https://github.com/spk121/guile100 from a contribution by Mark H
+;;; Weaver.
+
+;;; Code:
+
 (define-module (gash ustar)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9 gnu)

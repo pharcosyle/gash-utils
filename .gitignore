@@ -1,6 +1,7 @@
 *.go
 *~
 /bin/cat
+/bin/compress
 /bin/cp
 /bin/find
 /bin/gash

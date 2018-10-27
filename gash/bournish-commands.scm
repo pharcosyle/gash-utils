@@ -31,6 +31,7 @@
   #:use-module (srfi srfi-26)
 
   #:use-module (gash guix-build-utils)
+  #:use-module (gash compress)
   #:use-module (gash config)
   #:use-module (gash io)
   #:use-module (gash ustar)
@@ -439,15 +440,50 @@ Usage: tar [OPTION]... [FILE]...
             (list?
              (list-ustar-archive file files #:verbosity (1+ verbosity)))))))
 
+(define (compress-command . args)
+  (lambda _
+    (let* ((option-spec
+	    '((bits (single-char #\b) (value #t))
+              (decompress (single-char #\d))
+              (help (single-char #\h))
+              (stdout (single-char #\c))
+	      (verbose (single-char #\v))
+              (version (single-char #\V))))
+           (args (cons "compress" args))
+	   (options (getopt-long args option-spec))
+           (bits (string->number (option-ref options 'bits "16")))
+           (decompress? (option-ref options 'decompress #f))
+           (stdout? (option-ref options 'stdout #f))
+	   (files (option-ref options '() '()))
+	   (help? (option-ref options 'help #f))
+	   (usage? (and (not help?) (or (and (null? files) (not stdout?)))))
+	   (verbose? (option-ref options 'verbose #f))
+           (version? (option-ref options 'version #f)))
+      (cond ((or help? usage?) (format (if usage? (current-error-port) #t)
+                                       "\
+Usage: compress [OPTION]... [FILE]...
+  -b, --bits=BITS   use a maximum of BITS bits per code [16]
+  -c, --stdout      write on standard output, keep original files unchanged
+  -d, --decompress  decompress
+  -h, --help        display this help
+  -v, --verbose     show compression ratio
+  -V, --version     display version
+")
+             (exit (if usage? 2 0)))
+            (version? (format #t "compress (GASH) ~a\n" %version) (exit 0))
+            (decompress? (uncompress-file (car files) verbose?))
+            (else (compress-file (car files) bits verbose?))))))
+
 (define %bournish-commands
   `(
-    ("cat"     . ,cat-command)
-    ("cp"      . ,cp-command)
-    ("find"    . ,find-command)
-    ("grep"    . ,grep-command)
-    ("ls"      . ,ls-command)
-    ("reboot"  . ,reboot-command)
-    ("tar"     . ,tar-command)
-    ("wc"      . ,wc-command)
-    ("which"   . ,which-command)
+    ("cat"      . ,cat-command)
+    ("compress" . ,compress-command)
+    ("cp"       . ,cp-command)
+    ("find"     . ,find-command)
+    ("grep"     . ,grep-command)
+    ("ls"       . ,ls-command)
+    ("reboot"   . ,reboot-command)
+    ("tar"      . ,tar-command)
+    ("wc"       . ,wc-command)
+    ("which"    . ,which-command)
     ))
