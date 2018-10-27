@@ -393,7 +393,7 @@ Options:
            (create? (option-ref options 'create #f))
            (list? (option-ref options 'list #f))
            (extract? (option-ref options 'extract #f))
-           (file (option-ref options 'file "/dev/stdout"))
+           (file (option-ref options 'file "-"))
 	   (files (option-ref options '() '()))
 	   (help? (option-ref options 'help #f))
 	   (usage? (and (not help?) (not (or (and create? (pair? files))
@@ -426,19 +426,31 @@ Usage: tar [OPTION]... [FILE]...
                    (mtime (and=> (option-ref options 'mtime #f) string->number))
                    (numeric-owner? (option-ref options 'numeric-owner? #f))
                    (owner (and=> (option-ref options 'owner #f) string->number)))
-              (apply create-ustar-archive
-                     `(,file
-                       ,files
-                       ,@(if group `(#:group ,group) '())
-                       ,@(if mtime `(#:mtime ,mtime) '())
-                       ,@(if numeric-owner? `(#:numeric-owner? ,numeric-owner?) '())
-                       ,@(if owner `(#:owner ,owner) '())
-                       ,@(if owner `(#:owner ,owner) '())
-                       #:verbosity ,verbosity))))
+               (if (equal? file "-")
+                   (apply write-ustar-port (current-output-port)
+                          `(,file
+                            ,files
+                            ,@(if group `(#:group ,group) '())
+                            ,@(if mtime `(#:mtime ,mtime) '())
+                            ,@(if numeric-owner? `(#:numeric-owner? ,numeric-owner?) '())
+                            ,@(if owner `(#:owner ,owner) '())
+                            ,@(if owner `(#:owner ,owner) '())
+                            #:verbosity ,verbosity))
+                   (apply write-ustar-archive
+                          `(,file
+                            ,files
+                            ,@(if group `(#:group ,group) '())
+                            ,@(if mtime `(#:mtime ,mtime) '())
+                            ,@(if numeric-owner? `(#:numeric-owner? ,numeric-owner?) '())
+                            ,@(if owner `(#:owner ,owner) '())
+                            ,@(if owner `(#:owner ,owner) '())
+                            #:verbosity ,verbosity)))))
             (extract?
-             (extract-ustar-archive file files #:verbosity verbosity))
+             (if (equal? file "-") (read-ustar-port (current-input-port) files #:verbosity verbosity)
+                 (read-ustar-archive file files #:verbosity verbosity)))
             (list?
-             (list-ustar-archive file files #:verbosity (1+ verbosity)))))))
+             (if (equal? file "-") (list-ustar-port (current-input-port) files #:verbosity (1+ verbosity))
+              (list-ustar-archive file files #:verbosity (1+ verbosity))))))))
 
 (define (compress-command . args)
   (lambda _

@@ -34,9 +34,12 @@
   #:use-module (rnrs bytevectors)
   #:use-module (rnrs io ports)
   #:use-module (gash guix-build-utils)
-  #:export (create-ustar-archive
-            extract-ustar-archive
-            list-ustar-archive))
+  #:export (read-ustar-archive
+            read-ustar-port
+            write-ustar-archive
+            write-ustar-port
+            list-ustar-archive
+            list-ustar-port))
 
 (define (fmt-error fmt . args)
   (error (apply format #f fmt args)))
@@ -492,34 +495,52 @@
         (display file-name))
     (newline)))
 
-(define* (create-ustar-archive file-name files #:key group mtime numeric-owner? owner verbosity)
+(define* (write-ustar-port out files #:key group mtime numeric-owner? owner verbosity)
   (catch #t
     (lambda ()
-      (call-with-port* (open-file file-name "wb")
-        (lambda (out)
-          (for-each
-           (cut write-ustar-file out <>
-                #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:verbosity verbosity)
-           files)
-          (write-ustar-footer out))))
+      (for-each
+       (cut write-ustar-file out <>
+            #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:verbosity verbosity)
+       files)
+      (write-ustar-footer out))
     (lambda (key subr message args . rest)
       (false-if-exception (delete-file file-name))
       (format (current-error-port) "ERROR: ~a\n"
               (apply format #f message args))
       (exit 1))))
 
-(define* (extract-ustar-archive file-name files #:key (extract? #t) verbosity)
+(define* (write-ustar-archive file-name files #:key group mtime numeric-owner? owner verbosity)
   (catch #t
     (lambda ()
+      (call-with-port* (open-file file-name "wb")
+        (cut write-ustar-port <> files
+             #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:verbosity verbosity)))
+    (lambda (key subr message args . rest)
+      (false-if-exception (delete-file file-name))
+      (format (current-error-port) "ERROR: ~a\n"
+              (apply format #f message args))
+      (exit 1))))
+
+(define* (extract-ustar-port in files #:key (extract? #t) verbosity)
+  (catch #t
+    (lambda ()
+      (let loop ((header (read-ustar-header in)))
+        (when (and header
+                   (not (eof-object? header)))
+          (unless (zero? verbosity)
+            (display-header header #:verbose? (> verbosity 1)))
+          (extract-ustar-file in header #:extract? extract?)
+          (loop (read-ustar-header in)))))
+    (lambda (key subr message args . rest)
+      (format (current-error-port) "ERROR: ~a\n"
+              (apply format #f message args))
+      (exit 1))))
+
+(define* (extract-ustar-archive file-name files #:key (extract? #t) verbosity)
+  (catch 'foo
+    (lambda ()
       (call-with-port* (open-file file-name "rb")
-        (lambda (in)
-          (let loop ((header (read-ustar-header in)))
-            (when (and header
-                       (not (eof-object? header)))
-              (unless (zero? verbosity)
-                (display-header header #:verbose? (> verbosity 1)))
-              (extract-ustar-file in header #:extract? extract?)
-              (loop (read-ustar-header in)))))))
+        (cut extract-ustar-port <> files #:extract? extract? verbosity)))
     (lambda (key subr message args . rest)
       (format (current-error-port) "ERROR: ~a\n"
               (apply format #f message args))
@@ -527,6 +548,9 @@
 
 (define* (list-ustar-archive file-name files #:key verbosity)
   (extract-ustar-archive file-name files #:extract? #f #:verbosity verbosity))
+
+(define* (list-ustar-port in file-name files #:key verbosity)
+  (extract-ustar-port file-name files #:extract? #f #:verbosity verbosity))
 
 ;;; Local Variables:
 ;;; mode: scheme
