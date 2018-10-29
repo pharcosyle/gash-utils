@@ -134,7 +134,8 @@ TERMINAL-WIDTH.  Use COLUMN-GAP spaces between two subsequent columns."
            (one-file-per-line? (option-ref options 'one-file-per-line #f))
            (version? (option-ref options 'version #f))
            (files (option-ref options '() '())))
-      (cond (help? (display "Usage: ls [OPTION]... [FILE]...
+      (cond (version? (format #t "ls (GASH) ~a\n" %version))
+            (help? (display "Usage: ls [OPTION]... [FILE]...
 
 Options:
   -a, --all      do not ignore entries starting with .
@@ -143,7 +144,6 @@ Options:
       --version  display version information and exit
   -1             list one file per line
 "))
-            (version? (format #t "ls (GASH) ~a\n" %version))
             (else
              (let* ((files (if (null? files) (scandir ".")
                                (append-map (lambda (file)
@@ -299,13 +299,13 @@ Options:
         (error "find failed"))
       ;; TODO: find [OPTION]... [FILE]... [EXPRESSION]...
       ;; and options: esp: -x, -L
-      (cond (help? (display "Usage: find [OPTION]... [FILE]
+      (cond (version? (format #t "find (GASH) ~a\n" %version))
+            (help? (display "Usage: find [OPTION]... [FILE]
 
 Options:
   --help     display this help and exit
   --version  display version information and exit
 "))
-            (version? (format #t "find (GASH) ~a\n" %version))
             (else
              (let* ((files (find-files file #:directories? #t #:fail-on-error? #t)))
                (for-each stdout files)))))))
@@ -327,7 +327,8 @@ Options:
            (help? (option-ref options 'help #f))
            (version? (option-ref options 'version #f))
            (files (option-ref options '() '())))
-      (cond (help? (display "Usage: grep [OPTION]... PATTERN [FILE]...
+      (cond (version? (format #t "grep (GASH) ~a\n" %version))
+            (help? (display "Usage: grep [OPTION]... PATTERN [FILE]...
 
 Options:
   --help                     display this help and exit
@@ -339,7 +340,6 @@ Options:
   -o, --only-matching        show only the part of a line matching PATTERN
   -V, --version              display version information and exit
 "))
-            (version? (format #t "grep (GASH) ~a\n" %version))
             ((null? files) #t)
             (else
              (let* ((pattern (car files))
@@ -434,7 +434,8 @@ Options:
                                              extract? list?))))
 	   (verbosity (length (multi-opt options 'verbose)))
            (version? (option-ref options 'version #f)))
-      (cond ((or help? usage?) (format (if usage? (current-error-port) #t)
+      (cond (version? (format #t "tar (GASH) ~a\n" %version) (exit 0))
+            ((or help? usage?) (format (if usage? (current-error-port) #t)
                                        "\
 Usage: tar [OPTION]... [FILE]...
   -c, --create               create a new archive
@@ -454,7 +455,6 @@ Usage: tar [OPTION]... [FILE]...
   -Z, --compress             filter the archive through compress
 ")
              (exit (if usage? 2 0)))
-            (version? (format #t "tar (GASH) ~a\n" %version) (exit 0))
             (create?
              (let ((files (if (not (option-ref options 'sort #f)) files
                               (sort files string<)))
@@ -517,7 +517,8 @@ Usage: tar [OPTION]... [FILE]...
 	   (usage? (and (not help?) (or (and (null? files) (isatty? (current-input-port))))))
 	   (verbose? (option-ref options 'verbose #f))
            (version? (option-ref options 'version #f)))
-      (cond ((or help? usage?) (format (if usage? (current-error-port) #t)
+      (cond (version? (format #t "compress (GASH) ~a\n" %version) (exit 0))
+            ((or help? usage?) (format (if usage? (current-error-port) #t)
                                        "\
 Usage: compress [OPTION]... [FILE]...
   -b, --bits=BITS   use a maximum of BITS bits per code [16]
@@ -528,7 +529,6 @@ Usage: compress [OPTION]... [FILE]...
   -V, --version     display version
 ")
              (exit (if usage? 2 0)))
-            (version? (format #t "compress (GASH) ~a\n" %version) (exit 0))
             (decompress? (if (pair? files) (uncompress-file (car files) verbose?)
                              (uncompress-port (current-input-port) (current-output-port) verbose?)))
             (else (if (pair? files) (compress-file (car files) bits verbose?)
