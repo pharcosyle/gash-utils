@@ -9,7 +9,6 @@
   #:use-module (ice-9 local-eval)
   #:use-module (ice-9 match)
   #:use-module (ice-9 rdelim)
-  #:use-module (ice-9 readline)
   #:use-module (ice-9 pretty-print)
   #:use-module (ice-9 receive)
   #:use-module (ice-9 regex)
@@ -29,6 +28,11 @@
             %prefer-builtins?
             parse
             parse-string))
+
+(catch #t
+  (lambda _ (use-modules (ice-9 readline)))
+  (lambda (key . args)
+    (use-modules (gash readline))))
 
 (define %debug-level 0)       ; 1 informational, 2 verbose, 3 peg tracing
 (define %prefer-builtins? #f) ; use builtin, even if COMMAND is available in PATH?

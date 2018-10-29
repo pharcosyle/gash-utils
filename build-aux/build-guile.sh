@@ -53,6 +53,7 @@ gash/job.scm
 gash/lzw.scm
 gash/peg.scm
 gash/pipe.scm
+gash/readline.scm
 gash/script.scm
 gash/ustar.scm
 gash/util.scm
