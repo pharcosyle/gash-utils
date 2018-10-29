@@ -86,7 +86,7 @@
                name
                (string-filter (negate valid-ustar-char?) str)
                str))
-  (bytevector-pad (string->utf8 str) n))
+  (bytevector-pad (string->bytevector str (make-transcoder (latin-1-codec))) n))
 
 (define (ustar-0string n str name)
   (bytevector-pad (ustar-string (- n 1) str name)
@@ -99,9 +99,10 @@
     (fmt-error "~a is not a non-negative exact integer: ~a" name num))
   (unless (< num (expt 8 (- n 1)))
     (fmt-error "~a is too large (max ~a): ~a" name (expt 8 (- n 1)) num))
-  (bytevector-pad (string->utf8 (string-pad (number->string num 8)
+  (bytevector-pad (string->bytevector (string-pad (number->string num 8)
                                             (- n 1)
-                                            #\0))
+                                            #\0)
+                                      (make-transcoder (latin-1-codec)))
                   n))
 
 (define (checksum-bv bv)
