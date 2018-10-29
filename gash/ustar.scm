@@ -460,18 +460,25 @@
          (file-name (ustar-header-file-name header))
          (dir (dirname file-name))
          (thunk (lambda _
-                  (let loop ((record (read-ustar-record port)) (wrote 0))
-                    (let* ((read (+ wrote 512))
-                           (block (if (< read size) record
-                                      (sub-bytevector record 0 (- size wrote)))))
-                      (when extract?
-                        (display (bv->ustar-0string block "block")))
-                      (and (not (eof-object? record))
-                           (< read size)
-                           (loop (read-ustar-record port) read)))))))
+                  (let loop ((read 0))
+                    (and (< read size)
+                         (let ((record (read-ustar-record port)))
+                           (and record
+                                (let* ((read (+ read 512))
+                                       (block (if (< read size) record
+                                                 (sub-bytevector record 0 (- size -512 read)))))
+                                  (when extract?
+                                    (display (bv->ustar-0string block "block")))
+                                  (loop read)))))))))
     (when extract?
       (mkdir-p dir))
-    (if extract? (with-output-to-file file-name thunk)
+    (if extract?
+        (case (ustar-header-type header)
+          ((regular)
+           (if (file-exists? file-name) (delete-file file-name))
+           (with-output-to-file file-name thunk))
+          ((directory) (mkdir-p file-name))
+          ((symlink) (throw 'todo "symlink")))
         (thunk))
     (when extract?
       (chmod file-name (ustar-header-mode header))
