@@ -31,13 +31,12 @@
 
 ;;; Code:
 
-
 (define-module (gash guix-utils)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-11)
   #:use-module (ice-9 format)
   #:autoload   (ice-9 popen)  (open-pipe*)
-  #:use-module ((gash guix-build-utils) #:select (dump-port))
+  #:use-module ((gash shell-utils) #:select (dump-port))
   #:use-module (ice-9 match)
   #:use-module (gash config)
   #:export (filtered-port

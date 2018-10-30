@@ -9,7 +9,7 @@ bin/gash: bin/gash.in | do-configure
 bin/tar: bin/tar.in | do-configure
 
 do-configure:
-	./configure --prefix=$(PREFIX)
+	./configure --prefix=$(prefix)
 
 all: all-go do-configure
 
@@ -33,21 +33,21 @@ check-gash: all
 	SHELL=bin/gash ./test.sh
 
 install: all
-	mkdir -p $(DESTDIR)$(BINDIR)
-	cp bin/gash $(DESTDIR)$(BINDIR)/gash
-	mkdir -p $(DESTDIR)$(GUILE_SITE_DIR)
-	tar -cf- gash/*.scm | tar -C $(DESTDIR)$(GUILE_SITE_DIR) -xf-
-	mkdir -p $(DESTDIR)$(GUILE_SITE_CCACHE_DIR)
-	cp bin/gash.go  $(DESTDIR)$(GUILE_SITE_CCACHE_DIR)
-	tar -cf- gash/*.go | tar -C $(DESTDIR)$(GUILE_SITE_CCACHE_DIR) -xf-
-	mkdir -p $(DESTDIR)$(DOCDIR)
-	cp -f COPYING README TODO $(DOCDIR)
+	mkdir -p $(DESTDIR)$(bindir)
+	cp bin/gash $(DESTDIR)$(bindir)/gash
+	mkdir -p $(DESTDIR)$(guile_site_dir)
+	tar -cf- gash/*.scm | tar -C $(DESTDIR)$(guile_site_dir) -xf-
+	mkdir -p $(DESTDIR)$(guile_site_ccache_dir)
+	cp bin/gash.go  $(DESTDIR)$(guile_site_ccache_dir)
+	tar -cf- gash/*.go | tar -C $(DESTDIR)$(guile_site_ccache_dir) -xf-
+	mkdir -p $(DESTDIR)$(docdir)
+	cp -f COPYING README TODO $(docdir)
 	$(MAKE) install-info
 
 install-info: info
-	mkdir -p $(DESTDIR)$(PREFIX)/share/info
-	tar -cf- doc/gash.info* | tar -xf- --strip-components=1 -C $(DESTDIR)$(PREFIX)/share/info
-	install-info --info-dir=$(DESTDIR)$(PREFIX)/share/info doc/gash.info
+	mkdir -p $(DESTDIR)$(prefix)/share/info
+	tar -cf- doc/gash.info* | tar -xf- --strip-components=1 -C $(DESTDIR)$(prefix)/share/info
+	install-info --info-dir=$(DESTDIR)$(prefix)/share/info doc/gash.info
 
 doc/version.texi: doc/gash.texi makefile
 	(set `LANG= date -r $< +'%d %B %Y'`;\
@@ -79,7 +79,7 @@ help:
 export BUILD_DEBUG
 export GUILE
 export GUILE_TOOLS
-export GUILE_LOAD_PATH
-export GUILE_LOAD_COMPILED_PATH
+export guile_load_path
+export guile_load_compiled_path
 
 

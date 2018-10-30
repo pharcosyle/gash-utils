@@ -33,7 +33,7 @@
   #:use-module (ice-9 receive)
   #:use-module (rnrs bytevectors)
   #:use-module (rnrs io ports)
-  #:use-module (gash guix-build-utils)
+  #:use-module (gash shell-utils)
   #:export (read-ustar-archive
             read-ustar-port
             write-ustar-archive

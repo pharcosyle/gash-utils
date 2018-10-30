@@ -40,7 +40,6 @@ set -e
 
 SCM_FILES="
 gash/bournish-commands.scm
-gash/guix-build-utils.scm
 gash/guix-utils.scm
 gash/builtins.scm
 gash/compress.scm
@@ -55,8 +54,20 @@ gash/peg.scm
 gash/pipe.scm
 gash/readline.scm
 gash/script.scm
+gash/shell-utils.scm
 gash/ustar.scm
 gash/util.scm
+
+gash/commands/cat.scm
+gash/commands/compress.scm
+gash/commands/cp.scm
+gash/commands/find.scm
+gash/commands/grep.scm
+gash/commands/ls.scm
+gash/commands/reboot.scm
+gash/commands/tar.scm
+gash/commands/wc.scm
+gash/commands/which.scm
 "
 
 export srcdir=.

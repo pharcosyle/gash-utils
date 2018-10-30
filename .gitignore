@@ -1,5 +1,6 @@
 *.go
 *~
+/bin/bash
 /bin/cat
 /bin/compress
 /bin/cp
@@ -8,9 +9,11 @@
 /bin/grep
 /bin/ls
 /bin/reboot
+/bin/sh
 /bin/tar
 /bin/wc
 /bin/which
 /.config.make
 /doc/version.texi
 /gash/config.scm
+/pre-inst-env

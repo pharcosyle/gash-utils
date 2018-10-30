@@ -15,11 +15,3 @@
 (define (conjoin . predicates)
   (lambda (. arguments)
     (every (cut apply <> arguments) predicates)))
-
-(define (wrap-command command name)
-  (lambda args
-    (catch #t
-      (cut apply command args)
-      (lambda (key . args)
-        (format (current-error-port) "~a: ~a ~a\n" name key args)
-        1))))

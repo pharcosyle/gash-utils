@@ -33,7 +33,6 @@
   #:use-module (gash config)
   #:use-module (gash environment)
   #:use-module (gash gash)
-  #:use-module (gash guix-build-utils)
   #:use-module (gash io)
   #:use-module (gash job)
   #:use-module (gash pipe)
@@ -249,7 +248,7 @@
                (format (current-error-port) "gash: ~a: permission denied\n" command))
              #f)
             ((and command (or (assoc-ref %builtin-commands command)
-                              (assoc-ref %bournish-commands command)))
+                              (assoc-ref (%bournish-commands) command)))
              =>
              (lambda (command)
                (if args

@@ -1,8 +1,6 @@
 (define-module (gash io)
 
   #:use-module (srfi srfi-1)
-  #:use-module (gash gash)
-
   #:export (pke stdout stderr))
 
 (define (output port o)

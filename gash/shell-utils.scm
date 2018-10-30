@@ -26,7 +26,7 @@
 
 ;;; Code:
 
-(define-module (gash guix-build-utils)
+(define-module (gash shell-utils)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (srfi srfi-26)
@@ -41,12 +41,15 @@
   #:use-module (rnrs io ports)
   #:export (
             delete-file-recursively
+            display-tabulated
             display-file
             dump-port
+            executable-path
             file-name-predicate
             find-files
+            file-exists?*
             grep*
-            grep
+            grep+
             <grep-match>
             grep-match-file-name
             grep-match-string
@@ -54,6 +57,7 @@
             grep-match-column
             grep-match-end-column
             mkdir-p
+            multi-opt
 
             directory-exists?
             executable-file?
@@ -216,7 +220,7 @@ transferred and the continuation of the transfer as a thunk."
                                              (match:end m)) matches)
                     matches))))))
 
-(define (grep pattern file)
+(define (grep+ pattern file)
   (cond ((and (string? file)
               (not (equal? file "-"))) (call-with-input-file file
                                          (lambda (in)
@@ -247,6 +251,53 @@ transferred and the continuation of the transfer as a thunk."
                  (loop tail path)
                  (apply throw args))))))
       (() #t))))
+
+(define (file-exists?* file)
+  "Like 'file-exists?' but emits a warning if FILE is not accessible."
+  (catch 'system-error
+    (lambda ()
+      (stat file))
+    (lambda args
+      (let ((errno (system-error-errno args)))
+        (format (current-error-port) "~a: ~a~%"
+                file (strerror errno))
+        #f))))
+
+(define* (display-tabulated lst
+                            #:key
+                            (terminal-width 80)
+                            (column-gap 2))
+  "Display the list of string LST in as many columns as needed given
+TERMINAL-WIDTH.  Use COLUMN-GAP spaces between two subsequent columns."
+  (define len (length lst))
+  (define column-width
+    ;; The width of a column.  Assume all the columns have the same width
+    ;; (GNU ls is smarter than that.)
+    (+ column-gap (reduce max 0 (map string-length lst))))
+  (define columns
+    (max 1
+         (quotient terminal-width column-width)))
+  (define pad
+    (if (zero? (modulo len columns))
+        0
+        columns))
+  (define items-per-column
+    (quotient (+ len pad) columns))
+  (define items (list->vector lst))
+
+  (let loop ((indexes (unfold (cut >= <> columns)
+                              (cut * <> items-per-column)
+                              1+
+                              0)))
+    (unless (>= (first indexes) items-per-column)
+      (for-each (lambda (index)
+                  (let ((item (if (< index len)
+                                  (vector-ref items index)
+                                  "")))
+                    (display (string-pad-right item column-width))))
+                indexes)
+      (newline)
+      (loop (map 1+ indexes)))))
 
 (define* (display-file file-name #:optional st)
   (define (display-rwx perm sticky)
@@ -289,3 +340,14 @@ transferred and the continuation of the transfer as a thunk."
     (display date)
     (display " "))
   (display file-name))
+
+(define (multi-opt options name)
+  (let ((opt? (lambda (o) (and (eq? (car o) name) (cdr o)))))
+    (filter-map opt? options)))
+
+(define %not-colon (char-set-complement (char-set #\:)))
+(define (executable-path)
+  "Return the search path for programs as a list."
+  (match (getenv "PATH")
+    (#f  '())
+    (str (string-tokenize str %not-colon))))

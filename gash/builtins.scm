@@ -32,7 +32,7 @@
   #:use-module (gash gash)              ; %prefer-builtins?
   #:use-module (gash bournish-commands)
   #:use-module (gash environment)
-  #:use-module (gash guix-build-utils)
+  #:use-module (gash shell-utils)
   #:use-module (gash io)
   #:use-module (gash job)
   #:use-module (gash pipe)

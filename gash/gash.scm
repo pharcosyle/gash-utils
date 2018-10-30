@@ -52,7 +52,7 @@
   (call-with-input-file file-name parse))
 
 (define (display-help)
-  (let ((builtins (sort (map car (append %bournish-commands ;;%builtin-commands
+  (let ((builtins (sort (map car (append (%bournish-commands) ;;%builtin-commands
                                          )) string<)))
     (display (string-append "\
 Usage: gash [OPTION]... [FILE]...
@@ -130,7 +130,7 @@ copyleft.
               (builtin-command-line
                (let* ((builtin (car builtin-command-line))
                       (args (cdr builtin-command-line))
-                      (command (assoc-ref %bournish-commands builtin)))
+                      (command (assoc-ref (%bournish-commands) builtin)))
                  ((apply command args))))
               (#t (let* ((HOME (string-append (getenv "HOME") "/.gash_history"))
                          (thunk (lambda ()
