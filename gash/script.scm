@@ -76,8 +76,8 @@
                   (escape-builtin? (and (string? program) (string-prefix? "\\" program)))
                   (program (if escape-builtin? (string-drop program 1) program))
                   (command (cons program (cdr command))))
-             (or (builtin command #:prefer-builtin? (and %prefer-builtins?
-                                                          (not escape-builtin?)))
+             (or (builtin command #:prefer-builtin? (or %prefer-builtins?
+                                                        escape-builtin?))
                  (cut apply (compose status:exit-val system*) command))))
           (else (lambda () #t))))
   (exec (append-map glob args)))
@@ -206,20 +206,21 @@
                  (shell-opt? "errexit"))
         (exit status))
       status))
-  (when (> %debug-level 1)
-    (format (current-error-port) "pijp: commands=~s\n" commands))
-  ;; FIXME: after running a builtin, we still end up here with the builtin's result
-  ;; that should probably not happen, however, cater for it here for now
-  (match commands
-    (((and (? boolean?) boolean))
-     (handle boolean))
-    (((and (? number?) number))
-     (handle number))
-    (((? unspecified?))
-     (handle #t))
-    (((? unspecified?) t ... #t)
-     #t)
-    (_ (handle (apply pipeline+ #t commands)))))
+  (let ((commands (filter (lambda (x) (not (eq? x *unspecified*))) commands)))
+    (when (> %debug-level 1)
+      (format (current-error-port) "pijp: commands=~s\n" commands))
+    ;; FIXME: after running a builtin, we still end up here with the builtin's result
+    ;; that should probably not happen, however, cater for it here for now
+    (match commands
+      (((and (? boolean?) boolean))
+       (handle boolean))
+      (((and (? number?) number))
+       (handle number))
+      (((? unspecified?))
+       (handle #t))
+      (((? unspecified?) t ... #t)
+       #t)
+      (_ (handle (apply pipeline+ #t commands))))))
 
 (define* (builtin ast #:key prefer-builtin?)
   ;; FIXME: distinguish between POSIX compliant builtins and
