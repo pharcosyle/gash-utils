@@ -63,6 +63,10 @@
             executable-file?
             regular-file?
             symbolic-link?
+            substitute*
+            substitute-port
+            with-atomic-file-replacement
+            let-matches
             ))
 
 ;;; Commentary:
@@ -343,7 +347,7 @@ TERMINAL-WIDTH.  Use COLUMN-GAP spaces between two subsequent columns."
 
 (define (multi-opt options name)
   (let ((opt? (lambda (o) (and (eq? (car o) name) (cdr o)))))
-    (filter-map opt? options)))
+    (filter-map opt? (reverse options))))
 
 (define %not-colon (char-set-complement (char-set #\:)))
 (define (executable-path)
@@ -351,3 +355,83 @@ TERMINAL-WIDTH.  Use COLUMN-GAP spaces between two subsequent columns."
   (match (getenv "PATH")
     (#f  '())
     (str (string-tokenize str %not-colon))))
+
+
+;;;
+;;; Text substitution (aka. sed).
+;;;
+
+(define (with-atomic-file-replacement file proc)
+  "Call PROC with two arguments: an input port for FILE, and an output
+port for the file that is going to replace FILE.  Upon success, FILE is
+atomically replaced by what has been written to the output port, and
+PROC's result is returned."
+  (let* ((template (string-append file ".XXXXXX"))
+         (out      (mkstemp! template))
+         (mode     (stat:mode (stat file))))
+    (with-throw-handler #t
+      (lambda ()
+        (call-with-input-file file
+          (lambda (in)
+            (let ((result (proc in out)))
+              (close out)
+              (chmod template mode)
+              (rename-file template file)
+              result))))
+      (lambda (key . args)
+        (false-if-exception (delete-file template))))))
+
+(define (substitute* file pattern+procs)
+  "PATTERN+PROCS is a list of regexp/two-argument-procedure pairs.  For each
+line of FILE, and for each PATTERN that it matches, call the corresponding
+PROC as (PROC LINE MATCHES); PROC must return the line that will be written as
+a substitution of the original line.  Be careful about using '$' to match the
+end of a line; by itself it won't match the terminating newline of a line."
+  (let ((rx+proc  (map (match-lambda
+                         ;; (((? regexp? pattern) . proc)
+                         ;;  (cons pattern proc))
+                         (((pattern . flags) . proc)
+                          (cons (apply make-regexp pattern flags)
+                                proc)))
+                       pattern+procs)))
+    (with-atomic-file-replacement file
+      (lambda (in out)
+        (let loop ((line (read-line in 'concat)))
+          (if (eof-object? line)
+              #t
+              (let ((line (fold (lambda (r+p line)
+                                  (match r+p
+                                    ((regexp . proc)
+                                     (match (list-matches regexp line)
+                                       ((and m+ (_ _ ...))
+                                        (proc line m+))
+                                       (_ line)))))
+                                line
+                                rx+proc)))
+                (display line out)
+                (loop (read-line in 'concat)))))))))
+
+(define (substitute-port pattern+procs)
+  (let ((rx+proc  (map (match-lambda
+                         ;; (((? regexp? pattern) . proc)
+                         ;;  (cons pattern proc))
+                         (((pattern . flags) . proc)
+                          (cons (apply make-regexp pattern flags)
+                                proc)))
+                       pattern+procs))
+        (in (current-input-port))
+        (out (current-output-port)))
+    (let loop ((line (read-line in 'concat)))
+      (if (eof-object? line)
+          #t
+          (let ((line (fold (lambda (r+p line)
+                              (match r+p
+                                ((regexp . proc)
+                                 (match (list-matches regexp line)
+                                   ((and m+ (_ _ ...))
+                                    (proc line m+))
+                                   (_ line)))))
+                            line
+                            rx+proc)))
+            (display line out)
+            (loop (read-line in 'concat)))))))

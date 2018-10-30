@@ -3,7 +3,6 @@ if [ -n "$V" ]; then
 fi
 DIFF=diff
 SHELL=${SHELL-bin/gash}
-#SHELL=bin/gash
 
 tests="
 assign
@@ -43,11 +42,25 @@ substitution
 32-for-substitute
 33-string-args
 35-assignment-eval-echo
+
+00-sed
+00-sed-once
+00-sed-global
+00-sed-case
+00-sed-group
+00-sed-group-extended
+00-sed-twice
+00-sed-undo
 "
 
 broken="
-
 "
+
+if [ "$(basename $SHELL)" = bash ]; then
+    broken="
+00-sed
+"
+fi
 
 expect=$(echo $broken | wc -w)
 pass=0

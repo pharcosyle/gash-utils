@@ -65,6 +65,7 @@ gash/commands/find.scm
 gash/commands/grep.scm
 gash/commands/ls.scm
 gash/commands/reboot.scm
+gash/commands/sed.scm
 gash/commands/tar.scm
 gash/commands/wc.scm
 gash/commands/which.scm
@@ -90,6 +91,7 @@ bin/gash
 bin/grep
 bin/ls
 bin/reboot
+bin/sed
 bin/tar
 bin/wc
 bin/which
