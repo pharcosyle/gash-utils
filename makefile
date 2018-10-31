@@ -35,6 +35,9 @@ endif
 check-gash: all
 	SHELL=bin/gash ./check.sh
 
+check-geesh: all
+	SHELL='bin/gash --geesh' ./check.sh
+
 install: all
 	mkdir -p $(DESTDIR)$(bindir)
 	cp bin/gash $(DESTDIR)$(bindir)/gash

@@ -37,8 +37,9 @@
       (format (current-error-port) "parse-tree:\n")
       (pretty-print parse-tree (current-error-port)))
     (let ((ast (parse-tree->script parse-tree)))
+    (when (> %debug-level 1)
       (format (current-error-port) "transformed:\n")
-      (pretty-print ast (current-error-port))
+      (pretty-print ast (current-error-port)))
       (let* ((script (match ast
                        (((or 'command 'pipeline) _ ...) `(script ,ast))
                        ((_ ...) `(script ,@ast))
@@ -86,7 +87,7 @@
       (('<sh-cmd-sub> cmd) `(substitution ,(transform cmd)))
       (('<sh-cond> (expression then)) `(if-clause ,(transform expression) ,(transform then)))
       (('<sh-with-redirects> (('<< 0 string)) pipeline)
-       (let ((pipeline (pke 'pipeline (transform pipeline))))
+       (let ((pipeline (transform pipeline)))
          `(pipeline (display ,(transform string))
                     ,@(match pipeline
                         (('command command ...) `(,pipeline))
