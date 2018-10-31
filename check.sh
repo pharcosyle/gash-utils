@@ -16,6 +16,7 @@ list
 ls
 nesting
 pipe
+pipe-3
 substitution
 00-exit
 01-exit-0
@@ -24,10 +25,11 @@ substitution
 04-echo-var
 05-assignment-doublequoted-doublequotes
 05-assignment
-06-assignment-echo
-06-assignment-singlequote
-07-assignment-double-quote
-08-assignment-variable-word
+05-assignment-empty
+05-assignment-echo
+05-assignment-singlequote
+05-assignment-double-quote
+05-assignment-variable-word
 09-compound-word
 0a-assign-substitute
 0b-command-compound-word

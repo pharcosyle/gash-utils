@@ -77,7 +77,7 @@
                   (command (cons program (cdr command))))
              (or (builtin command #:prefer-builtin? (or %prefer-builtins?
                                                         escape-builtin?))
-                 (cut apply (compose status:exit-val system*) command))))
+                 (lambda _ (status:exit-val (apply system* command))))))
           (else (lambda () #t))))
   (exec (append-map glob args)))
 
@@ -118,9 +118,7 @@
   (string-join (append-map glob  o) ""))
 
 (define (sequence . args)
-  (format (current-error-port) "sequence args=~s\n" args)
   (let ((glob (append-map glob (apply append args))))
-    (format (current-error-port) "  => sequence glob=~s\n" glob)
     glob))
 
 (define (run ast)

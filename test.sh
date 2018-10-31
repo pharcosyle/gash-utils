@@ -8,7 +8,7 @@ SHELL=${SHELL-bin/gash}
 t=$1
 b=test/$(basename $t .sh)
 set +e
-$SHELL -e $b.sh > $b.1 2> $b.2
+timeout 1 $SHELL -e $b.sh > $b.1 2> $b.2
 r=$?
 set -e
 if [ -f $b.exit ]; then
