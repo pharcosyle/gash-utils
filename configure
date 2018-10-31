@@ -96,6 +96,7 @@ find
 grep
 ls
 reboot
+rm
 sed
 tar
 wc 

@@ -73,6 +73,7 @@ ${srcdest}bin/gash
 ${srcdest}bin/grep
 ${srcdest}bin/ls
 ${srcdest}bin/reboot
+${srcdest}bin/rm
 ${srcdest}bin/sed
 ${srcdest}bin/tar
 ${srcdest}bin/wc

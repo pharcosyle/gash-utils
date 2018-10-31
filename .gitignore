@@ -9,6 +9,7 @@
 /bin/grep
 /bin/ls
 /bin/reboot
+/bin/rm
 /bin/sed
 /bin/sh
 /bin/tar

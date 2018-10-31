@@ -38,6 +38,7 @@
   #:use-module (gash commands grep)
   #:use-module (gash commands ls)
   #:use-module (gash commands reboot)
+  #:use-module (gash commands rm)
   #:use-module (gash commands sed)
   #:use-module (gash commands tar)
   #:use-module (gash commands wc)
@@ -52,6 +53,7 @@
             grep-command
             ls-command
             reboot-command
+            rm-command
             sed-command
             rm-command
             wc-command
@@ -76,6 +78,7 @@
 (define grep-command (wrap-command "grep" grep))
 (define ls-command (wrap-command "ls" ls))
 (define reboot-command (wrap-command "reboot" reboot))
+(define rm-command (wrap-command "rm" rm))
 (define sed-command (wrap-command "sed" sed))
 (define tar-command (wrap-command "tar" tar))
 (define wc-command (wrap-command "wc" wc))
@@ -90,6 +93,7 @@
     ("grep"     . ,grep-command)
     ("ls"       . ,ls-command)
     ("reboot"   . ,reboot-command)
+    ("rm"       . ,rm-command)
     ("sed"      . ,sed-command)
     ("tar"      . ,tar-command)
     ("wc"       . ,wc-command)
