@@ -419,7 +419,7 @@
                              %uname %gname %dev-major %dev-minor
                              %prefix))))))
 
-(define* (write-ustar-file port file-name #:key group mtime numeric-owner? owner verbosity)
+(define* (write-ustar-file port file-name #:key group mtime numeric-owner? owner sort-order verbosity)
   (let* ((file-name (if (string-every file-name-separator? file-name)
                         file-name-separator-string
                         (string-trim-right file-name file-name-separator?)))
@@ -446,9 +446,12 @@
                    (write-ustar-record port buf 0 obtained)
                    (loop (- left obtained)))))))))
       ((directory)
-       (for-each (lambda (file-name) (write-ustar-file port file-name
-                                                       #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:verbosity verbosity))
-                 (files-in-directory file-name))))))
+       (let* ((files (files-in-directory file-name))
+              (files (if (eq? sort-order 'name) (sort files string<)
+                         files)))
+         (for-each (lambda (file-name) (write-ustar-file port file-name
+                                                         #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:verbosity verbosity))
+                   files))))))
 
 (define (ustar-header-file-name header)
   (let ((name (ustar-header-name header))
@@ -504,10 +507,10 @@
         (display file-name))
     (newline)))
 
-(define* (write-ustar-port out files #:key group mtime numeric-owner? owner verbosity)
+(define* (write-ustar-port out files #:key group mtime numeric-owner? owner sort-order verbosity)
   (for-each
    (cut write-ustar-file out <>
-        #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:verbosity verbosity)
+        #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:sort-order sort-order #:verbosity verbosity)
    files))
 
 (define* (write-ustar-archive file-name files #:key group mtime numeric-owner? owner verbosity)
@@ -515,7 +518,7 @@
     (lambda _
       (call-with-port* (open-file file-name "wb")
         (cut write-ustar-port <> files
-             #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:verbosity verbosity)))
+             #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:sort-order sort-order #:verbosity verbosity)))
     (lambda (key subr message args . rest)
       (false-if-exception (delete-file file-name))
       (format (current-error-port) "ERROR: ~a\n"

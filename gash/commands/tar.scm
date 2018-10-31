@@ -80,6 +80,7 @@
                                              ((string-suffix? ".gz" file) 'gzip)
                                              ((string-suffix? ".xz" file) 'xz)
                                              (else #f))))))
+         (sort-order (and=> (option-ref options 'sort #f) string->symbol))
 	 (help? (option-ref options 'help #f))
 	 (usage? (and (not help?) (not (or (and create? (pair? files))
                                            extract? list?))))
@@ -107,8 +108,8 @@ Usage: tar [OPTION]... [FILE]...
 ")
            (exit (if usage? 2 0)))
           (create?
-           (let ((files (if (not (option-ref options 'sort #f)) files
-                            (sort files string<)))
+           (let ((files (if (eq? sort-order 'name) (sort files string<)
+                            files))
                  (group (and=> (option-ref options 'group #f) string->number))
                  (mtime (and=> (option-ref options 'mtime #f) string->number))
                  (numeric-owner? (option-ref options 'numeric-owner? #f))
@@ -123,7 +124,7 @@ Usage: tar [OPTION]... [FILE]...
                             ,@(if mtime `(#:mtime ,mtime) '())
                             ,@(if numeric-owner? `(#:numeric-owner? ,numeric-owner?) '())
                             ,@(if owner `(#:owner ,owner) '())
-                            ,@(if owner `(#:owner ,owner) '())
+                            ,@(if sort-order `(#:sort-order ,sort-order) '())
                             #:verbosity ,verbosity))))
                  (apply write-ustar-archive
                         `(,file
@@ -132,7 +133,7 @@ Usage: tar [OPTION]... [FILE]...
                           ,@(if mtime `(#:mtime ,mtime) '())
                           ,@(if numeric-owner? `(#:numeric-owner? ,numeric-owner?) '())
                           ,@(if owner `(#:owner ,owner) '())
-                          ,@(if owner `(#:owner ,owner) '())
+                          ,@(if sort-order `(#:sort-order ,sort-order) '())
                           #:verbosity ,verbosity)))))
           (extract?
            (if (or compression (equal? file "-"))

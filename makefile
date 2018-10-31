@@ -29,7 +29,7 @@ check: all check-bash check-gash
 
 check-bash: all
 ifneq ($(BASH),)
-	SHELL=$(BASH) ./check.sh
+	PATH=$(PATH):bin SHELL=$(BASH) ./check.sh
 endif
 
 check-gash: all

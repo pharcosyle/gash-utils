@@ -53,6 +53,11 @@ substitution
 00-sed-group-extended
 00-sed-twice
 00-sed-undo
+
+00-tar
+00-tar-Z
+00-tar-Z-old
+00-tar-Z-pipe
 "
 
 broken="
