@@ -5,15 +5,18 @@ default: all
 
 .config.make: makefile
 
-bin/gash: bin/gash.in | do-configure
-bin/tar: bin/tar.in | do-configure
+bin/gash: bin/gash.in
+	$(MAKE) do-configure
+
+gash/config.scm:
+	$(MAKE) do-configure
 
 do-configure:
 	./configure --prefix=$(prefix)
 
 all: all-go
 
-all-go: | do-configure
+all-go: | gash/config.scm
 	build-aux/build-guile.sh
 
 clean:

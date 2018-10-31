@@ -10,28 +10,19 @@
 # the Free Software Foundation; either version 3 of the License, or (at
 # your option) any later version.
 #
-# Gash is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# Gash is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
 #
 # You should have received a copy of the GNU General Public License
 # along with Gash.  If not, see <http://www.gnu.org/licenses/>.
 
-if [ -n "$BUILD_DEBUG" ]; then
-    set -x
-fi
+srcdir=${srcdir-.}
+. ${srcdest}build-aux/trace.sh
 
 export GUILE
 export GUILE_AUTO_COMPILE
-export GUILE_LOAD_PATH
-export GUILE_LOAD_COMPILED_PATH
-
-GUILE_LOAD_PATH=$HOME/src/geesh:$GUILE_LOAD_PATH
-GUILE_LOAD_COMPILED_PATH=$HOME/src/geesh:$GUILE_LOAD_COMPILED_PATH
-
-GUILE_LOAD_PATH=$(pwd):$GUILE_LOAD_PATH
-GUILE_LOAD_COMPILED_PATH=$(pwd):$GUILE_LOAD_COMPILED_PATH
 GUILE=${GUILE-$(command -v guile)}
 GUILE_TOOLS=${GUILE_TOOLS-$(command -v guile-tools)}
 GUILE_AUTO_COMPILE=0
@@ -39,68 +30,79 @@ GUILE_AUTO_COMPILE=0
 set -e
 
 SCM_FILES="
-gash/bournish-commands.scm
-gash/guix-utils.scm
-gash/builtins.scm
-gash/compress.scm
-gash/config.scm
-gash/environment.scm
-gash/geesh.scm
-gash/gash.scm
-gash/io.scm
-gash/job.scm
-gash/lzw.scm
-gash/peg.scm
-gash/pipe.scm
-gash/readline.scm
-gash/script.scm
-gash/shell-utils.scm
-gash/ustar.scm
-gash/util.scm
+${srcdest}gash/bournish-commands.scm
+${srcdest}gash/guix-utils.scm
+${srcdest}gash/builtins.scm
+${srcdest}gash/compress.scm
+${srcdest}gash/config.scm
+${srcdest}gash/environment.scm
+${srcdest}gash/geesh.scm
+${srcdest}gash/gash.scm
+${srcdest}gash/io.scm
+${srcdest}gash/job.scm
+${srcdest}gash/lzw.scm
+${srcdest}gash/peg.scm
+${srcdest}gash/pipe.scm
+${srcdest}gash/readline.scm
+${srcdest}gash/script.scm
+${srcdest}gash/shell-utils.scm
+${srcdest}gash/ustar.scm
+${srcdest}gash/util.scm
 
-gash/commands/cat.scm
-gash/commands/compress.scm
-gash/commands/cp.scm
-gash/commands/find.scm
-gash/commands/grep.scm
-gash/commands/ls.scm
-gash/commands/reboot.scm
-gash/commands/sed.scm
-gash/commands/tar.scm
-gash/commands/wc.scm
-gash/commands/which.scm
+${srcdest}gash/commands/cat.scm
+${srcdest}gash/commands/compress.scm
+${srcdest}gash/commands/cp.scm
+${srcdest}gash/commands/find.scm
+${srcdest}gash/commands/grep.scm
+${srcdest}gash/commands/ls.scm
+${srcdest}gash/commands/reboot.scm
+${srcdest}gash/commands/rm.scm
+${srcdest}gash/commands/sed.scm
+${srcdest}gash/commands/tar.scm
+${srcdest}gash/commands/wc.scm
+${srcdest}gash/commands/which.scm
+
 "
-
-export srcdir=.
-export host=$($GUILE -c "(display %host-type)")
-
-for i in $SCM_FILES; do
-    go=${i%%.scm}.go
-    if [ $i -nt $go ]; then
-        echo "  GUILEC $i"
-        $GUILE_TOOLS compile -L bin -L gash -o $go $i
-    fi
-done
 
 SCRIPTS="
-bin/cat
-bin/compress
-bin/cp
-bin/find
-bin/gash
-bin/grep
-bin/ls
-bin/reboot
-bin/sed
-bin/tar
-bin/wc
-bin/which
+${srcdest}bin/cat
+${srcdest}bin/compress
+${srcdest}bin/cp
+${srcdest}bin/find
+${srcdest}bin/gash
+${srcdest}bin/grep
+${srcdest}bin/ls
+${srcdest}bin/reboot
+${srcdest}bin/sed
+${srcdest}bin/tar
+${srcdest}bin/wc
+${srcdest}bin/which
 "
 
-for i in $SCRIPTS; do
+export host=$($GUILE -c "(display %host-type)")
+
+abs=$srcdest
+if [ "$GUILE_EFFECTIVE_VERSION" = "2.0" ]; then
+    srcdest=$abs_top_srcdir/
+fi
+
+GUILE_AUTO_COMPILE=0
+WARNINGS="
+--warn=unsupported-warning
+--warn=unused-variable
+--warn=unused-toplevel
+--warn=unbound-variable
+--warn=macro-use-before-definition
+--warn=arity-mismatch
+--warn=duplicate-case-datum
+--warn=bad-case-datum
+--warn=format
+"
+
+for i in $SCM_FILES $SCRIPTS; do
+    b=$(basename $i)
     go=${i%%.scm}.go
     if [ $i -nt $go ]; then
-        echo "  GUILEC $i"
-        $GUILE_TOOLS compile -L guile -L scripts -o $go $i
+        trace "GUILEC     $b" $GUILE_TOOLS compile -L ${srcdir} $WARNINGS -o $go $i
     fi
 done
