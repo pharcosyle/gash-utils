@@ -1,6 +1,6 @@
 #! @BASH@
 
-# Gash -- Guile As SHell
+# Gash --- Guile As SHell
 # Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
 #
 # This file is part of Gash.

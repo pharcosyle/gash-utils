@@ -1,4 +1,4 @@
-;;; Gash -- Guile As SHell
+;;; Gash --- Guile As SHell
 ;;; Copyright © 2016, 2017 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;; Copyright © 2017 Ricardo Wurmus <rekado@elephly.net>

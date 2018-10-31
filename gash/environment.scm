@@ -1,4 +1,4 @@
-;;; Gash -- Guile As SHell
+;;; Gash --- Guile As SHell
 ;;; Copyright © 2018 R.E.W. van Beusekom <rutger.van.beusekom@gmail.com>
 ;;; Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
 ;;;
