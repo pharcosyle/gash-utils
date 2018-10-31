@@ -1,19 +1,25 @@
-if [ -n "$BUILD_DEBUG" ]; then
+set -e
+if [ -n "$V" ]; then
     set -x
 fi
-#SHELL=${SHELL-bin/gash}
-SHELL=bin/gash
-for f in test/*.sh; do
-    echo -n "$f: "
-    b=test/$(basename $f .sh)
-#    $SHELL --geesh -e $f
-    $SHELL -e $f
-    r=$?
-    if [ -f $b.exit ]; then
-        e=$(cat $b.exit)
-    else
-        e=0
-    fi
-    [ $r = $e ] || exit 1
-    echo pass
-done
+DIFF=${DIFF-diff}
+SHELL=${SHELL-bin/gash}
+
+t=$1
+b=test/$(basename $t .sh)
+set +e
+$SHELL -e $b.sh > $b.1 2> $b.2
+r=$?
+set -e
+if [ -f $b.exit ]; then
+    e=$(cat $b.exit)
+else
+    e=0
+fi
+[ $r = $e ] || exit 1
+if [ -f $b.stdout ]; then
+        $DIFF -u $b.stdout $b.1
+fi
+if [ -f $b.stderr ]; then
+    $DIFF -u $b.stderr $b.2
+fi

@@ -11,9 +11,9 @@ bin/tar: bin/tar.in | do-configure
 do-configure:
 	./configure --prefix=$(prefix)
 
-all: all-go do-configure
+all: all-go
 
-all-go:
+all-go: | do-configure
 	build-aux/build-guile.sh
 
 clean:
@@ -26,11 +26,11 @@ check: all check-bash check-gash
 
 check-bash: all
 ifneq ($(BASH),)
-	SHELL=$(BASH) ./test.sh
+	SHELL=$(BASH) ./check.sh
 endif
 
 check-gash: all
-	SHELL=bin/gash ./test.sh
+	SHELL=bin/gash ./check.sh
 
 install: all
 	mkdir -p $(DESTDIR)$(bindir)

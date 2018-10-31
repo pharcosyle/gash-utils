@@ -17,3 +17,6 @@
 /doc/version.texi
 /gash/config.scm
 /pre-inst-env
+/test/*.1
+/test/*.2
+/test/*.log
