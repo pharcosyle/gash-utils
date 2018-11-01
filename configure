@@ -90,6 +90,7 @@ sh
 "
 BUILTINS="
 cat
+chmod
 compress
 cp
 find

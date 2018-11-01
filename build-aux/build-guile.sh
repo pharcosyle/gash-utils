@@ -50,6 +50,7 @@ ${srcdest}gash/ustar.scm
 ${srcdest}gash/util.scm
 
 ${srcdest}gash/commands/cat.scm
+${srcdest}gash/commands/chmod.scm
 ${srcdest}gash/commands/compress.scm
 ${srcdest}gash/commands/cp.scm
 ${srcdest}gash/commands/find.scm
@@ -66,6 +67,7 @@ ${srcdest}gash/commands/which.scm
 
 SCRIPTS="
 ${srcdest}bin/cat
+${srcdest}bin/chmod
 ${srcdest}bin/compress
 ${srcdest}bin/cp
 ${srcdest}bin/find

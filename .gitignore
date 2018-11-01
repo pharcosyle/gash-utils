@@ -2,6 +2,7 @@
 *~
 /bin/bash
 /bin/cat
+/bin/chmod
 /bin/compress
 /bin/cp
 /bin/find
