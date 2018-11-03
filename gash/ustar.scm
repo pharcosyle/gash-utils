@@ -485,9 +485,10 @@
            (if (file-exists? file-name) (delete-file file-name))
            (with-output-to-file file-name thunk))
           ((directory) (mkdir-p file-name))
-          ((symlink) (throw 'todo "symlink")))
+          ((symlink) (symlink (ustar-header-link-name header) file-name )))
         (thunk))
-    (when extract?
+    (when (and extract?
+               (not (eq? (ustar-header-type header) 'symlink)))
       (chmod file-name (ustar-header-mode header))
       (let ((mtime (ustar-header-mtime header)))
         (utime file-name mtime mtime)))))

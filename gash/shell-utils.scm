@@ -342,8 +342,11 @@ TERMINAL-WIDTH.  Use COLUMN-GAP spaces between two subsequent columns."
     (format #t "~8d" size)
     (display " ")
     (display date)
-    (display " "))
-  (display file-name))
+    (display " ")
+    (display file-name)
+    (when (eq? (stat:type st) 'symlink)
+      (display " -> ")
+      (display (readlink file-name)))))
 
 (define (multi-opt options name)
   (let ((opt? (lambda (o) (and (eq? (car o) name) (cdr o)))))
