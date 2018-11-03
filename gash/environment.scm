@@ -29,6 +29,8 @@
             set-shell-opt!
             shell-opt?
             variable
+            variable-and
+            variable-or
             ))
 
 ;; FIXME: export/env vs set
@@ -50,14 +52,21 @@
              (assoc-set! %global-variables name value))
        #t))
 
-(define (variable name)
+(define* (variable name #:optional (default ""))
   (let ((name (if (string-prefix? "$" name) (string-drop name 1) name)))
     (or (assoc-ref %global-variables name)
         (if (shell-opt? "nounset") (begin
                                      ;; TODO: throw/error
                                      (format (current-error-port) "gash: ~a: unbound variable\n" name)
                                      #f)
-            ""))))
+            default))))
+
+(define (variable-or name default)
+  (variable name default))
+
+(define (variable-and name default)
+  (let ((value (variable name #f)))
+    (and value default)))
 
 (define (set-shell-opt! name set?)
   (let* ((shell-opts (variable "SHELLOPTS"))

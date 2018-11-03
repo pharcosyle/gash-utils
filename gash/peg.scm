@@ -212,30 +212,28 @@
      filename         <-- word
      name             <-- identifier
      identifier       <-  [_a-zA-Z][_a-zA-Z0-9]*
-     oldword             <-  substitution / assignment / number / variable / delim / literal
-
-     word-for-test-assign-sh        <-- assignment / (delim / number / variable / literal)+
-     word-for-test-if2-sh            <-- assignment / delim / (number / variable / literal)+
-
-     word    <-- assignment / (delim / number / variable / literal)+
-
+     word             <-- assignment / delim / (number / variable / brace-variable / literal)+
 
      number           <-- [0-9]+
      lsubst           <   '$('
      rsubst           <   ')'
      tick             <   '`'
      substitution     <-- lsubst script rsubst / tick script tick
-     assignment       <-- name assign (substitution / word)*
+     assignment       <-- name assign rhs
+     rhs              <-  (substitution / word)*
      assign           <   '='
-     dollar           <-  '$'
-     literal          <-- (!tick !dollar !pipe !semi !par !nl !sp .)+
-     variable         <-- dollar (dollar / '*' / '?' / '@' / [0-9] / identifier / ([{] (![}] .)+ [}]))
+     dollar           <   '$'
+     literal          <-- (!tick !dollar !pipe !semi !par !nl !sp !rbrace .)+
+     variable         <-- dollar ('$' / '*' / '?' / '@' / [0-9] / identifier)
+     brace-variable   <-  dollar lbrace (variable-or / variable-and / identifier) rbrace
+     variable-and     <-- identifier plus rhs
+     variable-or      <-- identifier minus rhs
      delim            <-  singlequotes / doublequotes / substitution
      sq               <   [']
      dq               <   [\"]
      bt               <   [`]
      singlequotes     <-- sq  (doublequotes / (!sq .))* sq
-     doublequotes     <-- dq (singlequotes / substitution / variable / (!dq .))* dq
+     doublequotes     <-- dq (singlequotes / substitution / variable / variable-and-or / (!dq .))* dq
      break            <-  amp / semi !semi
      separator        <-  (sp* break ws*) / ws+
      sequential-sep   <-  (semi !semi ws*) / ws+
@@ -243,6 +241,10 @@
      semi             <   ';'
      lpar             <   '('
      rpar             <   ')'
+     lbrace           <   [{]
+     rbrace           <   [}]
+     plus             <   [+]
+     minus            <   '-'
      par              <   lpar / rpar
      nl               <   '\n'
      sp               <   [\t ]
@@ -282,6 +284,9 @@
     ((('literal _ ...) _ ...) (map transform (flatten ast)))
     ((('pipeline _ ...) _ ...) (map transform (flatten ast)))
     ((('singlequotes _ ...) _ ...) (map transform (flatten ast)))
+
+    ((('word _ ...) ('word _ ...)) (transform (cons 'word ast)))
+
     ((('word _ ...) _ ...) (map transform (flatten ast)))
 
     (('script ('pipeline ('command command ... (word (literal "&")))))

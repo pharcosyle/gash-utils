@@ -29,6 +29,12 @@ tests="
 06-compound-word
 06-command-compound-word
 
+07-variable-or
+07-variable-not-or
+
+08-variable-and
+08-variable-not-and
+
 10-if
 10-if-false
 10-if-word-variable
