@@ -156,10 +156,10 @@
      and              <-- '&&'
      or               <-- '||'
      pipe             <   '|'
+     pipeline         <-- negate? pipeline-head pipeline-tail*
      pipeline-head    <-  sp* command
      pipeline-tail    <-  sp* pipe ws* command
      negate           <-- '!'
-     pipeline         <-- negate? pipeline-head pipeline-tail*
      command          <-- (compound-command (sp+ io-redirect)*) / simple-command / function-def
      compound-command <-  brace-group / subshell / for-clause / case-clause / if-clause / while-clause / until-clause
      simple-command   <-  (sp* (io-redirect sp+)* nonreserved)+
@@ -212,7 +212,7 @@
      filename         <-- word
      name             <-- identifier
      identifier       <-  [_a-zA-Z][_a-zA-Z0-9]*
-     word             <-- assignment / delim / (number / variable / brace-variable / literal)+
+     word             <-- assignment / delim / (number / variable / variable-and-or / literal)+
 
      number           <-- [0-9]+
      lsubst           <   '$('
@@ -223,9 +223,9 @@
      rhs              <-  (substitution / word)*
      assign           <   '='
      dollar           <   '$'
-     literal          <-- (!tick !dollar !pipe !semi !par !nl !sp !rbrace .)+
-     variable         <-- dollar ('$' / '*' / '?' / '@' / [0-9] / identifier)
-     brace-variable   <-  dollar lbrace (variable-or / variable-and / identifier) rbrace
+     literal          <-- backslash? (!ws !tick !dollar !pipe !semi !par !nl !sp !rbrace .)+
+     variable         <-- dollar ('$' / '*' / '?' / '@' / [0-9] / identifier / lbrace identifier rbrace)
+     variable-and-or  <-  dollar lbrace (variable-or / variable-and ) rbrace
      variable-and     <-- identifier plus rhs
      variable-or      <-- identifier minus rhs
      delim            <-  singlequotes / doublequotes / substitution
@@ -238,6 +238,7 @@
      separator        <-  (sp* break ws*) / ws+
      sequential-sep   <-  (semi !semi ws*) / ws+
      amp              <-  '&'
+     backslash        <-  '\\'
      semi             <   ';'
      lpar             <   '('
      rpar             <   ')'
@@ -247,9 +248,13 @@
      minus            <   '-'
      par              <   lpar / rpar
      nl               <   '\n'
-     sp               <   [\t ]
+     sp               <   '\t' / ' ' / (escaped-nl sp*)
      ws               <   sp / nl
+     escaped-nl       <   (backslash nl)
      error            <-- .*")
+
+  (when (> %debug-level 1)
+    (format (current-error-port) "input:~s\n" input))
 
   (let* ((match (match-pattern script input))
          (end (peg:end match))
@@ -340,16 +345,8 @@
                         s)))
                 (string-split s #\newline)) "\n"))
 
-(define (remove-escaped-newlines s)
-  (reduce (lambda (next prev)
-            (let* ((escaped? (string-suffix? "\\" next))
-                   (next (if escaped? (string-drop-right next 1) next))
-                   (sep (if escaped? "" "\n")))
-              (string-append prev sep next)))
-          "" (string-split s #\newline)))
-
 (define (parse-string string)
-  (let* ((pt ((compose parse- remove-escaped-newlines remove-shell-comments) string))
+  (let* ((pt ((compose parse- remove-shell-comments) string))
          (foo (when (> %debug-level 1) (display "tree:\n") (pretty-print pt)))
          (flat (flatten pt))
          (foo (when (> %debug-level 0) (display "flat:\n") (pretty-print flat)))

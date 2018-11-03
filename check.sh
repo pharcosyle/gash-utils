@@ -6,8 +6,14 @@ SHELL=${SHELL-bin/gash}
 
 tests="
 00-exit
-01-exit-0
-02-exit-1
+00-exit-0
+00-exit-1
+
+01-script-newline
+01-script-semi
+01-script-backslash
+01-script-backslash-space.sh
+01-script-backslash-twice.sh
 
 03-echo
 03-echo-nesting
