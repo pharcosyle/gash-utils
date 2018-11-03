@@ -459,9 +459,11 @@
     (if (string-null? prefix) name
         (string-append prefix "/" name))))
 
-(define* (read-ustar-file port header #:key (extract? #t))
+(define* (read-ustar-file port header #:key (extract? #t) (strip 0))
   (let* ((size (ustar-header-size header))
          (file-name (ustar-header-file-name header))
+         (file-name (if (zero? strip) file-name
+                        (string-join (list-tail (string-split file-name #\/) strip) "/")))
          (dir (dirname file-name))
          (thunk (lambda _
                   (let loop ((read 0))
@@ -470,7 +472,7 @@
                            (and record
                                 (let* ((read (+ read 512))
                                        (block (if (< read size) record
-                                                 (sub-bytevector record 0 (- size -512 read)))))
+                                                  (sub-bytevector record 0 (- size -512 read)))))
                                   (when extract?
                                     (display (bv->ustar-0string block "block")))
                                   (loop read)))))))))
@@ -525,30 +527,30 @@
               (apply format #f message args))
       (exit 1))))
 
-(define* (read-ustar-port in files #:key (extract? #t) verbosity)
+(define* (read-ustar-port in files #:key (extract? #t) (strip 0) verbosity)
   (let loop ((header (read-ustar-header in)))
     (when (and header
                (not (eof-object? header)))
       (unless (zero? verbosity)
         (display-header header #:verbose? (> verbosity 1)))
-      (read-ustar-file in header #:extract? extract?)
+      (read-ustar-file in header #:extract? extract? #:strip strip)
       (loop (read-ustar-header in)))))
 
-(define* (read-ustar-archive file-name files #:key (extract? #t) verbosity)
+(define* (read-ustar-archive file-name files #:key (extract? #t) (strip 0) verbosity)
   (catch #t
     (lambda _
       (call-with-port* (open-file file-name "rb")
-        (cut read-ustar-port <> files #:extract? extract? #:verbosity verbosity)))
+        (cut read-ustar-port <> files #:extract? extract? #:strip strip #:verbosity verbosity)))
     (lambda (key subr message args . rest)
       (format (current-error-port) "ERROR: ~a\n"
               (apply format #f message args))
       (exit 1))))
 
-(define* (list-ustar-archive file-name files #:key verbosity)
-  (read-ustar-archive file-name files #:extract? #f #:verbosity verbosity))
+(define* (list-ustar-archive file-name files #:key (strip 0) verbosity)
+  (read-ustar-archive file-name files #:extract? #f #:strip strip #:verbosity verbosity))
 
-(define* (list-ustar-port in files #:key verbosity)
-  (read-ustar-port in files #:extract? #f #:verbosity verbosity))
+(define* (list-ustar-port in files #:key (strip 0) verbosity)
+  (read-ustar-port in files #:extract? #f #:strip strip #:verbosity verbosity))
 
 ;;; Local Variables:
 ;;; mode: scheme

@@ -49,6 +49,8 @@
             (numeric-owner?)
             (owner (value #t))
             (sort (value #t))
+            (strip (value #t))
+            (strip-components (value #t))
 	    (verbose (single-char #\v))
             (version (single-char #\V))))
 	 (options (getopt-long args option-spec))
@@ -81,6 +83,10 @@
                                              ((string-suffix? ".xz" file) 'xz)
                                              (else #f))))))
          (sort-order (and=> (option-ref options 'sort #f) string->symbol))
+         (strip (string->number
+                 (or (option-ref options 'strip #f)
+                     (option-ref options 'strip-components #f)
+                     "0")))
 	 (help? (option-ref options 'help #f))
 	 (usage? (and (not help?) (not (or (and create? (pair? files))
                                            extract? list?))))
@@ -99,6 +105,8 @@ Usage: tar [OPTION]... [FILE]...
       --owner=NAME           force NAME as owner for added files
       --sort=ORDER           directory sorting order: none (default), name or
                              inode
+      --strip-components=NUM strip NUM leading components from file names
+                             names on extraction
   -t, --list                 list the contents of an archive
   -V, --version              display version
   -v, --verbose              verbosely list files processed
@@ -140,14 +148,14 @@ Usage: tar [OPTION]... [FILE]...
                (let ((port (if (equal? file "-") (current-input-port)
                                (open-file file "rb"))))
                  (call-with-decompressed-port compression port
-                   (cut read-ustar-port <> files #:verbosity verbosity)))
+                   (cut read-ustar-port <> files #:strip strip #:verbosity verbosity)))
                (read-ustar-archive file files #:verbosity verbosity)))
           (list?
            (if (or compression (equal? file "-"))
                (let ((port (if (equal? file "-") (current-input-port)
                                (open-file file "rb"))))
                  (call-with-decompressed-port compression port
-                   (cut list-ustar-port <> files #:verbosity (1+ verbosity))))
-               (list-ustar-archive file files #:verbosity (1+ verbosity)))))))
+                   (cut list-ustar-port <> files #:strip strip #:verbosity (1+ verbosity))))
+               (list-ustar-archive file files #:strip strip #:verbosity (1+ verbosity)))))))
 
 (define main tar)
