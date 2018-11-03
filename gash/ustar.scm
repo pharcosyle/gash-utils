@@ -465,6 +465,7 @@
          (file-name (if (zero? strip) file-name
                         (string-join (list-tail (string-split file-name #\/) strip) "/")))
          (dir (dirname file-name))
+         (extract? (and extract? (not (string-null? file-name))))
          (thunk (lambda _
                   (let loop ((read 0))
                     (and (< read size)
@@ -515,7 +516,7 @@
         #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:sort-order sort-order #:verbosity verbosity)
    files))
 
-(define* (write-ustar-archive file-name files #:key group mtime numeric-owner? owner verbosity)
+(define* (write-ustar-archive file-name files #:key group mtime numeric-owner? owner sort-order verbosity)
   (catch #t
     (lambda _
       (call-with-port* (open-file file-name "wb")

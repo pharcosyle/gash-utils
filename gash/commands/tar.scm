@@ -37,6 +37,7 @@
   (let* ((option-spec
 	  '((create (single-char #\c))
             (compress (single-char #\Z))
+            (directory (single-char #\C) (value #t))
             (gzip (single-char #\z))
             (bzip2 (single-char #\j))
             (xz (single-char #\J))
@@ -82,6 +83,7 @@
                                              ((string-suffix? ".gz" file) 'gzip)
                                              ((string-suffix? ".xz" file) 'xz)
                                              (else #f))))))
+         (directory (option-ref options 'directory #f))
          (sort-order (and=> (option-ref options 'sort #f) string->symbol))
          (strip (string->number
                  (or (option-ref options 'strip #f)
@@ -91,11 +93,16 @@
 	 (usage? (and (not help?) (not (or (and create? (pair? files))
                                            extract? list?))))
 	 (verbosity (length (multi-opt options 'verbose)))
-         (version? (option-ref options 'version #f)))
+         (version? (option-ref options 'version #f))
+         (file (if (or (not directory) (string-prefix? "/" file) (equal? file "-")) file
+                   (string-append (getcwd) "/" file))))
+    (when directory
+      (chdir directory))
     (cond (version? (format #t "tar (GASH) ~a\n" %version) (exit 0))
           ((or help? usage?) (format (if usage? (current-error-port) #t)
                                      "\
 Usage: tar [OPTION]... [FILE]...
+  -C, --directory=DIR        change to directory DIR
   -c, --create               create a new archive
   -f, --file=ARCHIVE         use archive file or device ARCHIVE
       --group=NAME           force NAME as group for added files
