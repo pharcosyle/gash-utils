@@ -25,11 +25,15 @@
   #:use-module (gash builtins)
   #:use-module (gash gash)
   #:use-module (gash io)
-  #:use-module (geesh parser)
   #:export (
             parse
             parse-string
             ))
+
+(catch #t
+  (lambda _ (use-modules (geesh parser)))
+  (lambda (key . args)
+    #t))
 
 (define (parse port)
   (let ((parse-tree (read-sh-all port)))
