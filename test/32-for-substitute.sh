@@ -1,3 +1,0 @@
-for file in `echo ar.o arscan.o`; do
-    echo compiling $file...
-done

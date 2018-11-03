@@ -1,1 +1,1 @@
-cc -DALIASPATH="alias" -DLOCALEDIR="x"
+cc -DALIASPATH="alias" -DLOCALEDIR="locale"

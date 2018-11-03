@@ -1,1 +1,3 @@
-libdir=${exec_prefix}/lib
+SHELL=gash
+bin=${SHELL}/bin
+echo $bin
