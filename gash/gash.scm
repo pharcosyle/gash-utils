@@ -8,7 +8,6 @@
   #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 local-eval)
   #:use-module (ice-9 match)
-  #:use-module (ice-9 rdelim)
   #:use-module (ice-9 pretty-print)
   #:use-module (ice-9 receive)
   #:use-module (ice-9 regex)
@@ -40,12 +39,12 @@
 
 (define (parse-string string)
   (let ((parser (cond (%geesh-parser? (@ (gash geesh) parse-string))
-                      (else (@ (gash peg) parse-string)))))
+                      (else (@ (gash grammar) parse-string)))))
     (parser string)))
 
 (define (parse port)
   (let ((parser (cond (%geesh-parser? (@ (gash geesh) parse))
-                      (else (@ (gash peg) parse)))))
+                      (else (@ (gash grammar) parse)))))
     (parser port)))
 
 (define (file-to-ast file-name)
