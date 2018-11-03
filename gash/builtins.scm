@@ -101,8 +101,16 @@
     (() (lambda _ (for-each display-var %global-variables)))
     (("-e") (set-shell-opt! "errexit" #t))
     (("+e") (set-shell-opt! "errexit" #f))
+    (("-u") (set-shell-opt! "nounset" #t))
+    (("+u") (set-shell-opt! "nounset" #f))
     (("-x") (set-shell-opt! "xtrace" #t))
-    (("+x") (set-shell-opt! "xtrace" #f))))
+    (("+x") (set-shell-opt! "xtrace" #f))
+    (((and (? string?) arg)) (let* ((lst (map (cut make-string 1 <>) (string->list arg)))
+                                    (set (car lst)))
+                               (when (not (member set '("-" "+")))
+                                 (error (format #f "set: no such option:~s\n" args)))
+                               (apply set-command (map (cut string-append set <>) (cdr lst)))))
+    ((h ...) (last (map set-command args)))))
 
 (define (eval-command . args)
   (lambda _

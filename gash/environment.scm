@@ -45,13 +45,19 @@
                 (environ)))))
 
 (define (assignment name value)
-  (set! %global-variables
-    (assoc-set! %global-variables name value))
-  #t)
+  (and value
+       (set! %global-variables
+             (assoc-set! %global-variables name value))
+       #t))
 
 (define (variable name)
   (let ((name (if (string-prefix? "$" name) (string-drop name 1) name)))
-    (or (assoc-ref %global-variables name) "")))
+    (or (assoc-ref %global-variables name)
+        (if (shell-opt? "nounset") (begin
+                                     ;; TODO: throw/error
+                                     (format (current-error-port) "gash: ~a: unbound variable\n" name)
+                                     #f)
+            ""))))
 
 (define (set-shell-opt! name set?)
   (let* ((shell-opts (variable "SHELLOPTS"))
