@@ -70,6 +70,7 @@
             grep-match-column
             grep-match-end-column
             mkdir-p
+            rmdir-p
             multi-opt
 
             directory-exists?
@@ -269,6 +270,14 @@ transferred and the continuation of the transfer as a thunk."
                  (loop tail path)
                  (apply throw args))))))
       (() #t))))
+
+(define (rmdir-p dir)
+  "Remove directory DIR and all its ancestors."
+  (rmdir dir)
+  (let loop ((dir (dirname dir)))
+    (when (not (equal? dir "."))
+      (rmdir dir)
+      (loop (dirname dir)))))
 
 (define (file-exists?* file)
   "Like 'file-exists?' but emits a warning if FILE is not accessible."

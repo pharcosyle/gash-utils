@@ -59,6 +59,7 @@ ${srcdest}gash/commands/ls.scm
 ${srcdest}gash/commands/mkdir.scm
 ${srcdest}gash/commands/reboot.scm
 ${srcdest}gash/commands/rm.scm
+${srcdest}gash/commands/rmdir.scm
 ${srcdest}gash/commands/sed.scm
 ${srcdest}gash/commands/tar.scm
 ${srcdest}gash/commands/wc.scm
@@ -78,6 +79,7 @@ ${srcdest}bin/ls
 ${srcdest}bin/mkdir
 ${srcdest}bin/reboot
 ${srcdest}bin/rm
+${srcdest}bin/rmdir
 ${srcdest}bin/sed
 ${srcdest}bin/tar
 ${srcdest}bin/wc

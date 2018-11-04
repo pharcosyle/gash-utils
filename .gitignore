@@ -12,6 +12,7 @@
 /bin/mkdir
 /bin/reboot
 /bin/rm
+/bin/rmdir
 /bin/sed
 /bin/sh
 /bin/tar
