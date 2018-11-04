@@ -48,6 +48,8 @@ tests="
 11-for-split-sequence
 
 20-semi.sh
+20-or.sh
+20-and.sh
 20-pipe-exit-0
 20-pipe-exit-1
 20-pipe-sed

@@ -39,6 +39,7 @@
   #:use-module (gash util)
 
   #:export (
+            and-terms
             background
             builtin
             command
@@ -48,6 +49,7 @@
             if-clause
             ignore-error
             literal
+            or-terms
             pipeline
             run
             script
@@ -176,6 +178,22 @@
        (with-syntax ((it (datum->syntax x 'it)))
          #'(let ((it (ignore-error expr)))
              (if (zero? it) then else)))))))
+
+(define-syntax and-terms
+  (lambda (x)
+    (syntax-case x ()
+      ((_ left right)
+       (with-syntax ((it (datum->syntax x 'it)))
+         #'(let ((it left))
+             (if (zero? it) right it)))))))
+
+(define-syntax or-terms
+  (lambda (x)
+    (syntax-case x ()
+      ((_ left right)
+       (with-syntax ((it (datum->syntax x 'it)))
+         #'(let ((it (ignore-error left)))
+             (if (zero? it) it right)))))))
 
 (define (pipeline . commands)
   (define (handle job)

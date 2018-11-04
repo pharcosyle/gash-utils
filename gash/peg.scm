@@ -152,9 +152,9 @@
 
   (define-peg-string-patterns
     "script           <-- ws* (term (separator term)* separator?)?
-     term             <-  pipeline (sp* (and / or) ws* pipeline)*
-     and              <-- '&&'
-     or               <-- '||'
+     term             <-  (and / or / pipeline) (sp* (and / or /pipeline))*
+     and              <-- pipeline sp* amp-amp ws* pipeline
+     or               <-- pipeline sp* pipe-pipe ws* pipeline
      pipe             <   '|'
      pipeline         <-- negate? pipeline-head pipeline-tail*
      pipeline-head    <-  sp* command
@@ -223,7 +223,7 @@
      rhs              <-  (substitution / word)*
      assign           <   '='
      dollar           <   '$'
-     literal          <-- backslash? (!ws !tick !dollar !pipe !semi !par !nl !sp !rbrace .)+
+     literal          <-- backslash? (!ws !amp !tick !dollar !pipe !semi !par !nl !sp !rbrace .)+
      variable         <-- dollar ('$' / '*' / '?' / '@' / [0-9] / identifier / lbrace identifier rbrace)
      variable-and-or  <-  dollar lbrace (variable-or / variable-and ) rbrace
      variable-and     <-- identifier plus rhs
@@ -238,6 +238,8 @@
      separator        <-  (sp* break ws*) / ws+
      sequential-sep   <-  (semi !semi ws*) / ws+
      amp              <-  '&'
+     amp-amp          <   '&&'
+     pipe-pipe        <   '||'
      backslash        <-  '\\'
      semi             <   ';'
      lpar             <   '('
@@ -325,6 +327,9 @@
      `(sequence (string-split ,(transform o) #\space)))
     (('sequence o ...)
      `(sequence (quote ,(map transform o))))
+
+    (('and l r) `(and-terms ,(transform l) ,(transform r)))
+    (('or l r) `(or-terms ,(transform l) ,(transform r)))
 
     (('substitution o) `(substitution ,(transform o)))
     (('if-clause expr then) `(if-clause ,(transform expr) ,(transform then)))
