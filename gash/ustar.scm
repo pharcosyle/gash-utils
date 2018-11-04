@@ -467,6 +467,7 @@
          (dir (dirname file-name))
          (extract? (and extract? (not (string-null? file-name))))
          (thunk (lambda _
+                  (set-port-encoding! (current-output-port) "ISO-8859-1") ; bootstrap-guile uses default UTF-8
                   (let loop ((read 0))
                     (and (< read size)
                          (let ((record (read-ustar-record port)))
