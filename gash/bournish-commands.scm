@@ -77,7 +77,7 @@
 (define find-command (wrap-command "find" find))
 (define grep-command (wrap-command "grep" grep))
 (define ls-command (wrap-command "ls" ls))
-(define reboot-command (wrap-command "reboot" reboot))
+(define reboot-command (wrap-command "reboot" reboot'))
 (define rm-command (wrap-command "rm" rm))
 (define sed-command (wrap-command "sed" sed))
 (define tar-command (wrap-command "tar" tar))

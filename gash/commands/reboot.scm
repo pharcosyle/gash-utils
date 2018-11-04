@@ -27,10 +27,10 @@
 
 (define-module (gash commands reboot)
   #:export (
-            reboot
+            reboot'
             ))
 
-(define (reboot name . args)
+(define (reboot' name . args)
   "Emit code for 'reboot'."
   ;; Normally Bournish is used in the initrd, where 'reboot' is provided
   ;; directly by (guile-user).  In other cases, just bail out.
@@ -41,4 +41,4 @@
                 "I don't know how to reboot, sorry about that!~%")
         1)))
 
-(define main reboot)
+(define main reboot')
