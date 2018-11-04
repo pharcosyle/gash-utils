@@ -22,6 +22,7 @@
   #:use-module (ice-9 local-eval)
   #:use-module (ice-9 match)
   #:use-module (ice-9 pretty-print)
+  #:use-module (ice-9 rdelim)
   #:use-module (ice-9 receive)
   #:use-module (ice-9 regex)
 
@@ -41,9 +42,11 @@
   #:export (
             and-terms
             background
+            brace-group
             builtin
             command
             doublequotes
+            file-name
             for
             glob
             if-clause
@@ -72,6 +75,11 @@
 (define (command . args)
   (define (exec command)
     (cond ((procedure? command) command)
+          ((assoc-ref %functions (car command))
+           =>
+           (lambda (function)
+             (parameterize ((%command-line args))
+               (last (apply function args)))))
           ((every string? command)
            (let* ((program (car command))
                   (escape-builtin? (and (string? program) (string-prefix? "\\" program)))
@@ -155,7 +163,7 @@
   (string-join (flatten o) ""))
 
 (define-syntax-rule (substitution commands)
-  (with-output-to-string (lambda _ commands)))
+  (string-trim-right (with-output-to-string (lambda _ commands))))
 
 (define-syntax-rule (ignore-error o)
   (let ((errexit (shell-opt? "errexit")))
@@ -271,3 +279,9 @@
                    (apply command (map (cut local-eval <> (the-environment)) args))
                    (command))))
             (else #f)))))
+
+(define (brace-group . o)
+  o)
+
+(define (file-name o)
+  o)

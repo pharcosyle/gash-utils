@@ -24,14 +24,19 @@
   #:use-module (gash io)
 
   #:export (
+            %command-line
+            %functions
             %global-variables
             assignment
+            function
             set-shell-opt!
             shell-opt?
             variable
             variable-and
             variable-or
             ))
+
+(define %command-line (make-parameter (command-line)))
 
 ;; FIXME: export/env vs set
 (define %global-variables
@@ -46,6 +51,8 @@
                     (cons key value)))
                 (environ)))))
 
+(define %functions '())
+
 (define (assignment name value)
   (and value
        (set! %global-variables
@@ -53,13 +60,20 @@
        #t))
 
 (define* (variable name #:optional (default ""))
-  (let ((name (if (string-prefix? "$" name) (string-drop name 1) name)))
-    (or (assoc-ref %global-variables name)
-        (if (shell-opt? "nounset") (begin
-                                     ;; TODO: throw/error
-                                     (format (current-error-port) "gash: ~a: unbound variable\n" name)
-                                     #f)
-            default))))
+  (cond ((string->number name)
+         =>
+         (lambda (n)
+           (if (< n (length (%command-line))) (list-ref (%command-line) n)
+               "")))
+        ((equal? name "#")
+         (number->string (length (%command-line))))
+        (else
+         (or (assoc-ref %global-variables name)
+             (if (shell-opt? "nounset") (begin
+                                          ;; TODO: throw/error
+                                          (format (current-error-port) "gash: ~a: unbound variable\n" name)
+                                          #f)
+                 default)))))
 
 (define (variable-or name default)
   (variable name default))
@@ -79,3 +93,7 @@
 
 (define (shell-opt? name)
   (member name (string-split (assoc-ref %global-variables "SHELLOPTS") #\:)))
+
+(define (function name body)
+  (set! %functions
+        (assoc-set! %functions name body)))

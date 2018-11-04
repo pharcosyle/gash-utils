@@ -160,14 +160,14 @@
      pipeline-head    <-  sp* command
      pipeline-tail    <-  sp* pipe ws* command
      negate           <-- '!'
-     command          <-- (compound-command (sp+ io-redirect)*) / simple-command (sp+ io-redirect)* / function-def
+     command          <-- function / (compound-command (sp+ io-redirect)*) / simple-command (sp+ io-redirect)*
      compound-command <-  brace-group / subshell / for-clause / case-clause / if-clause / while-clause / until-clause
      simple-command   <-  (sp* (io-redirect sp+)* nonreserved)+
      nonreserved      <-  &(reserved word) word / !reserved word
      reserved         <   'case' / 'esac' / 'if' / 'fi' / 'then' / 'else' / 'elif' / 'for' / 'done' / 'do' / 'until' / 'while'
 
-     function-def     <-- name sp* lpar sp* rpar ws* (function-body / error)
-     function-body    <-- compound-command io-redirect*
+     function         <-- identifier sp* lpar sp* rpar ws* (function-body / error)
+     function-body    <-  compound-command io-redirect*
 
      io-redirect      <-- [0-9]* sp* (io-here / io-file)
      io-file          <-- ('<&' /  '>&' / '>>' / '>' / '<>'/ '<' / '>|') sp* ([0-9]+ / filename)
@@ -175,7 +175,7 @@
      io-op            <   '<<-' / '<<' / '<&' /  '>&' / '>>' / '>' / '<>'/ '<' / '>|'
      io-suffix        <-  sp* here-label sp* nl
 
-     brace-group      <-- '{' (sp* (compound-list / error) sp* '}' / error)
+     brace-group      <-- lbrace (ws* (compound-list / error) ws* rbrace / error)
      subshell         <-- lpar compound-list separator rpar
      compound-list    <-  term (separator term)*
 
@@ -212,7 +212,7 @@
      filename         <-- word
      name             <-- identifier
      identifier       <-  [_a-zA-Z][_a-zA-Z0-9]*
-     word             <-- assignment / delim / (number / variable / variable-and-or / literal)+
+     word             <-- assignment / (delim / number / variable / variable-and-or / literal)+
 
      number           <-- [0-9]+
      lsubst           <   '$('
@@ -223,8 +223,8 @@
      rhs              <-  (substitution / word)*
      assign           <   '='
      dollar           <   '$'
-     literal          <-- backslash? (!ws !amp !tick !dollar !pipe !semi !par !nl !sp !rbrace !io-op .)+
-     variable         <-- dollar ('$' / '*' / '?' / '@' / [0-9] / identifier / lbrace identifier rbrace)
+     literal          <-- backslash? (!ws !amp !tick !dollar !pipe !semi !par !nl !sp !rbrace !io-op !dq !sq .)+
+     variable         <-- dollar ('$' / '#' / '*' / '?' / '@' / [0-9] / identifier / lbrace identifier rbrace)
      variable-and-or  <-  dollar lbrace (variable-or / variable-and ) rbrace
      variable-and     <-- identifier plus rhs
      variable-or      <-- identifier minus rhs
@@ -233,7 +233,7 @@
      dq               <   [\"]
      bt               <   [`]
      singlequotes     <-- sq  (doublequotes / (!sq .))* sq
-     doublequotes     <-- dq (singlequotes / substitution / variable / variable-and-or / (!dq .))* dq
+     doublequotes     <-- dq (singlequotes / substitution / number / variable / variable-and-or / literal / (!dq .))* dq
      break            <-  amp / semi !semi
      separator        <-  (sp* break ws*) / ws+
      sequential-sep   <-  (semi !semi ws*) / ws+
@@ -301,6 +301,9 @@
 
     (('script terms ...) `(script ,@(map transform terms)))
 
+    (('pipeline ('command command ('io-redirect ('io-file ">" file-name))))
+     (transform `(pipeline (command ,@(transform command)) (lambda _ (with-output-to-file ,(transform file-name) (lambda _ (display (read-string))))))))
+
     (('pipeline o ...)
      (let ((commands (map transform o)))
        `(pipeline ,@(cons (trace commands) commands))))
@@ -339,6 +342,12 @@
     (('word 'singlequotes) "")
     (('word o) (transform o))
     (('word o ...) `(string-append ,@(map transform o)))
+
+    (('function name body)
+     `(function ,name (lambda ( . args) ,(transform body))))
+
+    (('brace-group o) `(brace-group ,(transform o)))
+    (('file-name o) `(file-name ,(transform o)))
     (_ ast)))
 
 

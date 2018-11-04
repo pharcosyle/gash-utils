@@ -16,6 +16,7 @@ tests="
 01-script-backslash-twice.sh
 
 03-echo
+03-echo-doublequotes
 03-echo-nesting
 03-echo-escaped-doublequotes
 03-echo-quoted-doublequotes
@@ -64,6 +65,9 @@ tests="
 40-assignment-eval-echo.sh
 
 50-iohere
+
+60-function
+60-subst
 
 100-sed
 100-sed-once
