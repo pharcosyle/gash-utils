@@ -483,7 +483,7 @@
         (case (ustar-header-type header)
           ((regular)
            (if (file-exists? file-name) (delete-file file-name))
-           (with-output-to-file file-name thunk))
+           (with-output-to-file file-name thunk #:binary #t))
           ((directory) (mkdir-p file-name))
           ((symlink) (symlink (ustar-header-link-name header) file-name )))
         (thunk))
