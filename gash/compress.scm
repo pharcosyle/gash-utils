@@ -41,7 +41,7 @@
 (define *program-name* "compress (GASH)")
 
 (define (_ msg . rest)
-  (cons msg rest))
+  msg)
 
 (define (error* status msg . args)
   (force-output)
@@ -79,6 +79,8 @@
   (put-bytevector port (u8-list->bytevector (list #x1F #x9D bits))))
 
 (define (compress-port in out bits verbose?)
+  (set-port-encoding! in "ISO-8859-1")
+  (set-port-encoding! out "ISO-8859-1")
   #;
   (begin
     (write-lzw-header out bits)
@@ -101,7 +103,7 @@
           (error* 1 (_ "~a: already exists") outfile))
         (let ((in (open-file infile "rb"))
               (out (open-file outfile "wb")))
-          ;; TODO: Keep original files ownership, modes, and access
+            ;; TODO: Keep original files ownership, modes, and access
           ;; and modification times.
           (compress-port in out bits verbose?)
           (when verbose?
@@ -123,6 +125,8 @@
     (x #f)))
 
 (define (uncompress-port in out verbose?)
+  (set-port-encoding! in "ISO-8859-1")
+  (set-port-encoding! out "ISO-8859-1")
   (let ((bits (read-lzw-header in)))
     (unless bits
       (error* 1 (_ "incorrect header")))
