@@ -39,6 +39,7 @@
 
   #:use-module (rnrs bytevectors)
   #:use-module (rnrs io ports)
+  #:use-module (gash util)
   #:export (
             delete-file-recursively
             display-tabulated
@@ -48,9 +49,21 @@
             file-name-predicate
             find-files
             file-exists?*
+
+            <chmodifier>
+            make-chmodifier
+            chmodifier-users
+            chmodifier-operation
+            chmodifier-permissions
+            make-numeric-chmodifier
+            chmodifier->mode
+            chmodifiers->mode
+            apply-chmodifiers
+            parse-chmodifiers
+
+            <grep-match>
             grep*
             grep+
-            <grep-match>
             grep-match-file-name
             grep-match-string
             grep-match-line
@@ -73,6 +86,7 @@
 
 ;;; This code is taken from (guix build utils)
 
+
 ;;;
 ;;; Directories.
 ;;;
@@ -438,3 +452,81 @@ end of a line; by itself it won't match the terminating newline of a line."
                             rx+proc)))
             (display line out)
             (loop (read-line in 'concat)))))))
+
+
+;;;
+;;; Permissions.
+;;;
+(define-immutable-record-type <chmodifier>
+  (make-chmodifier users operation permissions)
+  chmodifier?
+  (users chmodifier-users)
+  (operation chmodifier-operation)
+  (permissions chmodifier-permissions))
+
+(define (parse-chmodifier o)
+  (let* ((c (string->symbol (substring o 0 1)))
+         (o (if (memq c '(- + =)) (string-append "a" o) o))
+         (users (string->symbol (substring o 0 1)))
+         (program (car (command-line))))
+    (when (not (memq users '(u g o a)))
+      (error (format #f "~a: no such user: ~a" program users)))
+    (let ((operation (string->symbol (substring o 1 2))))
+      (when (not (memq operation '(- + =)))
+        (error (format #f "~a: no such operation: ~a" program operation)))
+      (let* ((perm-string (substring o 2))
+             (perm (string->number perm-string 8)))
+        (if perm (make-numeric-chmodifier perm)
+            (let ((perms (map string->symbol (string->string-list perm-string))))
+              (make-chmodifier users operation perms)))))))
+
+(define (parse-chmodifiers o)
+  (or (and=> (string->number o 8) (compose list (cut make-numeric-chmodifier <>)))
+      (map parse-chmodifier (string-split o #\,))))
+
+(define (make-numeric-chmodifier o)
+  (make-chmodifier 'o '= (list o)))
+
+(define* (chmodifiers->mode modifiers #:optional (mode 0))
+  (let loop ((modifiers modifiers) (mode mode))
+    (if (null? modifiers) mode
+        (loop (cdr modifiers)
+              (chmodifier->mode (car modifiers) mode)))))
+
+(define* (chmodifier->mode modifier #:optional (mode 0))
+  (let* ((executable? (if (zero? (logand mode #o111)) 0 1))
+         (n (chmodifier-numeric-mode modifier executable?))
+         (o (chmodifier-operation modifier))
+         (program (car (command-line))))
+    (case o
+      ((=) n)
+      ((+) (logior mode n))
+      ((-) (logand mode (logxor n -1)))
+      (else (error
+             (format #f
+                     "program: operation not supported: ~s\n"
+                     program o))))))
+
+(define (apply-chmodifiers file modifiers)
+  (let ((mode (chmodifiers->mode modifiers (warn 'file-mode(stat:mode (lstat file))))))
+    ((@ (guile) chmod) file mode)))
+
+(define (chmodifier-numeric-mode o executable?)
+  (let* ((permissions (chmodifier-permissions o))
+         (users (chmodifier-users o)))
+    (let loop ((permissions permissions))
+      (if (null? permissions) 0
+          (+ (let* ((p (car permissions))
+                    (base (cond ((number? p) p)
+                                ((symbol? p)
+                                 (case p
+                                   ((r) 4)
+                                   ((w) 2)
+                                   ((x) 1)
+                                   ((X) executable?))))))
+               (case users
+                 ((a) (+ base (ash base 3) (ash base 6)))
+                 ((o) base)
+                 ((g) (ash base 3))
+                 ((u) (ash base 6))))
+             (loop (cdr permissions)))))))

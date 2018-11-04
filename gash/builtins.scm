@@ -105,7 +105,7 @@
     (("+u") (set-shell-opt! "nounset" #f))
     (("-x") (set-shell-opt! "xtrace" #t))
     (("+x") (set-shell-opt! "xtrace" #f))
-    (((and (? string?) arg)) (let* ((lst (map (cut make-string 1 <>) (string->list arg)))
+    (((and (? string?) arg)) (let* ((lst (string->string-list arg))
                                     (set (car lst)))
                                (when (not (member set '("-" "+")))
                                  (error (format #f "set: no such option:~s\n" args)))

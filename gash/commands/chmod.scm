@@ -38,74 +38,6 @@
             chmod
             ))
 
-(define-immutable-record-type <chmodifier>
-  (make-chmodifier users operation permissions)
-  chmodifier?
-  (users chmodifier-users)
-  (operation chmodifier-operation)
-  (permissions chmodifier-permissions))
-
-(define (parse-modifier o)
-  (let* ((c (string->symbol (substring o 0 1)))
-         (o (if (memq c '(- + =)) (string-append "a" o) o))
-         (users (string->symbol (substring o 0 1))))
-    (when (not (memq users '(u g o a)))
-      (error (format #f "chmod: no such user: ~a" users)))
-    (let ((operation (string->symbol (substring o 1 2))))
-      (when (not (memq operation '(- + =)))
-        (error (format #f "chmod: no such operation: ~a" operation)))
-      (let* ((perm-string (substring o 2))
-             (perm (string->number perm-string 8)))
-        (if perm (make-numeric-chmodifier perm)
-            (let ((perms (map char->symbol (string->list perm-string))))
-              (make-chmodifier users operation perms)))))))
-
-(define (char->symbol c)
-  (string->symbol (make-string 1 c)))
-
-(define (parse-modifiers o)
-  (or (and=> (string->number o 8) (compose list (cut make-numeric-chmodifier <>)))
-      (map parse-modifier (string-split o #\,))))
-
-(define (make-numeric-chmodifier o)
-  (make-chmodifier 'o '= (list o)))
-
-(define (apply-chmodifiers file modifiers)
-  (let* ((mode (stat:mode (lstat file)))
-         (executable? (if (zero? (logand mode #o111)) 0 1)))
-    (let loop ((modifiers modifiers) (mode mode))
-      (if (null? modifiers) ((@ (guile) chmod) file mode)
-          (loop (cdr modifiers)
-                (let* ((m (car modifiers))
-                       (n (chmodifier-numeric-mode m executable?))
-                       (o (chmodifier-operation m)))
-                  (case o
-                    ((=) n)
-                    ((+) (logior mode n))
-                    ((-) (logand mode n))
-                    (else (error (format #f
-                                         "chmod: operation not supported: ~s\n" o))))))))))
-
-(define (chmodifier-numeric-mode o executable?)
-  (let* ((permissions (chmodifier-permissions o))
-         (users (chmodifier-users o)))
-    (let loop ((permissions permissions))
-      (if (null? permissions) 0
-          (+ (let* ((p (car permissions))
-                    (base (cond ((number? p) p)
-                                ((symbol? p)
-                                 (case p
-                                   ((r) 4)
-                                   ((w) 2)
-                                   ((x) 1)
-                                   ((X) executable?))))))
-               (case users
-                 ((a) (+ base (ash base 3) (ash base 6)))
-                 ((o) base)
-                 ((g) (ash base 3))
-                 ((u) (ash base 6))))
-             (loop (cdr permissions)))))))
-
 (define (chmod . args)
   (let* ((option-spec
 	  '((reference (value #t))
@@ -160,7 +92,7 @@ Each MODE is of the form '[ugoa]*([-+=]([rwxXst]*|[ugo]))+|[-+=][0-7]+'.
                         (m (if executable? (cons (make-chmodifier 'o '- '(x)) m) m))
                         (m (if xecutable?  (cons (make-chmodifier 'o '- '(X)) m) m)))
                    (values m files)))
-                (else (values (parse-modifiers (car files)) (cdr files))))
+                (else (values (parse-chmodifiers (car files)) (cdr files))))
              (let ((files (if (option-ref options 'recursive #f) (append-map find-files files)
                               files)))
                (for-each (cut apply-chmodifiers <> modifiers) files)))))))
