@@ -160,7 +160,7 @@
      pipeline-head    <-  sp* command
      pipeline-tail    <-  sp* pipe ws* command
      negate           <-- '!'
-     command          <-- (compound-command (sp+ io-redirect)*) / simple-command / function-def
+     command          <-- (compound-command (sp+ io-redirect)*) / simple-command (sp+ io-redirect)* / function-def
      compound-command <-  brace-group / subshell / for-clause / case-clause / if-clause / while-clause / until-clause
      simple-command   <-  (sp* (io-redirect sp+)* nonreserved)+
      nonreserved      <-  &(reserved word) word / !reserved word
@@ -223,7 +223,7 @@
      rhs              <-  (substitution / word)*
      assign           <   '='
      dollar           <   '$'
-     literal          <-- backslash? (!ws !amp !tick !dollar !pipe !semi !par !nl !sp !rbrace .)+
+     literal          <-- backslash? (!ws !amp !tick !dollar !pipe !semi !par !nl !sp !rbrace !io-op .)+
      variable         <-- dollar ('$' / '*' / '?' / '@' / [0-9] / identifier / lbrace identifier rbrace)
      variable-and-or  <-  dollar lbrace (variable-or / variable-and ) rbrace
      variable-and     <-- identifier plus rhs
