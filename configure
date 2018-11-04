@@ -96,6 +96,7 @@ cp
 find
 grep
 ls
+mkdir
 reboot
 rm
 sed

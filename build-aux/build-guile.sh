@@ -56,6 +56,7 @@ ${srcdest}gash/commands/cp.scm
 ${srcdest}gash/commands/find.scm
 ${srcdest}gash/commands/grep.scm
 ${srcdest}gash/commands/ls.scm
+${srcdest}gash/commands/mkdir.scm
 ${srcdest}gash/commands/reboot.scm
 ${srcdest}gash/commands/rm.scm
 ${srcdest}gash/commands/sed.scm
@@ -74,6 +75,7 @@ ${srcdest}bin/find
 ${srcdest}bin/gash
 ${srcdest}bin/grep
 ${srcdest}bin/ls
+${srcdest}bin/mkdir
 ${srcdest}bin/reboot
 ${srcdest}bin/rm
 ${srcdest}bin/sed
