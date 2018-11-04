@@ -170,7 +170,7 @@
      function-body    <-  compound-command io-redirect*
 
      io-redirect      <-- [0-9]* sp* (io-here / io-file)
-     io-file          <-- ('<&' /  '>&' / '>>' / '>' / '<>'/ '<' / '>|') sp* ([0-9]+ / filename)
+     io-file          <-- ('<&' /  '>&' / '>>' / '>' / '<>'/ '<' / '>|') sp* ([0-9]+ / file-name)
      io-here          <-  ('<<' / '<<-') io-suffix here-document
      io-op            <   '<<-' / '<<' / '<&' /  '>&' / '>>' / '>' / '<>'/ '<' / '>|'
      io-suffix        <-  sp* here-label sp* nl
@@ -209,7 +209,7 @@
      until-keyword    <   'until'
      until-clause     <-- until-keyword ws* compound-list separator do-group
 
-     filename         <-- word
+     file-name        <-- word
      name             <-- identifier
      identifier       <-  [_a-zA-Z][_a-zA-Z0-9]*
      word             <-- assignment / (delim / number / variable / variable-and-or / literal)+
@@ -303,6 +303,9 @@
 
     (('pipeline ('command command ('io-redirect ('io-file ">" file-name))))
      (transform `(pipeline (command ,@(transform command)) (lambda _ (with-output-to-file ,(transform file-name) (lambda _ (display (read-string))))))))
+
+    (('pipeline ('command command ('io-redirect "<<" ('here-document here-document))))
+     (transform `(pipeline (lambda _ (display ,here-document)) (command ,(transform command)))))
 
     (('pipeline o ...)
      (let ((commands (map transform o)))
