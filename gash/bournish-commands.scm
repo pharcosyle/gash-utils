@@ -41,6 +41,7 @@
   #:use-module (gash commands rm)
   #:use-module (gash commands sed)
   #:use-module (gash commands tar)
+  #:use-module (gash commands touch)
   #:use-module (gash commands wc)
   #:use-module (gash commands which)
 
@@ -83,6 +84,7 @@
 (define rmdir-command (wrap-command "rmdir" rmdir))
 (define sed-command (wrap-command "sed" sed))
 (define tar-command (wrap-command "tar" tar))
+(define touch-command (wrap-command "touch" touch))
 (define wc-command (wrap-command "wc" wc))
 (define which-command (wrap-command "which" which))
 
@@ -100,6 +102,7 @@
     ("rmdir"    . ,rmdir-command)
     ("sed"      . ,sed-command)
     ("tar"      . ,tar-command)
+    ("touch"    . ,touch-command)
     ("wc"       . ,wc-command)
     ("which"    . ,which-command)
     ))

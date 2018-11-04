@@ -49,7 +49,6 @@
             (executable (single-char #\x))
             (xecutable (single-char #\X))))
 	 (options (getopt-long args option-spec))
-	 (files (option-ref options '() '()))
 	 (help? (option-ref options 'help #f))
          (version? (option-ref options 'version #f))
          (files (option-ref options '() '()))
@@ -74,7 +73,7 @@ With --reference, change the mode of each FILE to that of RFILE.
 Options:
       --help              display this help and exit
   -R, --recursive         change files and directories recursively
-      --reference=RFILE   use RFILE's mode instead of MODE values
+      --reference=FILE    use FILE's mode instead of MODE values
       --version           output version information and exit
 
 Each MODE is of the form '[ugoa]*([-+=]([rwxXst]*|[ugo]))+|[-+=][0-7]+'.
