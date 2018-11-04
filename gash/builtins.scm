@@ -338,6 +338,14 @@ Options:
                                                    #f)
                   (apply test-command (drop-right args 1)))))))))
 
+(define (term->string o)
+  (match o
+    ((? string?) o)
+    (('variable name) (variable name))
+    (('variable-or name default) (variable-or name default))
+    (('variable-and name default) (variable-and name default))
+    (_ (format #f "~s" o))))
+
 (define (trace commands)
   `(xtrace
     ,(lambda _
@@ -345,9 +353,11 @@ Options:
          (for-each
           (lambda (o)
             (match o
-              (('command (and command (? string?)) ...)
-               (format (current-error-port) "+ ~a\n" (string-join command)))
-              (_ format (current-error-port) "+ ~s <FIXME>\n" o)))
+              (('command (and command (or (? string?) ('variable _))) ...)
+               (format (current-error-port) "+ ~a\n" (string-join (map term->string command))))
+              (('command ('assignment name value))
+               (format (current-error-port) "+ ~a=~a\n" name (term->string value)))
+              (_ (format (current-error-port) "+ ~s <FIXME>\n" o))))
           (reverse commands))))))
 
 (define %builtin-commands
