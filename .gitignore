@@ -1,5 +1,6 @@
 *.go
 *~
+/bin/basename
 /bin/bash
 /bin/cat
 /bin/chmod

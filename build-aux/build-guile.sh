@@ -49,6 +49,7 @@ ${srcdest}gash/shell-utils.scm
 ${srcdest}gash/ustar.scm
 ${srcdest}gash/util.scm
 
+${srcdest}gash/commands/basename.scm
 ${srcdest}gash/commands/cat.scm
 ${srcdest}gash/commands/chmod.scm
 ${srcdest}gash/commands/compress.scm
@@ -70,6 +71,7 @@ ${srcdest}gash/commands/which.scm
 "
 
 SCRIPTS="
+${srcdest}bin/basename
 ${srcdest}bin/cat
 ${srcdest}bin/chmod
 ${srcdest}bin/compress

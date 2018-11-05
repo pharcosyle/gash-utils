@@ -31,6 +31,7 @@
   #:use-module (gash config)
   #:use-module (gash shell-utils)
 
+  #:use-module (gash commands basename)
   #:use-module (gash commands cat)
   #:use-module (gash commands compress)
   #:use-module (gash commands cp)
@@ -48,6 +49,7 @@
 
   #:export (
             %bournish-commands
+            basename-command
             cat-command
             compress-command
             cp-command
@@ -58,6 +60,8 @@
             reboot-command
             rm-command
             sed-command
+            tar-command
+            touch-command
             rm-command
             wc-command
             which-command
@@ -74,6 +78,7 @@
             ((quit) (car args))
             (else 1)))))))
 
+(define basename-command (wrap-command basename "basename"))
 (define cat-command (wrap-command cat "cat"))
 (define compress-command (wrap-command "compress" compress))
 (define cp-command (wrap-command "cp" cp))
@@ -93,6 +98,7 @@
 
 (define (%bournish-commands)
   `(
+    ("basename" . ,basename-command)
     ("cat"      . ,cat-command)
     ("compress" . ,compress-command)
     ("cp"       . ,cp-command)

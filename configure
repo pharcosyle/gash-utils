@@ -89,6 +89,7 @@ bash
 sh
 "
 BUILTINS="
+basename
 cat
 chmod
 compress

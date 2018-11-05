@@ -20,43 +20,57 @@
 
 ;;; Code:
 
-(define-module (gash commands dirname)
+(define-module (gash commands basename)
   #:use-module (ice-9 getopt-long)
+  #:use-module (ice-9 receive)
 
   #:use-module (gash config)
 
   #:export (
-            dirname
+            basename
             ))
 
-(define (dirname . args)
+(define (basename . args)
   (let* ((option-spec
-	  '((help (single-char #\h))
+	  '((multiple (single-char #\a))
+            (help (single-char #\h))
             (version (single-char #\V))
+            (suffix (single-char #\s) (value #t))
             (zero (single-char #\z))))
 	 (options (getopt-long args option-spec))
 	 (help? (option-ref options 'help #f))
          (version? (option-ref options 'version #f))
-         (files (option-ref options '() '()))
+         (suffix (option-ref options 'suffix #f))
+         (mutliple? (or suffix (option-ref options 'multiple #f)))
          (zero? (option-ref options 'zero #f))
+         (files (option-ref options '() '()))
          (usage? (and (not help?) (null? files))))
-    (cond (version? (format #t "dirname (GASH) ~a\n" %version) (exit 0))
+    (cond (version? (format #t "basename (GASH) ~a\n" %version) (exit 0))
           ((or help? usage?) (format (if usage? (current-error-port) #t)
                                      "\
-Usage: dirname [OPTION] NAME...
-Output each NAME with its last non-slash component and trailing slashes
-removed; if NAME contains no /'s, output '.' (meaning the current directory).
+Usage: basename NAME [SUFFIX]
+   or: basename OPTION... NAME...
 
 Options:
+  -a, --multiple          support multiple arguments and treat each as a NAME
       --help              display this help and exit
+  -s, --suffix=SUFFIX     remove a trailing SUFFIX; implies -a
       --version           output version information and exit
   -z, --zero              end each output line with NUL, not newline
 ")
            (exit (if usage? 2 0)))
           (else
-           (for-each (lambda (file)
-                       (display ((@ (guile) dirname) file))
-                       (if zero? (display #\nul) (newline)))
-                     files)))))
+           (receive (files suffix)
+               (if suffix (values files suffix)
+                   (values (list-head files 1) (and (pair? (cdr files)) (cadr files))))
+             (for-each (lambda (file)
+                         (let ((file
+                                (if (and (> (string-length file) 1)
+                                         (string-suffix? "/" file)) (string-drop-right file 1)
+                                         file)))
+                          (if suffix (display ((@ (guile) basename) file suffix))
+                              (display ((@ (guile) basename) file))))
+                        (if zero? (display #\nul) (newline)))
+                      files))))))
 
-(define main dirname)
+(define main basename)
