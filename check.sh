@@ -69,6 +69,12 @@ tests="
 60-function
 60-subst
 
+70-hash.sh
+70-hash-hash.sh
+70-percent.sh
+70-percent-percent.sh
+70-percent-space.sh
+
 100-sed
 100-sed-once
 100-sed-global

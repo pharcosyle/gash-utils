@@ -225,9 +225,13 @@
      dollar           <   '$'
      literal          <-- backslash? (!ws !amp !tick !dollar !pipe !semi !par !nl !sp !rbrace !io-op !dq !sq .)+
      variable         <-- dollar ('$' / '#' / '*' / '?' / '@' / [0-9] / identifier / lbrace identifier rbrace)
-     variable-and-or  <-  dollar lbrace (variable-or / variable-and ) rbrace
+     variable-and-or  <-  dollar lbrace (variable-or / variable-and / variable-hash-hash / variable-hash / variable-percent-percent / variable-percent ) rbrace
      variable-and     <-- identifier plus rhs
      variable-or      <-- identifier minus rhs
+     variable-hash    <-- identifier hash rhs
+     variable-hash-hash  <-- identifier hash hash rhs
+     variable-percent    <-- identifier percent rhs
+     variable-percent-percent  <-- identifier percent percent rhs
      delim            <-  singlequotes / doublequotes / substitution
      sq               <   [']
      dq               <   [\"]
@@ -248,6 +252,8 @@
      rbrace           <   [}]
      plus             <   [+]
      minus            <   '-'
+     hash             <   '#'
+     percent          <   '%'
      par              <   lpar / rpar
      nl               <   '\n'
      sp               <   '\t' / ' ' / (escaped-nl sp*)
@@ -351,19 +357,20 @@
 
     (('brace-group o) `(brace-group ,(transform o)))
     (('file-name o) `(file-name ,(transform o)))
+
     (_ ast)))
 
 
-(define (remove-shell-comments s)
+(define (remove-line-comments s)
   (string-join (map
                 (lambda (s)
-                  (let* ((n (string-index s #\#)))
-                    (if n (string-pad-right s (string-length s) #\space  0 n)
+                  (let ((n (string-index s #\#)))
+                    (if (and n (zero? n)) (string-pad-right s (string-length s) #\space  0 n)
                         s)))
                 (string-split s #\newline)) "\n"))
 
 (define (parse-string string)
-  (let* ((pt ((compose parse- remove-shell-comments) string))
+  (let* ((pt ((compose parse- remove-line-comments) string))
          (foo (when (> %debug-level 1) (display "tree:\n") (pretty-print pt)))
          (flat (flatten pt))
          (foo (when (> %debug-level 0) (display "flat:\n") (pretty-print flat)))
