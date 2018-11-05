@@ -53,6 +53,7 @@ ${srcdest}gash/commands/cat.scm
 ${srcdest}gash/commands/chmod.scm
 ${srcdest}gash/commands/compress.scm
 ${srcdest}gash/commands/cp.scm
+${srcdest}gash/commands/dirname.scm
 ${srcdest}gash/commands/find.scm
 ${srcdest}gash/commands/grep.scm
 ${srcdest}gash/commands/ls.scm
@@ -73,6 +74,7 @@ ${srcdest}bin/cat
 ${srcdest}bin/chmod
 ${srcdest}bin/compress
 ${srcdest}bin/cp
+${srcdest}bin/dirname
 ${srcdest}bin/find
 ${srcdest}bin/gash
 ${srcdest}bin/grep

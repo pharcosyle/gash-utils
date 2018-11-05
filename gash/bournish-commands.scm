@@ -34,6 +34,7 @@
   #:use-module (gash commands cat)
   #:use-module (gash commands compress)
   #:use-module (gash commands cp)
+  #:use-module (gash commands dirname)
   #:use-module (gash commands find)
   #:use-module (gash commands grep)
   #:use-module (gash commands ls)
@@ -50,6 +51,7 @@
             cat-command
             compress-command
             cp-command
+            dirname-command
             find-command
             grep-command
             ls-command
@@ -75,6 +77,7 @@
 (define cat-command (wrap-command cat "cat"))
 (define compress-command (wrap-command "compress" compress))
 (define cp-command (wrap-command "cp" cp))
+(define dirname-command (wrap-command "dirname" dirname))
 (define find-command (wrap-command "find" find))
 (define grep-command (wrap-command "grep" grep))
 (define ls-command (wrap-command "ls" ls))
@@ -93,6 +96,7 @@
     ("cat"      . ,cat-command)
     ("compress" . ,compress-command)
     ("cp"       . ,cp-command)
+    ("dirname"  . ,dirname-command)
     ("find"     . ,find-command)
     ("grep"     . ,grep-command)
     ("ls"       . ,ls-command)

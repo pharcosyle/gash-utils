@@ -5,6 +5,7 @@
 /bin/chmod
 /bin/compress
 /bin/cp
+/bin/dirname
 /bin/find
 /bin/gash
 /bin/grep

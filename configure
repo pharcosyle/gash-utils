@@ -93,6 +93,7 @@ cat
 chmod
 compress
 cp
+dirname
 find
 grep
 ls
