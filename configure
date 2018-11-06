@@ -12,8 +12,8 @@ if [ -z "$PREFIX" ]; then
 fi
 
 BASH=$(command -v bash)
-GUILE=$(command -v guile)
-GUILE_TOOLS=$(command -v guile-tools)
+GUILE=${GUILE-$(command -v guile)}
+GUILE_TOOLS=${GUILE_TOOLS-$(command -v guile-tools)}
 guile_site_dir=$PREFIX/share/guile/site/$guile_effective_version
 guile_site_ccache_dir=$PREFIX/lib/guile/$guile_effective_version/site-ccache
 guile_effective_version=$(guile -c '(display (effective-version))')
@@ -23,8 +23,7 @@ if [ -d $GEESH_PREFIX ]; then
     GUILE_LOAD_PATH=$GEESH_PREFIX:$GUILE_LOAD_PATH
     GUILE_LOAD_COMPILED_PATH=$GEESH_PREFIX:$GUILE_LOAD_COMPILED_PATH
     if ! $GUILE -c '(use-modules (geesh parser)) (exit (defined? '"'"'read-sh-all))'; then
-        echo "your geesh is too old"
-        exit 1
+        echo "warning: building without Geesh"
     fi
 fi
 
