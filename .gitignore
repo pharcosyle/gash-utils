@@ -15,4 +15,6 @@ pre-inst-env
 scripts/geesh
 tests/*.trs
 tests/config.scm
+tests/spec/oil
+tests/spec/oil-link
 tools/coverage

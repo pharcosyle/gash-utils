@@ -14,6 +14,7 @@ AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([pre-inst-env], [chmod +x pre-inst-env])
 AC_CONFIG_FILES([scripts/geesh], [chmod +x scripts/geesh])
 AC_CONFIG_FILES([tests/config.scm])
+AC_CONFIG_FILES([tests/spec/Makefile])
 AC_CONFIG_FILES([tools/coverage], [chmod +x tools/coverage])
 
 AC_OUTPUT

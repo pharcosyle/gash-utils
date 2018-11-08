@@ -1,0 +1,10 @@
+#!/bin/sh
+
+cd oil
+export OSH_LIST=bin/geesh
+
+test_name=$(basename "$1")
+test_name=${test_name%.sh}
+test_name=${test_name%.test}
+
+./test/spec.sh "$test_name" --verbose

@@ -36,6 +36,10 @@ endif # HAVE_GENHTML
 
 test-list: ; @echo $(TESTS)
 
+.PHONY: check-spec
+check-spec:
+	$(MAKE) $(AM_MAKEFLAGS) -L -C tests/spec check
+
 MODULES =                                       \
   geesh/built-ins/echo.scm                      \
   geesh/built-ins/false.scm                     \
@@ -63,3 +67,6 @@ CLEANFILES =                                    \
   $(GOBJECTS)                                   \
   $(TESTS:tests/%.scm=%.log)                    \
   $(TESTS:tests/%.scm=%.trs)
+
+clean-local:
+	$(MAKE) $(AM_MAKEFLAGS) -L -C tests/spec clean
