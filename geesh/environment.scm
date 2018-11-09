@@ -30,7 +30,9 @@
             environment->environ
             environ->alist
             environment-status
-            set-environment-status!))
+            set-environment-status!
+            environment-function-ref
+            define-environment-function!))
 
 ;;; Commentary:
 ;;;
@@ -40,9 +42,10 @@
 ;;; Code:
 
 (define-record-type <environment>
-  (%make-environment vars status)
+  (%make-environment vars functions status)
   environment?
   (vars environment-vars set-environment-vars!)
+  (functions environment-functions set-environment-functions!)
   (status environment-status set-environment-status!))
 
 (define (make-environment vars)
@@ -51,6 +54,7 @@
   (%make-environment (map (match-lambda
                             ((key . val) (cons key val)))
                           vars)
+                     '()
                      0))
 
 (define (var-ref env name)
@@ -91,3 +95,13 @@ precedence over the ones in @var{env}."
            (lambda (index)
              `(,(substring str 0 index) . ,(substring str (1+ index))))))
   (filter-map (cut string-split-1 <> #\=) environ))
+
+(define (environment-function-ref env name)
+  "Get the function named @var{name} in @var{env}.  If there is no
+such function, return @code{#f}."
+  (assoc-ref (environment-functions env) name))
+
+(define (define-environment-function! env name proc)
+  "Make @var{name} refer to @var{proc} in @var{env}."
+  (set-environment-functions! env (acons name proc
+                                         (environment-functions env))))
