@@ -65,22 +65,23 @@ guaranteed to be a list."
       (loop (cdr xs) (cons (car xs) small-acc) big-acc)))))
 
 (define (split-fields qword ifs)
-  "Split @var{qword} into a list of qwords delimited by the character
-set @var{ifs}."
+  "Split @var{qword} into a list of qwords delimited by any character
+in the string @var{ifs}."
 
-  (define (wedge-apart qword-part ifs)
+  (define ifs? (cut string-index ifs <>))
+
+  (define (wedge-apart qword-part)
     (match qword-part
       (('<sh-quote> _) (list qword-part))
       ("" '(""))
-      (str (let ((str-parts (string-split str ifs)))
+      (str (let ((str-parts (string-split str ifs?)))
              (if (every string-null? str-parts)
                  '(wedge)
                  (filter (lambda (x)
                            (or (eq? x 'wedge) (not (string-null? x))))
                          (infix 'wedge str-parts)))))))
 
-  (let ((wedged (append-map (cut wedge-apart <> ifs)
-                            (normalize-word qword))))
+  (let ((wedged (append-map wedge-apart (normalize-word qword))))
     (filter pair? (list-split wedged 'wedge))))
 
 (define (remove-quotes qword)
@@ -168,8 +169,12 @@ and arithmetic substitions using the environment @var{env}."
 (define* (expand-word env word #:key (split? #t) (rhs-tildes? #f))
   "Expand @var{word} into a list of fields using the environment
 @var{env}."
-  (let ((qword (word->qword env word)))
+  ;; The value of '$IFS' may depend on side-effects performed during
+  ;; 'word->qword', so use 'let*' here.
+  (let* ((qword (word->qword env word))
+         (ifs (or (and env (var-ref env "IFS"))
+                  (string #\space #\tab #\newline))))
     (if split?
         (map remove-quotes
-             (split-fields qword (char-set #\newline #\tab #\space)))
+             (split-fields qword ifs))
         (remove-quotes qword))))
