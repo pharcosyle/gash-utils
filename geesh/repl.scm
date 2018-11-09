@@ -33,7 +33,7 @@
   (let loop ((env (make-environment (environ->alist (environ))))
              (exp (read-sh (current-input-port))))
     (if (eof-object? exp)
-        (or (and=> (var-ref env "?") string->number) 0)
+        (environment-status env)
         (begin
           (eval-sh env exp)
           (loop env (read-sh (current-input-port)))))))

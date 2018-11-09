@@ -28,7 +28,9 @@
             var-ref*
             set-var!
             environment->environ
-            environ->alist))
+            environ->alist
+            environment-status
+            set-environment-status!))
 
 ;;; Commentary:
 ;;;
@@ -38,16 +40,18 @@
 ;;; Code:
 
 (define-record-type <environment>
-  (%make-environment vars)
+  (%make-environment vars status)
   environment?
-  (vars environment-vars set-environment-vars!))
+  (vars environment-vars set-environment-vars!)
+  (status environment-status set-environment-status!))
 
 (define (make-environment vars)
   ;; In order to insure that each pair in the 'vars' alist is mutable,
   ;; we copy each one into a new list.
   (%make-environment (map (match-lambda
                             ((key . val) (cons key val)))
-                          vars)))
+                          vars)
+                     0))
 
 (define (var-ref env name)
   "Get the value of the variable @var{name} in @var{env}.  If

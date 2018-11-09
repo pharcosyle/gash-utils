@@ -62,7 +62,7 @@ will be @var{args}."
       (0 (install-current-ports!)
          (apply execle path utility-env name args))
       (pid (match-let (((pid . status) (waitpid pid)))
-             (set-var! env "?" (number->string (status:exit-val status))))))))
+             (set-environment-status! env (status:exit-val status)))))))
 
 (define (slashless? s)
   "Test if the string @var{s} does not contain any slashes ('/')."
@@ -96,13 +96,13 @@ it cannot be found, return @code{#f}."
                                 (set-var! env name value)))
                              bindings)
                    (let ((exit-val (apply proc env args)))
-                     (set-var! env "?" (number->string exit-val)))))
+                     (set-environment-status! env exit-val))))
           ;; TODO: Functions.
           (and=> (search-built-ins name)
                  (lambda (proc)
                    ;; TODO: Use 'bindings' here.
                    (let ((exit-val (apply proc env args)))
-                     (set-var! env "?" (number->string exit-val)))))
+                     (set-environment-status! env exit-val))))
           (and=> (find-utility env name)
                  (lambda (path)
                    (exec-utility env bindings path name args)))
@@ -198,7 +198,7 @@ process."
   "Run @var{thunk} in a subshell environment."
   (match-let* ((pid (%subshell thunk))
                ((pid . status) (waitpid pid)))
-    (set-var! env "?" (number->string (status:exit-val status)))))
+    (set-environment-status! env (status:exit-val status))))
 
 (define (sh:substitute-command env thunk)
   "Run @var{thunk} in a subshell environment and return its output as
@@ -216,7 +216,7 @@ a string."
     (close-port source)
     (match-let ((result (string-trim-right (get-string-all sink) #\newline))
                 ((pid . status) (waitpid pid)))
-      (set-var! env "?" (number->string (status:exit-val status)))
+      (set-environment-status! env (status:exit-val status))
       result)))
 
 
@@ -272,7 +272,7 @@ of each thunk sent to the input of the next thunk."
     (unless (null? pids)
       (match-let* ((pid (last pids))
                    ((pid . status) (waitpid pid)))
-        (set-var! env "?" (number->string (status:exit-val status)))))))
+        (set-environment-status! env (status:exit-val status))))))
 
 
 ;;; Boolean expressions.
@@ -281,22 +281,21 @@ of each thunk sent to the input of the next thunk."
   "Run @var{thunk1} then, if the @code{$?} variable is zero in @var{env},
 run @var{thunk2}."
   (thunk1)
-  (when (string=? (var-ref* env "?") "0")
+  (when (= (environment-status env) 0)
     (thunk2)))
 
 (define (sh:or env thunk1 thunk2)
   "Run @var{thunk1} then, if the @code{$?} variable is nonzero in
 @var{env}, run @var{thunk2}."
   (thunk1)
-  (unless (string=? (var-ref* env "?") "0")
+  (unless (= (environment-status env) 0)
     (thunk2)))
 
 (define (sh:not env thunk)
   "Run @var{thunk} and then invert the @code{$?} variable in @var{env}."
   (thunk)
-  (if (string=? (var-ref* env "?") "0")
-      (set-var! env "?" "1")
-      (set-var! env "?" "0")))
+  (let ((inverted-status (if (= (environment-status env) 0) 1 0)))
+    (set-environment-status! env inverted-status)))
 
 
 ;;; Loops.
@@ -304,7 +303,7 @@ run @var{thunk2}."
 (define (sh:for env bindings thunk)
   "Run @var{thunk} for each binding in @var{bindings}.  The value of
 @var{bindings} have the form @code{(@var{name} (@var{value} ...))}."
-  (set-var! env "?" "0")
+  (set-environment-status! env 0)
   (match-let (((name (values ...)) bindings))
     (for-each (lambda (value)
                 (set-var! env name value)

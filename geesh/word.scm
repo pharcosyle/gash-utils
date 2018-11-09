@@ -101,6 +101,18 @@ single field (string)."
   "Check if @var{str} is a non-null string."
   (and (string? str) (not (string-null? str))))
 
+(define (parameter-ref env name)
+  "Get the value of the variable or special parameter @var{name} in
+@var{env}.  If @var{name} is unset, return @code{#f}."
+  (match name
+    ("?" (number->string (environment-status env)))
+    (_ (var-ref env name))))
+
+(define (parameter-ref* env name)
+  "Get the value of the variable or special parameter @var{name} in
+@var{env}.  If @var{name} is unset, return @code{\"\"}."
+  (or (parameter-ref env name) ""))
+
 (define (word->qword env word)
   "Convert @var{word} into a qword by resolving all parameter, command,
 and arithmetic substitions using the environment @var{env}."
@@ -112,23 +124,23 @@ and arithmetic substitions using the environment @var{env}."
     (('<sh-cmd-sub> . exps)
      ((eval-cmd-sub) exps))
     (('<sh-ref> name)
-     (var-ref* env name))
+     (parameter-ref* env name))
     (('<sh-ref-or> name default)
-     (or (var-ref env name)
+     (or (parameter-ref env name)
          (word->qword env (or default ""))))
     (('<sh-ref-or*> name default)
-     (let ((value (var-ref env name)))
+     (let ((value (parameter-ref env name)))
        (if (string-not-null? value)
            value
            (word->qword env (or default "")))))
     (('<sh-ref-or!> name default)
-     (or (var-ref env name)
+     (or (parameter-ref env name)
          (let ((new-value (expand-word env (or default "")
                                        #:split? #f #:rhs-tildes? #t)))
            (set-var! env name new-value)
            new-value)))
     (('<sh-ref-or!*> name default)
-     (let ((value (var-ref env name)))
+     (let ((value (parameter-ref env name)))
        (if (string-not-null? value)
            value
            (let ((new-value (expand-word env (or default "")
@@ -138,11 +150,11 @@ and arithmetic substitions using the environment @var{env}."
     (('<sh-ref-assert> name message) (error "Not implemented"))
     (('<sh-ref-assert*> name message) (error "Not implemented"))
     (('<sh-ref-and> name value)
-     (if (string-not-null? (var-ref env name))
+     (if (string-not-null? (parameter-ref env name))
          (word->qword env (or value ""))
          ""))
     (('<sh-ref-and*> name value)
-     (or (and (var-ref env name)
+     (or (and (parameter-ref env name)
               (word->qword env (or value "")))
          ""))
     (('<sh-ref-except-min> name pattern) (error "Not implemented"))
@@ -150,7 +162,7 @@ and arithmetic substitions using the environment @var{env}."
     (('<sh-ref-skip-min> name pattern) (error "Not implemented"))
     (('<sh-ref-skip-max> name pattern) (error "Not implemented"))
     (('<sh-ref-length> name)
-     (number->string (string-length (var-ref* env name))))
+     (number->string (string-length (parameter-ref* env name))))
     (_ (map (cut word->qword env <>) word))))
 
 (define* (expand-word env word #:key (split? #t) (rhs-tildes? #f))
