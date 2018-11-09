@@ -225,6 +225,10 @@
   '((WORD (0 . 12) (<sh-quote> "foo\n#\\`$<\"")))
   (tokenize "'foo\n#\\`$<\"'"))
 
+(test-equal "Lexes an empty single quotation"
+  '((WORD (0 . 2) (<sh-quote> "")))
+  (tokenize "''"))
+
 ;;;
 ;;; Double quotations.
 ;;;
@@ -240,6 +244,10 @@
 (test-equal "Ignores special characters in double quotations"
   '((WORD (0 . 9) (<sh-quote> "foo\n#<'")))
   (tokenize "\"foo\n#<'\""))
+
+(test-equal "Recognizes an empty double quotation"
+  '((WORD (0 . 2) (<sh-quote> "")))
+  (tokenize "\"\""))
 
 (test-equal "Respects escapes for special characters in double quotations"
   '((WORD (0 . 10) (<sh-quote> ("foo" (<sh-quote> "\"") "bar"))))

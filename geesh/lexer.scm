@@ -385,6 +385,7 @@ next character statisfies @var{pred} (or is a newline)."
          (#\" (begin
                 (get-char port)
                 `(<sh-quote> ,(match (join-contiguous-strings (reverse! acc))
+                                (() "")
                                 ((word) word)
                                 (words words)))))
          ((or #\$ #\`)
