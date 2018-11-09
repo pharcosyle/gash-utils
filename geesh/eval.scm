@@ -65,6 +65,10 @@ environment @var{env}."
      (sh:and env (exp->thunk env exp1) (exp->thunk env exp2)))
     (('<sh-begin> . sub-exps)
      (for-each (cut eval-sh env <>) sub-exps))
+    (('<sh-defun> name . sub-exps)
+     (let ((proc (lambda (env . args)
+                   (eval-sh env `(<sh-begin> ,@sub-exps)))))
+       (define-environment-function! env name proc)))
     (('<sh-exec> words ..1)
      (let ((args (append-map (cut eval-word env <>) words)))
        (match args
