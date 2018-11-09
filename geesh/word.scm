@@ -137,6 +137,11 @@ string, the separator is derived from @var{ifs} using
   "Get the value of the variable or special parameter @var{name} in
 @var{env}.  If @var{name} is unset, return @code{#f}."
   (match name
+    ("@" `(<sh-at> ,(environment-arguments env)))
+    ("*" (let* ((ifs (or (var-ref env "IFS")
+                         (string #\space #\tab #\newline)))
+                (sep (argument-separator ifs)))
+           (string-join (environment-arguments env) sep)))
     ("?" (number->string (environment-status env)))
     (_ (var-ref env name))))
 
