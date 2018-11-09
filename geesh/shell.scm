@@ -97,7 +97,11 @@ it cannot be found, return @code{#f}."
                              bindings)
                    (let ((exit-val (apply proc env args)))
                      (set-environment-status! env exit-val))))
-          ;; TODO: Functions.
+          (and=> (environment-function-ref env name)
+                 (lambda (proc)
+                   (with-environment-arguments env args
+                     (lambda ()
+                       (apply proc env args)))))
           (and=> (search-built-ins name)
                  (lambda (proc)
                    ;; TODO: Use 'bindings' here.
