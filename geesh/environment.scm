@@ -32,7 +32,9 @@
             environment-status
             set-environment-status!
             environment-function-ref
-            define-environment-function!))
+            define-environment-function!
+            environment-arguments
+            with-environment-arguments))
 
 ;;; Commentary:
 ;;;
@@ -42,19 +44,21 @@
 ;;; Code:
 
 (define-record-type <environment>
-  (%make-environment vars functions status)
+  (%make-environment vars functions arguments status)
   environment?
   (vars environment-vars set-environment-vars!)
   (functions environment-functions set-environment-functions!)
+  (arguments environment-arguments set-environment-arguments!)
   (status environment-status set-environment-status!))
 
-(define (make-environment vars)
+(define* (make-environment vars #:optional (arguments '()))
   ;; In order to insure that each pair in the 'vars' alist is mutable,
   ;; we copy each one into a new list.
   (%make-environment (map (match-lambda
                             ((key . val) (cons key val)))
                           vars)
                      '()
+                     arguments
                      0))
 
 (define (var-ref env name)
@@ -105,3 +109,17 @@ such function, return @code{#f}."
   "Make @var{name} refer to @var{proc} in @var{env}."
   (set-environment-functions! env (acons name proc
                                          (environment-functions env))))
+
+(define (with-environment-arguments env arguments thunk)
+  "Call @var{thunk} with the arguments in @var{env} set to
+@var{arguments}."
+  (let ((saved-arguments #f))
+    (dynamic-wind
+      (lambda ()
+        (set! saved-arguments (environment-arguments env))
+        (set-environment-arguments! env arguments))
+      thunk
+      (lambda ()
+        (let ((tmp saved-arguments))
+          (set! saved-arguments (environment-arguments env))
+          (set-environment-arguments! env tmp))))))
