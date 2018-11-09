@@ -70,9 +70,23 @@ in the string @var{ifs}."
 
   (define ifs? (cut string-index ifs <>))
 
+  (define (wedge-apart-quote qword)
+    (let loop ((qword (normalize-word qword)) (acc '()))
+      (match qword
+        (() (reverse! acc))
+        ((('<sh-quote> qword*) . t)
+         (loop t (append-reverse (wedge-apart-quote qword*) acc)))
+        ((('<sh-at> vals) . t)
+         (loop t (append-reverse (infix 'wedge (map (cut list '<sh-quote> <>)
+                                                    vals))
+                                 acc)))
+        (((? string? h) . t)
+         (loop t (cons `(<sh-quote> ,h) acc))))))
+
   (define (wedge-apart qword-part)
     (match qword-part
-      (('<sh-quote> _) (list qword-part))
+      (('<sh-quote> quote) (wedge-apart-quote quote))
+      (('<sh-at> vals) (apply append (infix '(wedge) (map wedge-apart vals))))
       ("" '(""))
       (str (let ((str-parts (string-split str ifs?)))
              (if (every string-null? str-parts)
@@ -84,14 +98,31 @@ in the string @var{ifs}."
   (let ((wedged (append-map wedge-apart (normalize-word qword))))
     (filter pair? (list-split wedged 'wedge))))
 
-(define (remove-quotes qword)
-  "Remove quote forms from @var{qword} and concatenate the result into a
-single field (string)."
+(define (argument-separator ifs)
+  "Find the argument separator string by taking the first character of
+the string @var{ifs}.  If @var{ifs} is @code{#f} the separator will be
+a space (@code{\" \"}), and if @var{ifs} is null (@code{\"\"}) the
+separator will be null as well."
+  (let ((ifs (or ifs " ")))
+    (if (string-null? ifs)
+        ""
+        (string (string-ref ifs 0)))))
+
+(define (remove-quotes qword ifs)
+  "Remove quote forms from @var{qword} and concatenate the result into
+a single field (string).  When converting an argument list to a
+string, the separator is derived from @var{ifs} using
+@code{argument-separator}."
   (let loop ((qword (normalize-word qword)) (acc '()))
     (match qword
       (() (string-concatenate-reverse acc))
-      ((('<sh-quote> qword*) . t) (loop t (cons (remove-quotes qword*) acc)))
-      (((? string? h) . t) (loop t (cons h acc))))))
+      ((('<sh-quote> qword*) . t)
+       (loop t (cons (remove-quotes qword* ifs) acc)))
+      ((('<sh-at> vals) . t)
+       (let ((sep (argument-separator ifs)))
+         (loop t (cons (string-join vals sep) acc))))
+      (((? string? h) . t)
+       (loop t (cons h acc))))))
 
 (define eval-cmd-sub
   ;; A procedure for evaluating (expanding) a command substitution.
@@ -175,6 +206,6 @@ and arithmetic substitions using the environment @var{env}."
          (ifs (or (and env (var-ref env "IFS"))
                   (string #\space #\tab #\newline))))
     (if split?
-        (map remove-quotes
+        (map (cut remove-quotes <> ifs)
              (split-fields qword ifs))
-        (remove-quotes qword))))
+        (remove-quotes qword ifs))))
