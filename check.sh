@@ -64,6 +64,8 @@ tests="
 40-eval-echo-variable
 40-assignment-eval-echo
 
+41-dot.sh
+
 50-iohere
 
 60-function

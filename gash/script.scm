@@ -89,7 +89,13 @@
                                                         escape-builtin?))
                  (lambda _ (status:exit-val (apply system* command))))))
           (else (lambda () #t))))
-  (exec (append-map glob args)))
+  (match args
+    (((or "." "source") file-name)
+     (let* ((string (with-input-from-file file-name read-string))
+            (ast (parse-string string)))
+       (run ast)
+       0))
+    (_  (exec (append-map glob args)))))
 
 (define (glob? pattern)
   (and (string? pattern) (string-match "\\?|\\*" pattern)))
@@ -341,6 +347,9 @@
                     value))
         (if (string-suffix? pattern value) (substring value 0 (string-length pattern))
             value))))
+
+(define (number o)
+  o)
 
 (define (pat o)
   o)

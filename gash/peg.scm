@@ -362,6 +362,8 @@
     (('brace-group o) `(brace-group ,(transform o)))
     (('file-name o) `(file-name ,(transform o)))
 
+    ('doublequotes "")
+
     (_ ast)))
 
 
