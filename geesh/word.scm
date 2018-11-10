@@ -83,19 +83,21 @@ in the string @var{ifs}."
         (((? string? h) . t)
          (loop t (cons `(<sh-quote> ,h) acc))))))
 
-  (define (wedge-apart qword-part)
-    (match qword-part
+  (define (wedge-apart qword)
+    (match qword
       (('<sh-quote> quote) (wedge-apart-quote quote))
       (('<sh-at> vals) (apply append (infix '(wedge) (map wedge-apart vals))))
       ("" '())
-      (str (let ((str-parts (string-split str ifs?)))
-             (if (every string-null? str-parts)
-                 '(wedge)
-                 (filter (lambda (x)
-                           (or (eq? x 'wedge) (not (string-null? x))))
-                         (infix 'wedge str-parts)))))))
+      ((? string? str)
+       (let ((str-parts (string-split str ifs?)))
+         (if (every string-null? str-parts)
+             '(wedge)
+             (filter (lambda (x)
+                       (or (eq? x 'wedge) (not (string-null? x))))
+                     (infix 'wedge str-parts)))))
+      (_ (append-map wedge-apart qword))))
 
-  (let ((wedged (append-map wedge-apart (normalize-word qword))))
+  (let ((wedged (wedge-apart qword)))
     (filter pair? (list-split wedged 'wedge))))
 
 (define (argument-separator ifs)

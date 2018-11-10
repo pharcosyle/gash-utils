@@ -84,6 +84,10 @@ the `set' built-in for details on these options.)"
   '("hi_how" "are_you")
   (expand-word #f '("hi_" "how are" "_you")))
 
+(test-equal "Handles nested lists"
+  '("foo")
+  (expand-word #f '("f" ("oo"))))
+
 
 ;;; Quotes.
 
