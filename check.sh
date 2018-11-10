@@ -50,6 +50,7 @@ tests="
 10-if-else
 10-else-multiple
 10-if-elif
+10-if-redirect
 
 11-for
 11-for-split-sequence
