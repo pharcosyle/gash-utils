@@ -87,7 +87,7 @@ in the string @var{ifs}."
     (match qword-part
       (('<sh-quote> quote) (wedge-apart-quote quote))
       (('<sh-at> vals) (apply append (infix '(wedge) (map wedge-apart vals))))
-      ("" '(""))
+      ("" '())
       (str (let ((str-parts (string-split str ifs?)))
              (if (every string-null? str-parts)
                  '(wedge)

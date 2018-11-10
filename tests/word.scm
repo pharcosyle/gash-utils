@@ -137,10 +137,25 @@ the `set' built-in for details on these options.)"
   (expand-word (make-test-env '(("x" . "foo bar")))
                '(<sh-quote> (<sh-ref> "x"))))
 
-(test-equal "Treats unset variables as blank"
-  '("")
+(test-equal "Treats empty variables as nothing"
+  '()
+  (expand-word (make-test-env '(("x" . "")))
+               '(<sh-ref> "x")))
+
+(test-equal "Treats unset variables as nothing"
+  '()
   (expand-word (make-test-env '())
                '(<sh-ref> "x")))
+
+(test-equal "Preserves empty variables when quoted"
+  '("")
+  (expand-word (make-test-env '(("x" . "")))
+               '(<sh-quote> (<sh-ref> "x"))))
+
+(test-equal "Preserves unset variables when quoted"
+  '("")
+  (expand-word (make-test-env '())
+               '(<sh-quote> (<sh-ref> "x"))))
 
 
 ;;; Parameter operations.
@@ -153,7 +168,7 @@ the `set' built-in for details on these options.)"
                '(<sh-ref-or> "x" "bar")))
 
 (test-equal "Handles 'or' when parameter is set and empty"
-  '("")
+  '()
   (expand-word (make-test-env '(("x" . "")))
                '(<sh-ref-or> "x" "bar")))
 
@@ -163,7 +178,7 @@ the `set' built-in for details on these options.)"
                '(<sh-ref-or> "x" "bar")))
 
 (test-equal "Handles 'or' fall-through without default"
-  '("")
+  '()
   (expand-word (make-test-env '())
                '(<sh-ref-or> "x" #f)))
 
@@ -185,7 +200,7 @@ the `set' built-in for details on these options.)"
                '(<sh-ref-or*> "x" "bar")))
 
 (test-equal "Handles 'or*' fall-through without default"
-  '("")
+  '()
   (expand-word (make-test-env '())
                '(<sh-ref-or*> "x" #f)))
 
@@ -198,7 +213,7 @@ the `set' built-in for details on these options.)"
           (var-ref env "x"))))
 
 (test-equal "Handles 'or!' when parameter is set and empty"
-  '(("") "")
+  '(() "")
   (let ((env (make-test-env '(("x" . "")))))
     (list (expand-word env '(<sh-ref-or!> "x" "bar"))
           (var-ref env "x"))))
@@ -210,7 +225,7 @@ the `set' built-in for details on these options.)"
           (var-ref env "x"))))
 
 (test-equal "Handles 'or!' fall-through without default"
-  '(("") "")
+  '(() "")
   (let ((env (make-test-env '())))
     (list (expand-word env '(<sh-ref-or!> "x" #f))
           (var-ref env "x"))))
@@ -236,7 +251,7 @@ the `set' built-in for details on these options.)"
           (var-ref env "x"))))
 
 (test-equal "Handles 'or!*' fall-through without default"
-  '(("") "")
+  '(() "")
   (let ((env (make-test-env '())))
     (list (expand-word env '(<sh-ref-or!*> "x" #f))
           (var-ref env "x"))))
@@ -257,17 +272,17 @@ the `set' built-in for details on these options.)"
                '(<sh-ref-and> "x" "bar")))
 
 (test-equal "Handles 'and' when parameter is set and empty"
-  '("")
+  '()
   (expand-word (make-test-env '(("x" . "")))
                '(<sh-ref-and> "x" "bar")))
 
 (test-equal "Handles 'and' when parameter is unset"
-  '("")
+  '()
   (expand-word (make-test-env '())
                '(<sh-ref-and> "x" "bar")))
 
 (test-equal "Handles 'and' fall-through without default"
-  '("")
+  '()
   (expand-word (make-test-env '(("x" . "foo")))
                '(<sh-ref-and> "x" #f)))
 
@@ -284,12 +299,12 @@ the `set' built-in for details on these options.)"
                '(<sh-ref-and*> "x" "bar")))
 
 (test-equal "Handles 'and*' when parameter is unset"
-  '("")
+  '()
   (expand-word (make-test-env '())
                '(<sh-ref-and*> "x" "bar")))
 
 (test-equal "Handles 'and*' fall-through without default"
-  '("")
+  '()
   (expand-word (make-test-env '(("x" . "foo")))
                '(<sh-ref-and*> "x" #f)))
 
