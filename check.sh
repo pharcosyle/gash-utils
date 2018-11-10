@@ -12,8 +12,8 @@ tests="
 01-script-newline
 01-script-semi
 01-script-backslash
-01-script-backslash-space.sh
-01-script-backslash-twice.sh
+01-script-backslash-space
+01-script-backslash-twice
 
 03-echo
 03-echo-doublequotes
@@ -62,18 +62,21 @@ tests="
 
 40-eval
 40-eval-echo-variable
-40-assignment-eval-echo.sh
+40-assignment-eval-echo
 
 50-iohere
 
 60-function
 60-subst
 
-70-hash.sh
-70-hash-hash.sh
-70-percent.sh
-70-percent-percent.sh
-70-percent-space.sh
+70-hash
+70-hash-hash
+70-percent
+70-percent-percent
+70-percent-space
+70-slash
+70-slash-string
+70-slash-string-slash
 
 100-sed
 100-sed-once

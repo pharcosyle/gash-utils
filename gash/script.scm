@@ -341,3 +341,21 @@
                     value))
         (if (string-suffix? pattern value) (substring value 0 (string-length pattern))
             value))))
+
+(define (pat o)
+  o)
+
+(define (str o)
+  o)
+
+(define* (variable-slash name pattern #:optional (replace ""))
+  (let ((value (variable name))
+        (glob? (glob? pattern)))
+    (let ((match (if glob? (let ((regexp (glob->regex pattern #:begin "" #:end "")))
+                             (regexp-exec regexp value))
+                     (string-match pattern value))))
+      (if match (string-append
+                 (substring value 0 (match:start match))
+                 replace
+                 (substring value (match:end match)))
+          value))))
