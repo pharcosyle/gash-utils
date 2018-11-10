@@ -226,12 +226,12 @@
      literal          <-- backslash? (!ws !amp !tick !dollar !pipe !semi !par !nl !sp !rbrace !io-op !dq !sq .)+
      variable         <-- dollar ('$' / '#' / '*' / '?' / '@' / [0-9] / identifier / lbrace identifier rbrace)
      variable-and-or  <-  dollar lbrace (variable-or / variable-and / variable-hash-hash / variable-hash / variable-percent-percent / variable-percent / variable-slash ) rbrace
-     variable-and     <-- identifier plus (pat / rhs)
-     variable-or      <-- identifier minus (pat / rhs)
-     variable-hash    <-- identifier hash (pat / rhs)
-     variable-hash-hash  <-- identifier hash hash (pat / rhs)
-     variable-percent    <-- identifier percent (pat / rhs)
-     variable-percent-percent  <-- identifier percent percent (pat / rhs)
+     variable-and     <-- identifier plus (pat / rhs / str)
+     variable-or      <-- identifier minus (pat / rhs / str)
+     variable-hash    <-- identifier hash (pat / rhs / str)
+     variable-hash-hash  <-- identifier hash hash (pat / rhs / str)
+     variable-percent    <-- identifier percent (pat / rhs / str)
+     variable-percent-percent  <-- identifier percent percent (pat / rhs /str)
      variable-slash   <-- (identifier slash pat slash str) / (identifier slash pat slash) / (identifier slash pat)
      pat              <-- (!dollar !rbrace !slash .)+
      str              <-- (!rbrace .)+
