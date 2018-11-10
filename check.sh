@@ -45,6 +45,11 @@ tests="
 10-if
 10-if-false
 10-if-word-variable
+10-if-multiple
+10-if-else
+10-else-multiple
+10-if-elif
+
 11-for
 11-for-split-sequence
 

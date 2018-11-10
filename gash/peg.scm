@@ -350,6 +350,8 @@
     (('substitution o) `(substitution ,(transform o)))
     (('if-clause expr then) `(if-clause ,(transform expr) ,(transform then)))
     (('if-clause expr then else) `(if-clause ,(transform expr) ,(transform then) ,(transform else)))
+    (('elif-part expr then) `(if-clause ,(transform expr) ,(transform then)))
+    (('elif-part expr then else) `(if-clause ,(transform expr) ,(transform then) ,(transform else)))
     (('then-part o ...) `(begin ,@(map transform o)))
     (('else-part o ...) `(begin ,@(map transform o)))
     (('word 'singlequotes) "")
