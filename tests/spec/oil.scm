@@ -75,7 +75,20 @@
                            (else
                             (unless ignore? (display line out))
                             (loop (read-line in 'concat) ignore?))))))))
-                 (tests-to-remove '()))
+                 (tests-to-remove
+                  '(("spec/word-split.test.sh"
+                     (;; This test requires local variables, which is
+                      ;; a Bash extension.
+                      "IFS is scoped"
+                      ;; We do not do tilde expansion yet.
+                      "Tilde sub is not split, but var sub is"
+                      ;; This test relies on 'echo -e', which we do not
+                      ;; have.  When rewritten to avoid it, we pass.
+                      "IFS empty doesn't do splitting"
+                      ;; This test relies on 'unset' and 'echo -e',
+                      ;; which we do not have.  When rewritten to avoid
+                      ;; them, we pass.
+                      "IFS unset behaves like $' \\t\\n'")))))
              (for-each (match-lambda
                          ((file tests) (remove-tests tests file)))
                        tests-to-remove)))))))

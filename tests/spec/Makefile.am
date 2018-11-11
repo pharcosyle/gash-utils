@@ -18,7 +18,8 @@ TEST_EXTENSIONS = .sh
 SH_LOG_COMPILER = ./check-spec
 
 TESTS =                                         \
-    oil/spec/smoke.test.sh
+    oil/spec/smoke.test.sh                      \
+    oil/spec/word-split.test.sh
 
 clean-local:
 	rm -rf oil
