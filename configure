@@ -13,7 +13,7 @@ fi
 
 BASH=$(command -v bash)
 GUILE=${GUILE-$(command -v guile)}
-GUILE_TOOLS=${GUILE_TOOLS-$(command -v guile-tools)}
+GUILD=${GUILD-$(command -v guild || command -v guile-tools)}
 guile_site_dir=$PREFIX/share/guile/site/$guile_effective_version
 guile_site_ccache_dir=$PREFIX/lib/guile/$guile_effective_version/site-ccache
 guile_effective_version=$(guile -c '(display (effective-version))')
@@ -39,7 +39,7 @@ abs_top_builddir=$PWD
 cat > .config.make <<EOF
 BASH=$BASH
 GUILE=$GUILE
-GUILE_TOOLS=$GUILE_TOOLS
+GUILD=$GUILD
 prefix=$PREFIX
 bindir=$PREFIX/bin
 docdir=$PREFIX/share/doc/gash

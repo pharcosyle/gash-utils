@@ -17,7 +17,7 @@
 ;;;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 ;;;;
 
-(define-module (peg cache)
+(define-module (gash peg cache)
   #:export (cg-cached-parser))
 
 ;; The results of parsing using a nonterminal are cached.  Think of it like a

@@ -17,13 +17,13 @@
 ;;;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 ;;;;
 
-(define-module (peg string-peg)
+(define-module (gash peg string-peg)
   #:export (peg-as-peg
             define-peg-string-patterns
             peg-grammar)
-  #:use-module (peg using-parsers)
-  #:use-module (peg codegen)
-  #:use-module (peg simplify-tree))
+  #:use-module (gash peg using-parsers)
+  #:use-module (gash peg codegen)
+  #:use-module (gash peg simplify-tree))
 
 ;; Gets the left-hand depth of a list.
 (define (depth lst)

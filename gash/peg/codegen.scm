@@ -17,7 +17,7 @@
 ;;;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 ;;;;
 
-(define-module (peg codegen)
+(define-module (gash peg codegen)
   #:export (compile-peg-pattern wrap-parser-for-users add-peg-compiler!)
   #:use-module (ice-9 pretty-print)
   #:use-module (system base pmatch))

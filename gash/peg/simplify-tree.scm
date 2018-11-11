@@ -17,7 +17,7 @@
 ;;;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 ;;;;
 
-(define-module (peg simplify-tree)
+(define-module (gash peg simplify-tree)
   #:export (keyword-flatten context-flatten string-collapse)
   #:use-module (system base pmatch))
 

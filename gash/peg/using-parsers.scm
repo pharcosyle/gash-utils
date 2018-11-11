@@ -17,10 +17,10 @@
 ;;;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 ;;;;
 
-(define-module (peg using-parsers)
-  #:use-module (peg simplify-tree)
-  #:use-module (peg codegen)
-  #:use-module (peg cache)
+(define-module (gash peg using-parsers)
+  #:use-module (gash peg simplify-tree)
+  #:use-module (gash peg codegen)
+  #:use-module (gash peg cache)
   #:export (match-pattern define-peg-pattern search-for-pattern
             prec make-prec peg:start peg:end peg:string
             peg:tree peg:substring peg-record?))

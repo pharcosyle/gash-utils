@@ -24,7 +24,7 @@ srcdir=${srcdir-.}
 export GUILE
 export GUILE_AUTO_COMPILE
 GUILE=${GUILE-$(command -v guile)}
-GUILE_TOOLS=${GUILE_TOOLS-$(command -v guile-tools)}
+GUILD=${GUILD-$(command -v guild || command -v guile-tools)}
 GUILE_AUTO_COMPILE=0
 
 set -e
@@ -36,18 +36,25 @@ ${srcdest}gash/builtins.scm
 ${srcdest}gash/compress.scm
 ${srcdest}gash/config.scm
 ${srcdest}gash/environment.scm
-${srcdest}gash/geesh.scm
 ${srcdest}gash/gash.scm
+${srcdest}gash/geesh.scm
+${srcdest}gash/grammar.scm
 ${srcdest}gash/io.scm
 ${srcdest}gash/job.scm
 ${srcdest}gash/lzw.scm
-${srcdest}gash/peg.scm
 ${srcdest}gash/pipe.scm
 ${srcdest}gash/readline.scm
 ${srcdest}gash/script.scm
 ${srcdest}gash/shell-utils.scm
 ${srcdest}gash/ustar.scm
 ${srcdest}gash/util.scm
+
+${srcdest}gash/peg.scm
+${srcdest}gash/peg/cache.scm
+${srcdest}gash/peg/codegen.scm
+${srcdest}gash/peg/simplify-tree.scm
+${srcdest}gash/peg/string-peg.scm
+${srcdest}gash/peg/using-parsers.scm
 
 ${srcdest}gash/commands/basename.scm
 ${srcdest}gash/commands/cat.scm
@@ -116,6 +123,6 @@ for i in $SCM_FILES $SCRIPTS; do
     b=$(basename $i)
     go=${i%%.scm}.go
     if [ $i -nt $go ]; then
-        trace "GUILEC     $b" $GUILE_TOOLS compile -L ${srcdir} $WARNINGS -o $go $i
+        trace "GUILEC     $b" $GUILD compile -L ${srcdir} $WARNINGS -o $go $i
     fi
 done

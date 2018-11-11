@@ -5,8 +5,9 @@
 
   #:use-module (srfi srfi-8)
 
-  #:use-module (peg)
-  #:use-module (peg codegen)
+  #:use-module (gash gash)
+  #:use-module (gash peg)
+  #:use-module (gash peg codegen)
 
   #:export (parse
             parse-string))
@@ -207,6 +208,8 @@
       (let* ((match (match-pattern script input))
              (end (peg:end match))
              (tree (peg:tree match)))
+        (when (> %debug-level 0)
+          (pretty-print tree))
         (if (eq? (string-length input) end)
             tree
             (if match

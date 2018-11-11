@@ -17,15 +17,15 @@
 ;;;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 ;;;;
 
-(define-module (peg)
-  #:use-module (peg codegen)
-  #:use-module (peg string-peg)
+(define-module (gash peg)
+  #:use-module (gash peg codegen)
+  #:use-module (gash peg string-peg)
   ;; Note: the most important effect of using string-peg is not whatever
   ;; functions it exports, but the fact that it adds a new handler to
   ;; peg-sexp-compile.
-  #:use-module (peg simplify-tree)
-  #:use-module (peg using-parsers)
-  #:use-module (peg cache)
+  #:use-module (gash peg simplify-tree)
+  #:use-module (gash peg using-parsers)
+  #:use-module (gash peg cache)
   #:re-export (define-peg-pattern
                define-peg-string-patterns
                match-pattern
