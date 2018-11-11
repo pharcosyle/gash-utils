@@ -359,7 +359,45 @@ the `set' built-in for details on these options.)"
 
 
 ;;; Field splitting (IFS)
-;;;
-;;; FIXME: Test that field splitting respects the IFS variable.
+
+(test-equal "Respects IFS value"
+  '("foo" "bar")
+  (let ((env (make-test-env '(("IFS" . "-")))))
+    (expand-word env '("foo-bar"))))
+
+(test-equal "Combines multiple whitespace separators"
+  '("foo" "bar")
+  (let ((env (make-test-env '(("IFS" . " ")))))
+    (expand-word env '("foo  bar"))))
+
+(test-equal "Keeps multiple non-whitespace separators"
+  '("foo" "" "bar")
+  (let ((env (make-test-env '(("IFS" . "-")))))
+    (expand-word env '("foo--bar"))))
+
+(test-equal "Combines whitespace separators with a non-whitespace separator"
+  '("foo" "bar")
+  (let ((env (make-test-env '(("IFS" . "- ")))))
+    (expand-word env '("foo - bar"))))
+
+(test-equal "Keeps multiple non-whitespace separators with whitespace"
+  '("foo" "" "bar")
+  (let ((env (make-test-env '(("IFS" . "- ")))))
+    (expand-word env '("foo - - bar"))))
+
+(test-equal "Splits on leading non-whitespace separator"
+  '("" "foo")
+  (let ((env (make-test-env '(("IFS" . "-")))))
+    (expand-word env '("-foo"))))
+
+(test-equal "Does not split on trailing non-whitespace separator"
+  '("foo")
+  (let ((env (make-test-env '(("IFS" . "-")))))
+    (expand-word env '("foo-"))))
+
+(test-equal "Makes one field for single non-whitespace separator"
+  '("")
+  (let ((env (make-test-env '(("IFS" . "-")))))
+    (expand-word env '("-"))))
 
 (test-end)

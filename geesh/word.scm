@@ -64,11 +64,40 @@ guaranteed to be a list."
      (else
       (loop (cdr xs) (cons (car xs) small-acc) big-acc)))))
 
+(define (string-tokenize* s token-set)
+  "Split the string @var{s} into a list of substrings, where each
+substring is a maximal non-empty contiguous sequence of characters
+from the character set @var{token-set} or its compliment."
+
+  (define token-set-complement
+    (let ((token-set* (char-set-complement token-set)))
+      (lambda (cs)
+        (if (eq? cs token-set) token-set* token-set))))
+
+  (let loop ((index 0) (start 0) (cs token-set) (acc '()))
+    (cond
+     ((>= index (string-length s))
+      (reverse! (if (> index start)
+                    (cons (substring s start index) acc)
+                    acc)))
+     ((char-set-contains? cs (string-ref s index))
+      (loop (1+ index) start cs acc))
+     (else
+      (loop index index
+            (token-set-complement cs)
+            (if (> index start)
+                (cons (substring s start index) acc)
+                acc))))))
+
 (define (split-fields qword ifs)
   "Split @var{qword} into a list of qwords delimited by any character
 in the string @var{ifs}."
 
-  (define ifs? (cut string-index ifs <>))
+  (define char-set:ifs
+    (string->char-set ifs))
+
+  (define char-set:ifs/nw
+    (char-set-difference char-set:ifs char-set:whitespace))
 
   (define (wedge-apart-quote qword)
     (let loop ((qword (normalize-word qword)) (acc '()))
@@ -87,14 +116,27 @@ in the string @var{ifs}."
     (match qword
       (('<sh-quote> quote) (wedge-apart-quote quote))
       (('<sh-at> vals) (apply append (infix '(wedge) (map wedge-apart vals))))
-      ("" '())
       ((? string? str)
-       (let ((str-parts (string-split str ifs?)))
-         (if (every string-null? str-parts)
-             '(wedge)
-             (filter (lambda (x)
-                       (or (eq? x 'wedge) (not (string-null? x))))
-                     (infix 'wedge str-parts)))))
+       (let ((tokens (string-tokenize* str char-set:ifs)))
+         (append-map (lambda (token)
+                       (if (string-any char-set:ifs token)
+                           ;; Every occurrence of a non-whitespace
+                           ;; separator must delimit a field.  This
+                           ;; means that we have to add a blank field
+                           ;; for every non-whitespace separator in
+                           ;; 'token' beyond the first.
+                           (let ((count (string-count token char-set:ifs/nw)))
+                             (cons 'wedge
+                                   (append-map (const '("" wedge))
+                                               (iota (max 0 (- count 1))))))
+                           (list token)))
+                     ;; When a word starts with a non-whitespace
+                     ;; separator, it still delimits two fields, the
+                     ;; one on the left being empty.
+                     (match tokens
+                       (((? (cut string-any char-set:ifs/nw <>)) . rest)
+                        (cons "" tokens))
+                       (_ tokens)))))
       (_ (append-map wedge-apart qword))))
 
   (let ((wedged (wedge-apart qword)))
