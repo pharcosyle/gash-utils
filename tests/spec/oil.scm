@@ -26,7 +26,9 @@
       (gexp->derivation
        (string-append "oil-tests-" version)
        #~(begin
-           (use-modules (guix build utils))
+           (use-modules (guix build utils)
+                        (ice-9 match)
+                        (ice-9 rdelim))
            (copy-recursively #$source #$output)
            (setenv "PATH" (list->search-path-as-string
                            (map (lambda (p)
@@ -44,6 +46,40 @@
                        "test/spec.sh"))
            (substitute* "test/common.sh"
              (("/usr/bin/env time") (which "time")))
+
            ;; This is not necessary, but it makes the output nicer.
            (substitute* "test/spec.sh"
-             (("which \\$name") "which $name 2>/dev/null")))))))
+             (("which \\$name") "which $name 2>/dev/null"))
+
+           ;; We want to omit tests that use features we do not
+           ;; support yet.  This lets us add tests quickly, and expand
+           ;; to the more integrated tests as we are able.
+           (let ((remove-tests
+                  (lambda (tests file)
+                    (format #t "Removing tests from ~a:~%" file)
+                    (with-atomic-file-replacement file
+                      (lambda (in out)
+                        (let loop ((line (read-line in 'concat)) (ignore? #f))
+                          (cond
+                           ((eof-object? line) #t)
+                           ((string-prefix? "####" line)
+                            (let* ((name-part (substring line 4))
+                                   (name (string-trim-both name-part)))
+                              (if (member name tests)
+                                  (begin
+                                    (format #t "  - ~a~%" name)
+                                    (loop (read-line in 'concat) #t))
+                                  (begin
+                                    (display line out)
+                                    (loop (read-line in 'concat) #f)))))
+                           (else
+                            (unless ignore? (display line out))
+                            (loop (read-line in 'concat) ignore?))))))))
+                 (tests-to-remove '()))
+             (for-each (match-lambda
+                         ((file tests) (remove-tests tests file)))
+                       tests-to-remove)))))))
+
+;; Local Variables:
+;; eval: (put 'with-atomic-file-replacement 'scheme-indent-function 1)
+;; End:
