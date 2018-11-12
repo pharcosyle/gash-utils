@@ -96,7 +96,7 @@
   (define-peg-string-patterns
     "script           <-- ws* compound
      ws               <   sp / eol
-     sp               <   '\\\n'? (comment / [ \t\v])
+     sp               <   '\\\n'* (comment / [ \t\v])
      comment          <   [#] (!eol .)*
      eol              <   [\n\r\f]
 
