@@ -55,9 +55,9 @@ tests="
 11-for
 11-for-split-sequence
 
-20-semi.sh
-20-or.sh
-20-and.sh
+20-semi
+20-or
+20-and
 20-pipe-exit-0
 20-pipe-exit-1
 20-pipe-sed
@@ -71,7 +71,7 @@ tests="
 40-eval-echo-variable
 40-assignment-eval-echo
 
-41-dot.sh
+41-dot
 
 50-iohere
 
@@ -117,7 +117,11 @@ pass=0
 fail=0
 total=0
 for t in $tests; do
-    sh test.sh "test/$t" &> test/"$t".log
+    if [ "$PARSE" ]; then
+        bin/gash -p "test/$t.sh"
+    else
+        sh test.sh "test/$t" &> test/"$t".log
+    fi
     r=$?
     total=$((total+1))
     if [ $r = 0 ]; then

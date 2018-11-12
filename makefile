@@ -35,6 +35,9 @@ endif
 check-gash: all
 	SHELL=bin/gash ./check.sh
 
+check-parse: all
+	SHELL='bin/gash -p' PARSE=1 ./check.sh
+
 check-geesh: all
 	SHELL='bin/gash --geesh' ./check.sh
 
