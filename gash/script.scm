@@ -168,7 +168,9 @@
     (match o
       ((h t ...) (append (flatten h) (append-map flatten t)))
       (_ (list o))))
-  (string-join (flatten o) ""))
+  (match o
+    (((? string?) ...) (string-join (flatten o) ""))
+    (_ o)))
 
 (define-syntax-rule (substitution commands)
   (string-trim-right (with-output-to-string (lambda _ commands))))
@@ -368,3 +370,14 @@
                  replace
                  (substring value (match:end match)))
           value))))
+
+(define (compound . o)
+  (match (warn 'compound o)
+    ((h ... t) t)
+    (_ o)))
+
+(define (delim o)
+  o)
+
+(define (name o)
+  o)
