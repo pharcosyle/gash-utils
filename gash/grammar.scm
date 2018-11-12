@@ -139,23 +139,23 @@
      subshell         <-- lpar compound rpar#
      brace-group      <-- lbrace ws* compound rbrace#
 
-     case-clause      <-- 'case' sp* word sp* 'in'# ws* case-item+ ws* 'esac'#
+     case-clause      <-- case-keyword sp* word sp* in-keyword# ws* case-item+ ws* esac-keyword#
      case-item        <-- pattern sp* colon? ws* compound? case-sep?
      colon            <   ':'
      case-sep         <   ';;' ws*
      pattern          <-- (word (!rpar '|'# / !'|' &rpar))+ rpar#
 
-     for-clause       <-- 'for' sp+ identifier ws+ ('in' sp+ expression)? sep# do-group
+     for-clause       <-- for-keyword sp+ identifier ws+ (in-keyword sp+ expression)? sep# do-group
      expression       <-- command
-     do-group         <-- 'do' ws+ compound 'done'#
+     do-group         <-- do-keyword ws+ compound 'done'#
 
-     if-clause        <-- 'if' sp+ compound 'then'# ws+ compound else-part? 'fi'#
-     else-part        <-- 'else' ws+ compound /
-                          'elif' ws+ compound 'then'# ws+ compound else-part?
+     if-clause        <-- if-keyword sp+ compound then-keyword# ws+ compound else-part? fi-keyword#
+     else-part        <-- else-keyword ws+ compound /
+                          elif-keyword ws+ compound then-keyword# ws+ compound else-part?
 
-     while-clause     <-- 'while' compound do-group
+     while-clause     <--  while-keyword compound do-group
 
-     until-clause     <-- 'until' compound do-group
+     until-clause     <--  until-keyword compound do-group
 
      reserved         <   ('case' / 'esac' / 'in' / 'if' / 'fi' / 'then' / 'else' /
                            'elif' / 'for' / 'done' / 'do' / 'until' / 'while') &ws
@@ -203,7 +203,22 @@
      sq               <   [']
      dq               <   [\"]
      singlequotes     <-  sq (!['] .)* sq#
-     doublequotes     <-  dq (substitution / variable / (![\"] .))* dq#")
+     doublequotes     <-  dq (substitution / variable / (![\"] .))* dq#
+
+     case-keyword     <   'case'
+     do-keyword       <   'do'
+     done-keyword     <   'done'
+     elif-keyword     <   'elif'
+     else-keyword     <   'else'
+     esac-keyword     <   'esac'
+     fi-keyword       <   'fi'
+     for-keyword      <   'for'
+     if-keyword       <   'if'
+     in-keyword       <   'in'
+     then-keyword     <   'then'
+     until-keyword    <   'until'
+     while-keyword    <   'while'
+")
 
   (catch 'syntax-error
     (lambda ()
