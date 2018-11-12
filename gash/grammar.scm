@@ -162,7 +162,8 @@
 
      nonreserved      <-  !reserved word
 
-     word             <-- test / substitution / assignment / number / variable /
+     word             <-- test / substitution / assignment / number /
+                          variable-subst / variable /
                           delim / literal
 
      test             <-- ltest sp+ (word sp+)+ rtest#
@@ -185,11 +186,12 @@
      assign           <   '='
 
      variable         <-- dollar ('*' / '@' / [0-9] / name /
-                          lbrace name (variable-or / variable-and / variable-word / variable-literal / &rbrace) rbrace)
-     variable-or      <-- min variable-word
-     variable-and     <-- plus variable-word
-     variable-word    <-  (variable-regex / substitution / variable / variable-literal)+
-     variable-regex   <-- ('%%' / '%' / '##' / '#' / '^^' / '^' /',,' / ',' / '*' / '@' / '?')+ variable-word
+                          lbrace name (variable-literal / &rbrace) rbrace)
+     variable-subst   <-  dollar lbrace (variable-or / variable-and / variable-regex / variable-literal / &rbrace) rbrace
+     variable-or      <-- name min variable-word
+     variable-and     <-- name plus variable-word
+     variable-word    <-  (variable-regex / substitution / variable-subst / variable / variable-literal)+
+     variable-regex   <-- name ('%%' / '%' / '##' / '#' / '^^' / '^' /',,' / ',' / '*' / '@' / '?')+ variable-word
      variable-literal <-  (!rbrace .)+
      min              <   '-'
      plus             <   '+'
