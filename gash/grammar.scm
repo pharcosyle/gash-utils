@@ -169,7 +169,7 @@
      ltest            <   '['
      rtest            <   ']'
 
-     literal          <-  !reserved (!']' ![ \t\v\f\n`'\")};|&\\] .)+
+     literal          <-  '\\'? !reserved (!']' ![ \t\v\f\n`'\")};|&\\] .)+
 
      identifier       <-  [_a-zA-Z][_a-zA-Z0-9]*
 
