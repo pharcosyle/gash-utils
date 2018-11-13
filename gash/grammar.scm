@@ -169,8 +169,10 @@
      ltest            <   '['
      rtest            <   ']'
 
-     literal          <-  !reserved (!']' ![ \t\v\f\n`'\")};|&$] (escape / .))+
-     escape           <-  '\\' [ \"$]
+     literal          <-  !reserved (escaped / !allowed .)+
+     escaped          <-  escape [ \"$]
+     escape           <   [\\]
+     allowed          <-  ']' / [ \t\v\f\n`'\")};|&$] / '\\\n'
 
      identifier       <-  [_a-zA-Z][_a-zA-Z0-9]*
 
