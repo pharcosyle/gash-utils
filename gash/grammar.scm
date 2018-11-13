@@ -162,15 +162,15 @@
 
      nonreserved      <-  !reserved word
 
-     word             <-- test / substitution / assignment / number /
-                          variable-subst / variable /
-                          delim / literal
+     word             <-- test / substitution / assignment / 
+                          (number / variable / variable-subst / delim / literal)+
 
      test             <-- ltest sp+ (word sp+)+ rtest#
      ltest            <   '['
      rtest            <   ']'
 
-     literal          <-  '\\'? !reserved (!']' ![ \t\v\f\n`'\")};|&\\] .)+
+     literal          <-  !reserved (!']' ![ \t\v\f\n`'\")};|&$] (escape / .))+
+     escape           <-  '\\' [ \"$]
 
      identifier       <-  [_a-zA-Z][_a-zA-Z0-9]*
 
@@ -187,7 +187,7 @@
 
      variable         <-- dollar ('*' / '@' / [0-9] / name /
                           lbrace name (variable-literal / &rbrace) rbrace)
-     variable-subst   <-  dollar lbrace (variable-or / variable-and / variable-regex / variable-literal / &rbrace) rbrace
+     variable-subst   <-  dollar lbrace (variable-or / variable-and / variable-regex / &rbrace) rbrace
      variable-or      <-- name min variable-word
      variable-and     <-- name plus variable-word
      variable-word    <-  (variable-regex / substitution / variable-subst / variable / variable-literal)+
@@ -202,8 +202,8 @@
      delim            <-- singlequotes / doublequotes / substitution
      sq               <   [']
      dq               <   [\"]
-     singlequotes     <-  sq (!['] .)* sq#
-     doublequotes     <-  dq (substitution / variable / (![\"] .))* dq#
+     singlequotes     <-  sq (!sq .)* sq#
+     doublequotes     <-  dq (substitution / variable / (!dq ('\\\"' / .)))* dq#
 
      case-keyword     <   'case'
      do-keyword       <   'do'
