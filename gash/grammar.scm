@@ -78,7 +78,7 @@
      assign           <   '='
 
      io-redirect      <-- [0-9]* (io-here / io-file)
-     io-file          <-- io-op ([0-9]+ / word)
+     io-file          <-- io-op ([0-9]+ / sp* word)
      io-op            <-  '<&' / '>&' / '>>' / '>' / '<>'/ '<' / '>|'
      io-here          <-- io-here-op io-here-label sp* eol io-here-document
      io-here-op       <-  '<<-' / '<<'

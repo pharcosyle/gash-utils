@@ -74,7 +74,7 @@
     (('pipeline command) (pke 'background: `(pipeline+ #f ,command)))
     (_ term)))
 
-(define (command . args)
+(define (exec-command . args)
   (define (exec command)
     (cond ((procedure? command) command)
           ((assoc-ref %functions (car command))
@@ -176,6 +176,20 @@
 
 (define-syntax-rule (substitution commands)
   (string-trim-right (with-output-to-string (lambda _ commands))))
+
+(define-syntax command
+  (lambda (x)
+    (syntax-case x ()
+      ((_ word ... (io-redirect (io-file "<" file-name)))
+       #'(with-input-from-file file-name (command word ...)))
+      ((_ word ... (io-redirect (io-file ">" file-name)))
+       #'(with-output-to-file file-name (command word ...)))
+      ((_ word ... (io-redirect "1" (io-file ">" file-name)))
+       #'(with-output-to-file file-name (command word ...)))
+      ((_ word ... (io-redirect "2" (io-file ">" file-name)))
+       #'(with-error-to-file file-name (command word ...)))
+      ((_ word ...)
+       #'(exec-command word ...)))))
 
 (define-syntax-rule (ignore-error o)
   (let ((errexit (shell-opt? "errexit")))
@@ -408,4 +422,4 @@
   o)
 
 (define (test . o) ;; TODO replace with implementation in scheme
-  (apply command (cons "test" o)))
+  (command (cons "test" o)))
