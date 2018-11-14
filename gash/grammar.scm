@@ -152,7 +152,7 @@
      sq               <   [']
      dq               <   [\"]
      singlequotes     <-  sq (!sq .)* sq#
-     doublequotes     <-  dq (substitution / variable / (!dq ('\\\"' / .)))* dq#
+     doublequotes     <-  dq (substitution / variable / (!dq (escape '\"' / .)))* dq#
 
      case-keyword     <   'case'
      do-keyword       <   'do'

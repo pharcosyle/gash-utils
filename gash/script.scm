@@ -376,8 +376,8 @@
     ((h ... t) t)
     (_ o)))
 
-(define (delim o)
-  o)
+(define (delim . o)
+  (string-join o ""))
 
 (define (name o)
   o)
