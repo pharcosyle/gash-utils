@@ -47,7 +47,9 @@
             command
             doublequotes
             file-name
-            for
+            for-clause
+            do-group
+            expression
             glob
             if-clause
             ignore-error
@@ -148,11 +150,11 @@
 (define (script . o)
   o)
 
-(define (for name sequence body)
+(define (for-clause name sequence body)
   (for-each (lambda (value)
               (assignment name value)
               (body))
-            (sequence)))
+            sequence))
 
 (define (split o)
   ((compose string-tokenize string-trim-right) o))
@@ -207,6 +209,18 @@
        (with-syntax ((it (datum->syntax x 'it)))
          #'(let ((it (ignore-error expr)))
              (if (zero? it) then else)))))))
+
+(define-syntax expression
+  (lambda (x)
+    (syntax-case x ()
+      ((_ (command word ...))
+       #'(list word ...)))))
+
+(define-syntax do-group
+  (lambda (x)
+    (syntax-case x ()
+      ((_ term ...)
+       #'(lambda _ term ...)))))
 
 (define-syntax and-terms
   (lambda (x)
@@ -383,7 +397,7 @@
           value))))
 
 (define (compound . o)
-  (match (warn 'compound o)
+  (match o
     ((h ... t) t)
     (_ o)))
 

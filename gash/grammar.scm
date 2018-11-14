@@ -105,7 +105,7 @@
 
      for-clause       <-- for-keyword sp+ identifier ws+ (in-keyword sp+ expression)? sep# do-group
      expression       <-- command
-     do-group         <-- do-keyword ws+ compound 'done'#
+     do-group         <-- do-keyword ws+ compound done-keyword#
 
      if-clause        <-- if-keyword sp+ compound then-keyword# ws+ compound else-part? fi-keyword#
      else-part        <-- else-keyword ws+ compound /
