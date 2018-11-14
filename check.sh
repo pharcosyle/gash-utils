@@ -75,6 +75,7 @@ tests="
 41-dot
 
 50-iohere
+50-iohere-builtin
 50-redirect
 50-redirect-space
 50-redirect-in

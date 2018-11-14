@@ -188,6 +188,8 @@
        #'(with-output-to-file file-name (command word ...)))
       ((_ word ... (io-redirect "2" (io-file ">" file-name)))
        #'(with-error-to-file file-name (command word ...)))
+      ((_ word ... (io-redirect (io-here "<<" (io-here-document string))))
+       #'(pipeline (cut display string) (command word ...)))
       ((_ word ...)
        #'(exec-command word ...)))))
 
