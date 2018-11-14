@@ -381,3 +381,6 @@
 
 (define (name o)
   o)
+
+(define (test . o) ;; TODO replace with implementation in scheme
+  (apply command (cons "test" o)))
