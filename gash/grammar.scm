@@ -141,7 +141,7 @@
      variable-and     <-- name plus variable-word
      variable-word    <-  (variable-regex / substitution / variable-subst / variable / variable-literal)+
      variable-regex   <-- name ('%%' / '%' / '##' / '#' / '^^' / '^' /',,' / ',' / '*' / '@' / '?')+ variable-word
-     variable-literal <-  (!rbrace .)+
+     variable-literal <-  (!rbrace !min !plus .)+
      min              <   '-'
      plus             <   '+'
      lbrace           <   '{'
