@@ -197,6 +197,17 @@
          #'(let ((it (ignore-error expr)))
              (if (zero? it) then else)))))))
 
+(define-syntax else-part
+  (lambda (x)
+    (syntax-case x ()
+      ((_ else)
+       (with-syntax ((it (datum->syntax x 'it)))
+         #'else))
+      ((_ expr then else)
+       (with-syntax ((it (datum->syntax x 'it)))
+         #'(let ((it (ignore-error expr)))
+             (if (zero? it) then else)))))))
+
 (define-syntax and-terms
   (lambda (x)
     (syntax-case x ()
