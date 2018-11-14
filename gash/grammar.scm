@@ -12,62 +12,6 @@
   #:export (parse
             parse-string))
 
-;; (define-syntax define-unwrapped-sexp-parser
-;;   (lambda (x)
-;;     (syntax-case x ()
-;;       ((_ sym accum pat)
-;;        (let* ((matchf (compile-peg-pattern #'pat (syntax->datum #'accum))))
-;;          #`(define sym #,matchf))))))
-
-;; (define-unwrapped-sexp-parser eol none (or "\f" "\n" "\r"))
-;; (add-peg-compiler! 'eol eol)
-
-;; (define-unwrapped-sexp-parser ws none (or " " "\t" "\v"))
-;; (add-peg-compiler! 'ws ws)
-
-;; (define-unwrapped-sexp-parser line none (and "#" (* (and (not-followed-by eol) peg-any))))
-;; (add-peg-compiler! 'line line)
-
-;; (define-unwrapped-sexp-parser skip none (* (or ws eol line)))
-;; (add-peg-compiler! 'skip skip)
-
-;; (define (wrap-skip-parser-for-users for-syntax parser accumsym s-syn)
-;;   (display "wrap\n")
-;;   #`(lambda (str strlen pos)
-;;       (when #t
-;;         (format (current-error-port) "~a ~a : ~s\n"
-;;                 (make-string (- pos (or (string-rindex str #\newline 0 pos) 0)) #\space)
-;;                 '#,s-syn
-;;                 (substring str pos (min (+ pos 40) strlen))))
-
-;;       (let* ((res (skip str strlen pos))
-;;              (pos (or (and res (car res)) pos))
-;;              (res (#,parser str strlen pos)))
-;;         ;; Try to match the nonterminal.
-;;         (if res
-;;             ;; If we matched, do some post-processing to figure out
-;;             ;; what data to propagate upward.
-;;             (let* ((at (car res))
-;;                    (body (cadr res)))
-;;               #,(cond
-;;                  ((eq? accumsym 'name)
-;;                   #``(,at ,'#,s-syn))
-;;                  ((eq? accumsym 'all)
-;;                   #`(list at
-;;                           (cond
-;;                            ((not (list? body))
-;;                             `(,'#,s-syn ,body))
-;;                            ((null? body) `(,'#,s-syn))
-;;                            ((symbol? (car body))
-;;                             `(,'#,s-syn ,body))
-;;                            (else (cons '#,s-syn body)))))
-;;                  ((eq? accumsym 'none) #``(,at ()))
-;;                  (else #``(,at ,body))))
-;;             ;; If we didn't match, just return false.
-;;             #f))))
-
-;; (module-set! (resolve-module '(peg codegen)) 'wrap-parser-for-users wrap-skip-parser-for-users)
-
 (define (parse port)
   (parse-string (read-string port)))
 
