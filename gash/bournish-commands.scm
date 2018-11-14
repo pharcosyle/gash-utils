@@ -79,7 +79,7 @@
             (else 1)))))))
 
 (define basename-command (wrap-command "basename" gash:basename))
-(define cat-command (wrap-command cat "cat"))
+(define cat-command (wrap-command "cat" cat))
 (define compress-command (wrap-command "compress" compress))
 (define cp-command (wrap-command "cp" cp))
 (define dirname-command (wrap-command "dirname" gash:dirname))

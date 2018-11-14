@@ -36,6 +36,6 @@
               (call-with-input-file file
                 (lambda (port)
                   (dump-port port (current-output-port))))))
-        0 args))
+        0 (if (null? args) '("-") args)))
 
 (define main cat)
