@@ -82,7 +82,7 @@
 
 (define (variable-and name default)
   (let ((value (variable name #f)))
-    (and value default)))
+    (if value default "")))
 
 (define (set-shell-opt! name set?)
   (let* ((shell-opts (variable "SHELLOPTS"))
