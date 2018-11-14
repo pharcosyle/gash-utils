@@ -69,12 +69,26 @@
      compound-command <-  (subshell / brace-group / for-clause / case-clause /
                           if-clause / while-clause / until-clause) (sp* io-redirect)*
 
-     simple-command   <-  ((io-redirect / nonreserved) sp*)+
+     simple-command   <-  ((io-redirect / assignment) sp*)*
+                          ((io-redirect / nonreserved) sp*)+ /
+                          ((io-redirect / assignment) sp*)+
+                          ((io-redirect / nonreserved) sp*)*
+
+     assignment       <-- name assign word?
+     assign           <   '='
+
      io-redirect      <-- [0-9]* (io-here / io-file)
      io-file          <-- io-op ([0-9]+ / word)
      io-op            <-  '<&' / '>&' / '>>' / '>' / '<>'/ '<' / '>|'
      io-here          <-- io-here-op io-here-label sp* eol io-here-document
      io-here-op       <-  '<<-' / '<<'
+
+     reserved         <   ('case' / 'esac' / 'in' / 'if' / 'fi' / 'then' / 'else' /
+                           'elif' / 'for' / 'done' / 'do' / 'until' / 'while') &ws
+     nonreserved      <-  !reserved word
+
+     word             <-- test / substitution / 
+                          (number / variable / variable-subst / delim / literal)+
 
      function-def     <-- name sp* lpar rpar# ws* function-body
      name             <-- !reserved identifier
@@ -101,14 +115,6 @@
 
      until-clause     <--  until-keyword compound do-group
 
-     reserved         <   ('case' / 'esac' / 'in' / 'if' / 'fi' / 'then' / 'else' /
-                           'elif' / 'for' / 'done' / 'do' / 'until' / 'while') &ws
-
-     nonreserved      <-  !reserved word
-
-     word             <-- test / substitution / assignment / 
-                          (number / variable / variable-subst / delim / literal)+
-
      test             <-- ltest sp+ (word sp+)+ rtest#
      ltest            <   '['
      rtest            <   ']'
@@ -127,9 +133,6 @@
      lpar             <   '('
      rpar             <   ')'
      bt               <   [`]
-
-     assignment       <-- name assign word?
-     assign           <   '='
 
      variable         <-- dollar ('*' / '@' / [0-9] / name /
                           lbrace name (variable-literal / &rbrace) rbrace)
