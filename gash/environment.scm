@@ -53,11 +53,13 @@
 
 (define %functions '())
 
-(define (assignment name value)
-  (and value
-       (set! %global-variables
-             (assoc-set! %global-variables name value))
-       #t))
+(define* (assignment name #:optional value)
+  (if value
+      (set! %global-variables
+        (assoc-set! %global-variables name value))
+      (set! %global-variables
+        (assoc-set! %global-variables name "")))
+  #t)
 
 (define* (variable name #:optional (default ""))
   (cond ((string->number name)
