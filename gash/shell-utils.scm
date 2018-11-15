@@ -513,7 +513,7 @@ end of a line; by itself it won't match the terminating newline of a line."
       ((-) (logand mode (logxor n -1)))
       (else (error
              (format #f
-                     "program: operation not supported: ~s\n"
+                     "~a: operation not supported: ~s\n"
                      program o))))))
 
 (define (apply-chmodifiers file modifiers)

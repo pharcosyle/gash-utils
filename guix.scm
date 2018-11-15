@@ -53,14 +53,14 @@
              (gnu packages texinfo)
              ((guix build utils) #:select (with-directory-excursion))
              (guix build-system gnu)
-             (guix build-system trivial)
+             (guix build-system guile)
              (guix gexp)
              (guix download)
              (guix git-download)
-             (guix licenses)
+             ((guix licenses) #:prefix license:)
              (guix packages))
 
-(define %source-dir (dirname (current-filename)))
+(define %source-dir (getcwd))
 
 (define git-file?
   (let* ((pipe (with-directory-excursion %source-dir
@@ -79,42 +79,110 @@
          (any (cut string-suffix? <> file) files))
         (_ #f)))))
 
-(define-public gash
-  (let ((commit "7b9871478b573e14fa94a84f3585c2cbed6f02a3")
+(define-public guile-gash
+  (let ((version "0.1")
+        (commit "b555d291a973565bcb9c13a6121d00f2f01c92f7")
         (revision "0")
-        (version "0.1"))
+        (builtins '(
+                    "basename"
+                    "cat"
+                    "chmod"
+                    "compress"
+                    "cp"
+                    "dirname"
+                    "find"
+                    "grep"
+                    "ls"
+                    "mkdir"
+                    "reboot"
+                    "rm"
+                    "rmdir"
+                    "sed"
+                    "tar"
+                    "touch"
+                    "wc "
+                    "which"
+                    ))
+        (shells '("bash" "gash" "sh")))
     (package
-      (name "gash")
+      (name "guile-gash")
       (version (string-append version "-" revision "." (string-take commit 7)))
       (source (origin
-                (method git-fetch)
-                (uri (git-reference
-                      (url "https://gitlab.com/janneke/gash")
-                      (commit commit)))
-                (file-name (string-append name "-" version))
+                (method url-fetch)
+                (uri (string-append "https://gitlab.com/janneke/gash"
+                                    "/-/archive/" commit
+                                    "/gash-" commit ".tar.gz"))
                 (sha256
-                 (base32 "11708vl2f04xpgs57mac4z7illx6wf4ybb32mh9ajfwimlkvwl4f"))))
-      (build-system gnu-build-system)
-      (propagated-inputs
-       `(("guile-readline" ,guile-readline)))
-      (inputs
-       `(("guile" ,guile-2.2)))
+                 (base32
+                  "07g0m6c3s5562py0ypbjzzg82a5vgmnsyg6vd5476ad5q0z23f9k"))))
+      (build-system guile-build-system)
+      (arguments
+       `(#:phases
+         (modify-phases %standard-phases
+           (add-after 'unpack 'remove-geesh
+             (lambda _
+               (delete-file "guix.scm") ; should not and cannot be compiled
+               (delete-file "gash/geesh.scm") ; no Geesh yet
+               #t))
+           (add-after 'unpack 'configure
+             (lambda* (#:key inputs outputs #:allow-other-keys)
+               (let* ((out (assoc-ref outputs "out"))
+                      (guile (assoc-ref inputs "guile"))
+                      (bin/guile (string-append guile "/bin/guile"))
+                      (effective (target-guile-effective-version))
+                      (guile-site-dir
+                       (string-append out "/share/guile/site/" effective))
+                      (guile-site-ccache-dir
+                       (string-append out
+                                      "/lib/guile/" effective "/site-ccache")))
+                 (define (make-script source name)
+                   (let ((script (string-append "bin/" name)))
+                     (copy-file source script)
+                     (substitute* script
+                       (("@GUILE@") bin/guile)
+                       (("@guile_site_dir@") guile-site-dir)
+                       (("@guile_site_ccache_dir@") guile-site-ccache-dir)
+                       (("@builtin@") name))
+                     (chmod script #o755)))
+                 (copy-file "gash/config.scm.in" "gash/config.scm")
+                 (substitute* "gash/config.scm"
+                   (("@guile_site_ccache_dir@") guile-site-ccache-dir)
+                   (("@VERSION@") ,version)
+                   (("@COMPRESS@") (string-append out "/bin/compress"))
+                   (("@BZIP2@") (which "bzip2"))
+                   (("@GZIP@") (which "gzip"))
+                   (("@XZ@") (which "xz")))
+                 (for-each
+                  (lambda (s) (make-script "bin/gash.in" s)) ',shells)
+                 (for-each
+                  (lambda (s) (make-script "bin/builtin.in" s)) ',builtins))
+               #t))
+           (add-after 'install 'install-scripts
+             (lambda* (#:key inputs outputs #:allow-other-keys)
+               (let* ((out (assoc-ref outputs "out"))
+                      (bin (string-append out "/bin")))
+                 (for-each
+                  (lambda (name)
+                    (install-file (string-append "bin/" name) bin))
+                  ',(append builtins shells)))
+               #t)))))
       (native-inputs
-       `(("texinfo" ,texinfo)))
-      (synopsis "A POSIX compliant sh replacement for Guile.")
+       `(("guile" ,guile-2.2)
+         ("guile-readline" ,guile-readline)))
+      (home-page "https://gitlab.com/rutgervanbeusekom/gash")
+      (synopsis "Guile As SHell")
       (description
-       "Gash [Guile As Shell] aims to produce at least a POSIX compliant sh replacement
-or even implement GNU bash.  On top of that it also intends to make
-scheme available for interactive and scripting application.")
-      (home-page "https://gitlab.com/rutger.van.beusekom/gash")
-      (license gpl3+))))
+       "Gash--Guile As SHell-- aims to produce at least a POSIX compliant sh
+replacement or even implement GNU bash.  On top of that it also intends to
+make Scheme available for interactive and scripting application.")
+      (license license:gpl3+))))
 
 (define-public gash.git
  (let ((version "0.1")
         (revision "0")
         (commit (read-string (open-pipe "git show HEAD | head -1 | cut -d ' ' -f 2" OPEN_READ))))
     (package
-      (inherit gash)
+      (inherit guile-gash)
       (name "gash.git")
       (version (string-append version "-" revision "." (string-take commit 7)))
       (source (local-file %source-dir #:recursive? #t #:select? git-file?)))))
