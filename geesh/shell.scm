@@ -23,7 +23,15 @@
 ;;;
 ;;; Code:
 
-(define *fd-count* 3)
+(define *fd-count* 10)
+
+(define current-3-port (make-parameter #f))
+(define current-4-port (make-parameter #f))
+(define current-5-port (make-parameter #f))
+(define current-6-port (make-parameter #f))
+(define current-7-port (make-parameter #f))
+(define current-8-port (make-parameter #f))
+(define current-9-port (make-parameter #f))
 
 (define (fd->current-port fd)
   "Return the current port (e.g. @code{current-input-port})
@@ -31,7 +39,14 @@ corresponding to the the Shell file descriptor @var{fd}."
   (match fd
     (0 current-input-port)
     (1 current-output-port)
-    (2 current-error-port)))
+    (2 current-error-port)
+    (3 current-3-port)
+    (4 current-4-port)
+    (5 current-5-port)
+    (6 current-6-port)
+    (7 current-7-port)
+    (8 current-8-port)
+    (9 current-9-port)))
 
 (define (install-current-ports!)
   "Install all current ports into their usual file descriptors.  For
