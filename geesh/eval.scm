@@ -97,13 +97,20 @@ environment @var{env}."
        ;; evaluation: first command words, then redirects, and finally
        ;; assignment words.
        (('<sh-exec> words ..1)
-        (let ((args (append-map (cut eval-word env <>) words))
-              (redirs (map (cut eval-redir env <>) redirs)))
-          (match args
-            ((name . args)
+        (let ((args (append-map (cut eval-word env <>) words)))
+          (match (false-if-exception
+                  (map (cut eval-redir env <>) redirs))
+            (#f (set-environment-status! env 1))
+            (redirs
+             (match args
+               ((name . args)
+                (sh:with-redirects env redirs
+                  (lambda ()
+                    (apply sh:exec env name args))))
+               (() #f))))))
+       (_ (match (false-if-exception
+                  (map (cut eval-redir env <>) redirs))
+            (#f (set-environment-status! env 1))
+            (redirs
              (sh:with-redirects env redirs
-               (lambda ()
-                 (apply sh:exec env name args))))
-            (() #f))))
-       (_ (sh:with-redirects env (map (cut eval-redir env <>) redirs)
-            (exp->thunk env sub-exp)))))))
+               (exp->thunk env sub-exp)))))))))
