@@ -74,6 +74,18 @@ environment @var{env}."
        (match args
          ((name . args) (apply sh:exec env name args))
          (() #f))))
+    (('<sh-exec-let> ((names var-words) ..1) cmd-words ..1)
+     (let* ((args (append-map (cut eval-word env <>) cmd-words))
+            (bindings (map (lambda (name word)
+                             `(,name . ,(eval-word env word
+                                                   #:split? #f
+                                                   #:rhs-tildes? #t)))
+                           names var-words)))
+       (match args
+         ((name . args) (apply sh:exec-let env bindings name args))
+         (() (for-each (match-lambda
+                         ((name . value) (set-var! env name value)))
+                       bindings)))))
     (('<sh-for> (name (words ...)) . sub-exps)
      (sh:for env `(,name ,(append-map (cut eval-word env <>) words))
        (exps->thunk env sub-exps)))
@@ -108,6 +120,25 @@ environment @var{env}."
                   (lambda ()
                     (apply sh:exec env name args))))
                (() #f))))))
+       (('<sh-exec-let> ((names var-words) ..1) cmd-words ..1)
+        (let ((args (append-map (cut eval-word env <>) cmd-words)))
+          (match (false-if-exception
+                  (map (cut eval-redir env <>) redirs))
+            (#f (set-environment-status! env 1))
+            (redirs
+             (let ((bindings (map (lambda (name word)
+                                    `(,name . ,(eval-word env word
+                                                          #:split? #f
+                                                          #:rhs-tildes? #t)))
+                                  names var-words)))
+               (match args
+                 ((name . args)
+                  (sh:with-redirects env redirs
+                    (lambda ()
+                      (apply sh:exec-let env bindings name args))))
+                 (() (for-each (match-lambda
+                                 ((name . value) (set-var! env name value)))
+                               bindings))))))))
        (_ (match (false-if-exception
                   (map (cut eval-redir env <>) redirs))
             (#f (set-environment-status! env 1))
