@@ -177,6 +177,12 @@
 (define-syntax-rule (substitution commands)
   (string-trim-right (with-output-to-string (lambda _ commands))))
 
+;; (define (substitution . command)
+;;   (if (string? (car command)) (warn (parse-string (string-join command)))
+;;       (pipeline->string (list command))
+;;       (warn 'substitution: command '=> ))
+;;   )
+
 (define-syntax command
   (lambda (x)
     (syntax-case x ()
@@ -351,6 +357,21 @@
            (or (regexp-exec regexp (substring string start))
                (loop (1- start)))))))
 
+(define (variable-regex name sep pattern)
+  (match sep
+    ("##" (variable-hash-hash name pattern))
+    ("#" (variable-hash name pattern))
+    ("%%" (variable-percent-percent name pattern))
+    ("%" (variable-percent name pattern))
+    ("/" (variable-replace name pattern))))
+
+(define (variable-replace name pattern)
+  (let* ((value (variable name))
+         (at (string-index pattern #\/))
+         (regex (if at (substring pattern 0 at) pattern))
+         (subst (if at (substring pattern (1+ at)) "")))
+    (regexp-substitute/global #f regex value 'pre subst 'post)))
+
 (define (variable-hash name pattern)
   (let ((value (variable name))
         (glob? (glob? pattern)))
@@ -421,6 +442,9 @@
   (string-join o ""))
 
 (define (name o)
+  o)
+
+(define (regex-sep o)
   o)
 
 (define (test . o) ;; TODO replace with implementation in scheme

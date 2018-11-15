@@ -87,8 +87,8 @@
                            'elif' / 'for' / 'done' / 'do' / 'until' / 'while') &ws
      nonreserved      <-  !reserved word
 
-     word             <-- test / substitution / 
-                          (number / variable / variable-subst / delim / literal)+
+     word             <-- test / substitution /
+                          (number / variable-subst / variable / delim / literal)+
 
      function-def     <-- name sp* lpar rpar# ws* function-body
      name             <-- !reserved identifier
@@ -136,12 +136,16 @@
 
      variable         <-- dollar ('*' / '@' / [0-9] / name /
                           lbrace name (variable-literal / &rbrace) rbrace)
-     variable-subst   <-  dollar lbrace (variable-or / variable-and / variable-regex / &rbrace) rbrace
+     variable-subst   <-  dollar lbrace (variable-or / variable-and / variable-regex) rbrace
      variable-or      <-- name min variable-word
      variable-and     <-- name plus variable-word
-     variable-word    <-  (variable-regex / substitution / variable-subst / variable / variable-literal)+
-     variable-regex   <-- name ('%%' / '%' / '##' / '#' / '^^' / '^' /',,' / ',' / '*' / '@' / '?')+ variable-word
-     variable-literal <-  (!rbrace !min !plus .)+
+     variable-word    <-  variable-regex / substitution / variable-subst / variable / variable-literal !slash / variable-string
+     variable-regex   <-- name &slash regex-sep variable-literal '/' variable-string &rbrace /
+                          name regex-sep variable-string
+     slash            <   '/'
+     variable-string  <-  (!rbrace .)+
+     variable-literal <-  (!rbrace !min !plus !slash .)+
+     regex-sep        <-- ('/' / '%%' / '%' / '##' / '#' / '^^' / '^' /',,' / ',' / '*' / '@' / '?')
      min              <   '-'
      plus             <   '+'
      lbrace           <   '{'
@@ -152,7 +156,7 @@
      sq               <   [']
      dq               <   [\"]
      singlequotes     <-  sq (!sq .)* sq#
-     doublequotes     <-  dq (substitution / variable / (!dq (escape '\"' / .)))* dq#
+     doublequotes     <-  dq (substitution / variable-subst / variable / (!dq (escape '\"' / .)))* dq#
 
      case-keyword     <   'case'
      do-keyword       <   'do'
