@@ -89,7 +89,28 @@
                       ;; This test relies on 'unset' and 'echo -e',
                       ;; which we do not have.  When rewritten to avoid
                       ;; them, we pass.
-                      "IFS unset behaves like $' \\t\\n'")))))
+                      "IFS unset behaves like $' \\t\\n'"))
+                    ("spec/redirect.test.sh"
+                     (;; We match Bash and Dash here, just not Oil.
+                      "Redirect in assignment is invalid"
+                      ;; Again, we match Dash here (though not Bash).
+                      "Redirect in assignment"
+                      ;; This test requires arithmetic substitutions.
+                      "Redirect in function body is evaluated multiple times"
+                      ;; We match Korn here.
+                      "Prefix redirect for loop -- not allowed"
+                      ;; We do not support named file descriptors
+                      ;; (they are not in POSIX).
+                      "Named file descriptor"
+                      ;; This test relies on 'set', which we do not
+                      ;; have yet.
+                      ">| to clobber"
+                      ;; This is Bash specific.
+                      "&> redirects stdout and stderr"
+                      ;; This seems to go beyond POSIX.
+                      "1>&2- to close file descriptor"
+                      ;; Again, this is Bash specific.
+                      "&>> appends stdout and stderr")))))
              (for-each (match-lambda
                          ((file tests) (remove-tests tests file)))
                        tests-to-remove)))))))

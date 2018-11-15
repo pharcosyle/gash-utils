@@ -18,6 +18,7 @@ TEST_EXTENSIONS = .sh
 SH_LOG_COMPILER = ./check-spec
 
 TESTS =                                         \
+    oil/spec/redirect.test.sh                   \
     oil/spec/smoke.test.sh                      \
     oil/spec/word-split.test.sh
 
