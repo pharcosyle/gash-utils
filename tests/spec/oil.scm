@@ -40,6 +40,7 @@
            (chdir #$output)
            (for-each patch-shebang
                      '("spec/bin/argv.py"
+                       "spec/bin/printenv.py"
                        "test/common.sh"
                        "test/sh_spec.py"
                        "test/spec-runner.sh"
