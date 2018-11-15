@@ -99,6 +99,11 @@
   '(<sh-set!> ("FOO" "bar") ("BAZ" "quux"))
   (parse "FOO=bar BAZ=quux"))
 
+(test-equal "Parses redirects with assignments but no command"
+  '(<sh-with-redirects> ((> 2 "bar"))
+     (<sh-set!> ("FOO" "bar")))
+  (parse "FOO=bar 2>bar"))
+
 ;; Boolean expressions
 
 (test-equal "Parses disjunctions"

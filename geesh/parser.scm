@@ -490,7 +490,7 @@ the same number of times.)"
           (_ `(<sh-with-redirects> ,redirects
                 ,(if (null? assignments)
                      #f
-                     `(<sh-set!> ,assignments))))))
+                     `(<sh-set!> ,@assignments))))))
     (cmd-name cmd-suffix)
     : (let-values (((redirects args) (partition io-redirect? $2)))
         (match redirects
