@@ -58,6 +58,11 @@ extra environment variables @var{bindings}.  The first argument given
 to the new process will be @var{name}, and the rest of the arguments
 will be @var{args}."
   (let ((utility-env (environment->environ env bindings)))
+    ;; We need to flush all ports here to ensure the proper sequence
+    ;; of output.  Without flushing, output that we have written could
+    ;; stay in a buffer while the utility (which does not know about
+    ;; the buffer) produces its output.
+    (flush-all-ports)
     (match (primitive-fork)
       (0 (install-current-ports!)
          (apply execle path utility-env name args))
@@ -193,6 +198,10 @@ by @var{saved-port}, where @var{saved-port} is a return value of
 (define* (%subshell thunk)
   "Run @var{thunk} in a new process and return the ID of the new
 process."
+  ;; We need to flush all ports before forking to avoid copying the
+  ;; port buffers into the child process, which could lead to
+  ;; duplicate output.
+  (flush-all-ports)
   (match (primitive-fork)
     (0 (thunk)
        (primitive-exit))
