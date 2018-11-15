@@ -126,71 +126,63 @@ environment @var{env}."
 
 ;;; Redirects.
 
-(define (save-and-set-redirect env redir)
-  "Update the current port parameters according to @code{redir}, and
-return a pair consisting of the Shell file descriptor that has been
-changed and a copy of its old value."
+(define (redir->parameter+port env redir)
+  "Convert @var{redir} into a pair consisting of the current-port
+parameter to be updated and the port that should be its new value (or
+@code{#f} if it should be considered closed)."
 
-  (define* (save-and-set fd target #:optional (open-flags 0))
-    (let ((saved-port ((fd->current-port fd))))
-      (match target
-        ((? port?) ((fd->current-port fd) target))
-        ((? string?) ((fd->current-port fd) (open target open-flags)))
-        ;; TODO: Verify open-flags.
-        ((? integer?) ((fd->current-port fd) ((fd->current-port target))))
-        (#f (close-port (fd->current-port fd))))
-      `(,fd . ,saved-port)))
+  (define* (make-parameter+port fd target #:optional (open-flags 0))
+    (let ((port (match target
+                  ((? port?) target)
+                  ((? string?) (open target open-flags))
+                  ;; TODO: Verify open-flags.
+                  ((? integer?) ((fd->current-port target)))
+                  (#f #f))))
+      `(,(fd->current-port fd) . ,port)))
 
   (match redir
     (('< (? integer? fd) (? string? filename))
-     (save-and-set fd filename O_RDONLY))
+     (make-parameter+port fd filename O_RDONLY))
     (('> (? integer? fd) (? string? filename))
      ;; TODO: Observe noclobber.
-     (save-and-set fd filename (logior O_WRONLY O_CREAT O_TRUNC)))
+     (make-parameter+port fd filename (logior O_WRONLY O_CREAT O_TRUNC)))
     (('>! (? integer? fd) (? string? filename))
-     (save-and-set fd filename (logior O_WRONLY O_CREAT O_TRUNC)))
+     (make-parameter+port fd filename (logior O_WRONLY O_CREAT O_TRUNC)))
     (('>> fd filename)
-     (save-and-set fd filename (logior O_WRONLY O_CREAT O_APPEND)))
+     (make-parameter+port fd filename (logior O_WRONLY O_CREAT O_APPEND)))
     (('<> fd filename)
-     (save-and-set fd filename (logior O_RDWR O_CREAT)))
+     (make-parameter+port fd filename (logior O_RDWR O_CREAT)))
     (('<& (? integer? fd1) (? integer? fd2))
-     (save-and-set fd1 fd2))
+     (make-parameter+port fd1 fd2))
     (('<& (? integer? fd) '-)
-     (save-and-set fd #f))
+     (make-parameter+port fd #f))
     (('>& (? integer? fd1) (? integer? fd2))
-     (save-and-set fd1 fd2))
+     (make-parameter+port fd1 fd2))
     (('>& (? integer? fd) '-)
-     (save-and-set fd #f))
+     (make-parameter+port fd #f))
     (('<< (? integer? fd) text)
      (let ((port (tmpfile)))
        (display text port)
        (seek port 0 SEEK_SET)
-       (save-and-set fd port)))))
-
-(define (restore-saved-port saved-port)
-  "Restore a Shell file descriptor to its previous state as described
-by @var{saved-port}, where @var{saved-port} is a return value of
-@code{save-and-set-redirect}."
-  (match saved-port
-    ((fd . saved-fd)
-     (let ((port ((fd->current-port fd))))
-       ((fd->current-port fd) saved-fd)
-       (unless (any (cut eq? port <>)
-                    (map (lambda (fd)
-                           ((fd->current-port fd)))
-                         (iota *fd-count*)))
-         (close port))))))
+       (make-parameter+port fd port)))))
 
 (define (sh:with-redirects env redirs thunk)
   "Call @var{thunk} with the redirects @var{redirs} in effect."
-  (let ((saved-ports #f))
-    (dynamic-wind
-      (lambda ()
-        (set! saved-ports
-          (map (cut save-and-set-redirect env <>) redirs)))
-      thunk
-      (lambda ()
-        (for-each restore-saved-port (reverse saved-ports))))))
+  ;; This may be too clever!  We need to parameterize a variable
+  ;; number of things in a particular order, and this seems to be the
+  ;; only way.
+  ((fold-right (lambda (redir thunk)
+                 (lambda ()
+                   (match (false-if-exception
+                           (redir->parameter+port env redir))
+                     (#f (set-environment-status! env 1))
+                     ((parameter . port)
+                      (parameterize ((parameter port))
+                        (thunk))
+                      (when (output-port? port)
+                        (force-output port))))))
+               thunk
+               redirs)))
 
 
 ;;; Subshells and command substitution.
