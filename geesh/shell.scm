@@ -12,6 +12,7 @@
             sh:not
             sh:or
             sh:pipeline
+            sh:set-redirects
             sh:subshell
             sh:substitute-command
             sh:with-redirects))
@@ -180,6 +181,19 @@ parameter to be updated and the port that should be its new value (or
        (display text port)
        (seek port 0 SEEK_SET)
        (make-parameter+port fd port)))))
+
+(define (sh:set-redirects env redirs)
+  "Put the redirects @var{redirs} into effect."
+  (let loop ((redirs redirs))
+    (match redirs
+      (() #t)
+      ((redir . rest)
+       (match (false-if-exception
+               (redir->parameter+port env redir))
+         (#f (set-environment-status! env 1))
+         ((parameter . port)
+          (parameter port)
+          (loop rest)))))))
 
 (define (sh:with-redirects env redirs thunk)
   "Call @var{thunk} with the redirects @var{redirs} in effect."

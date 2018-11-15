@@ -115,6 +115,11 @@ environment @var{env}."
             (#f (set-environment-status! env 1))
             (redirs
              (match args
+               ;; This built-in, called with no arguments, is a very
+               ;; special case.  We need to treat the redirects
+               ;; directly rather than pass them to
+               ;; 'sh:with-redirects'.
+               (("exec") (sh:set-redirects env redirs))
                ((name . args)
                 (sh:with-redirects env redirs
                   (lambda ()
@@ -132,6 +137,9 @@ environment @var{env}."
                                                           #:rhs-tildes? #t)))
                                   names var-words)))
                (match args
+                 ;; See the '<sh-exec>' case for why this built-in is
+                 ;; treated specially.
+                 (("exec") (sh:set-redirects env redirs))
                  ((name . args)
                   (sh:with-redirects env redirs
                     (lambda ()
