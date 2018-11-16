@@ -101,22 +101,26 @@
                       ("IFS is scoped")
                       ;; We do not do tilde expansion yet.
                       ("Tilde sub is not split, but var sub is")
-                      ;; This test relies on 'echo -e', which we do not
-                      ;; have.  When rewritten to avoid it, we pass.
-                      ("IFS empty doesn't do splitting")
-                      ;; This test relies on 'unset' and 'echo -e',
-                      ;; which we do not have.  When rewritten to avoid
-                      ;; them, we pass.
-                      ("IFS unset behaves like $' \\t\\n'")))
+                      ;; These tests rely on 'echo -e', but we can use
+                      ;; Guile instead.
+                      ("IFS empty doesn't do splitting"
+                       ("echo -e ' a b\\\\tc\\\\n'"
+                        "guile -c '(display \" a b\\tc\\n\")'"))
+                      ("IFS unset behaves like $' \\t\\n'"
+                       ("echo -e ' a b\\\\tc\\\\n'"
+                        "guile -c '(display \" a b\\tc\\n\")'"))))
                     ("spec/redirect.test.sh"
                      (;; We match Bash and Dash here, just not Oil.
-                      ("Redirect in assignment is invalid")
+                      ("Redirect in assignment is invalid"
+                       ("OK bash" "OK bash/geesh"))
                       ;; Again, we match Dash here (though not Bash).
-                      ("Redirect in assignment")
+                      ("Redirect in assignment"
+                       ("OK dash" "OK dash/geesh"))
                       ;; This test requires arithmetic substitutions.
                       ("Redirect in function body is evaluated multiple times")
-                      ;; We match Korn here.
-                      ("Prefix redirect for loop -- not allowed")
+                      ;; We match KornShell here.
+                      ("Prefix redirect for loop -- not allowed"
+                       ("OK mksh" "OK mksh/geesh"))
                       ;; We do not support named file descriptors
                       ;; (they are not in POSIX).
                       ("Named file descriptor")
