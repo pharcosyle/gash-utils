@@ -81,7 +81,7 @@
 
 (define-public guile-gash
   (let ((version "0.1")
-        (commit "b555d291a973565bcb9c13a6121d00f2f01c92f7")
+        (commit "cb8671f3125b8acbfdc28a9ab169a2e8c38b2a49")
         (revision "0")
         (builtins '(
                     "basename"
@@ -114,7 +114,7 @@
                                     "/gash-" commit ".tar.gz"))
                 (sha256
                  (base32
-                  "07g0m6c3s5562py0ypbjzzg82a5vgmnsyg6vd5476ad5q0z23f9k"))))
+                  "1i51qz4xl6ija77jrjdq5r3y4p0jl3kzii1d7i3kyd8rydxycgj5"))))
       (build-system guile-build-system)
       (arguments
        `(#:phases
@@ -160,10 +160,12 @@
            (add-after 'install 'install-scripts
              (lambda* (#:key inputs outputs #:allow-other-keys)
                (let* ((out (assoc-ref outputs "out"))
-                      (bin (string-append out "/bin")))
+                      (bin (string-append out "/bin"))
+                      (libexec/gash (string-append out "/libexec/gash")))
+                 (install-file "bin/gash" bin)
                  (for-each
                   (lambda (name)
-                    (install-file (string-append "bin/" name) bin))
+                    (install-file (string-append "bin/" name) libexec/gash))
                   ',(append builtins shells)))
                #t)))))
       (native-inputs
