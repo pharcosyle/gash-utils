@@ -50,6 +50,11 @@
            (substitute* "test/common.sh"
              (("/usr/bin/env time") (which "time")))
 
+           ;; We do not have the BusyBox shell, but the test suite
+           ;; will try to use it anyway.  This change fixes that.
+           (substitute* "test/spec.sh"
+             (("BUSYBOX_ASH=_tmp/shells/ash") "BUSYBOX_ASH="))
+
            ;; This is not necessary, but it makes the output nicer.
            (substitute* "test/spec.sh"
              (("which \\$name") "which $name 2>/dev/null"))
