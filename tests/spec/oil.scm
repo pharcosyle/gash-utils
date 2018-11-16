@@ -28,7 +28,9 @@
        #~(begin
            (use-modules (guix build utils)
                         (ice-9 match)
-                        (ice-9 rdelim))
+                        (ice-9 rdelim)
+                        (ice-9 regex)
+                        (srfi srfi-1))
            (copy-recursively #$source #$output)
            (setenv "PATH" (list->search-path-as-string
                            (map (lambda (p)
@@ -55,65 +57,81 @@
            ;; We want to omit tests that use features we do not
            ;; support yet.  This lets us add tests quickly, and expand
            ;; to the more integrated tests as we are able.
-           (let ((remove-tests
+           (let ((filter-tests
                   (lambda (tests file)
                     (format #t "Removing tests from ~a:~%" file)
                     (with-atomic-file-replacement file
                       (lambda (in out)
-                        (let loop ((line (read-line in 'concat)) (ignore? #f))
+                        (let loop ((line (read-line in 'concat))
+                                   (transformers #t))
                           (cond
                            ((eof-object? line) #t)
                            ((string-prefix? "####" line)
                             (let* ((name-part (substring line 4))
                                    (name (string-trim-both name-part)))
-                              (if (member name tests)
-                                  (begin
-                                    (format #t "  - ~a~%" name)
-                                    (loop (read-line in 'concat) #t))
-                                  (begin
-                                    (display line out)
-                                    (loop (read-line in 'concat) #f)))))
+                              (match (assoc name tests)
+                                ((_ . ())
+                                 (format #t "  - ~a~%" name)
+                                 (loop (read-line in 'concat) #f))
+                                ((_ . (transformers ..1))
+                                 (format #t "  * ~a~%" name)
+                                 (display line out)
+                                 (loop (read-line in 'concat) transformers))
+                                (#f
+                                 (display line out)
+                                 (loop (read-line in 'concat) #t)))))
                            (else
-                            (unless ignore? (display line out))
-                            (loop (read-line in 'concat) ignore?))))))))
-                 (tests-to-remove
+                            (match transformers
+                              (#f #t)
+                              (#t (display line out))
+                              (((targets replacements) ..1)
+                               (display
+                                (fold (lambda (target replacement line)
+                                        (regexp-substitute/global
+                                         #f target line
+                                         'pre replacement 'post))
+                                      line
+                                      targets replacements)
+                                out)))
+                            (loop (read-line in 'concat) transformers))))))))
+                 (tests-to-filter
                   '(("spec/word-split.test.sh"
                      (;; This test requires local variables, which is
                       ;; a Bash extension.
-                      "IFS is scoped"
+                      ("IFS is scoped")
                       ;; We do not do tilde expansion yet.
-                      "Tilde sub is not split, but var sub is"
+                      ("Tilde sub is not split, but var sub is")
                       ;; This test relies on 'echo -e', which we do not
                       ;; have.  When rewritten to avoid it, we pass.
-                      "IFS empty doesn't do splitting"
+                      ("IFS empty doesn't do splitting")
                       ;; This test relies on 'unset' and 'echo -e',
                       ;; which we do not have.  When rewritten to avoid
                       ;; them, we pass.
-                      "IFS unset behaves like $' \\t\\n'"))
+                      ("IFS unset behaves like $' \\t\\n'")))
                     ("spec/redirect.test.sh"
                      (;; We match Bash and Dash here, just not Oil.
-                      "Redirect in assignment is invalid"
+                      ("Redirect in assignment is invalid")
                       ;; Again, we match Dash here (though not Bash).
-                      "Redirect in assignment"
+                      ("Redirect in assignment")
                       ;; This test requires arithmetic substitutions.
-                      "Redirect in function body is evaluated multiple times"
+                      ("Redirect in function body is evaluated multiple times")
                       ;; We match Korn here.
-                      "Prefix redirect for loop -- not allowed"
+                      ("Prefix redirect for loop -- not allowed")
                       ;; We do not support named file descriptors
                       ;; (they are not in POSIX).
-                      "Named file descriptor"
+                      ("Named file descriptor")
                       ;; This test relies on 'set', which we do not
                       ;; have yet.
-                      ">| to clobber"
+                      (">| to clobber")
                       ;; This is Bash specific.
-                      "&> redirects stdout and stderr"
+                      ("&> redirects stdout and stderr")
                       ;; This seems to go beyond POSIX.
-                      "1>&2- to close file descriptor"
+                      ("1>&2- to close file descriptor")
                       ;; Again, this is Bash specific.
-                      "&>> appends stdout and stderr")))))
+                      ("&>> appends stdout and stderr"))))))
              (for-each (match-lambda
-                         ((file tests) (remove-tests tests file)))
-                       tests-to-remove)))))))
+                         ((file tests) (filter-tests tests file)))
+                       tests-to-filter)))))))
 
 ;; Local Variables:
 ;; eval: (put 'with-atomic-file-replacement 'scheme-indent-function 1)
