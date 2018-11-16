@@ -27,12 +27,14 @@
             var-ref
             var-ref*
             set-var!
+            delete-environment-vars!
             environment->environ
             environ->alist
             environment-status
             set-environment-status!
             environment-function-ref
             define-environment-function!
+            delete-environment-functions!
             environment-arguments
             with-environment-arguments))
 
@@ -76,6 +78,11 @@
   (set-environment-vars! env (acons name val
                                     (environment-vars env))))
 
+(define (delete-environment-vars! env names)
+  (set-environment-vars! env (remove (match-lambda
+                                       ((key . _) (member key names)))
+                                     (environment-vars env))))
+
 (define* (environment->environ env #:optional (bindings '()))
   "Convert the environment variables from @var{env} into a list of
 @code{\"name=value\"} strings (an @dfn{environ}).  If @var{bindings}
@@ -109,6 +116,11 @@ such function, return @code{#f}."
   "Make @var{name} refer to @var{proc} in @var{env}."
   (set-environment-functions! env (acons name proc
                                          (environment-functions env))))
+
+(define (delete-environment-functions! env . names)
+  (set-environment-functions! env (remove (match-lambda
+                                            ((key . _) (member key names)))
+                                          (environment-functions env))))
 
 (define (with-environment-arguments env arguments thunk)
   "Call @var{thunk} with the arguments in @var{env} set to

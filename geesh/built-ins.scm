@@ -46,7 +46,7 @@
     ("shift" . ,undefined)
     ("times" . ,undefined)
     ("trap" . ,undefined)
-    ("unset" . ,undefined)))
+    ("unset" . ,(@@ (geesh built-ins unset) main))))
 
 ;; Regular built-ins take precendence over utilities in the search
 ;; path, but not over functions.
