@@ -100,7 +100,20 @@
                                 out)))
                             (loop (read-line in 'concat) transformers))))))))
                  (tests-to-filter
-                  '(("spec/word-split.test.sh"
+                  '(("spec/quote.test.sh"
+                     (;; We match KornShell on these two tests.
+                      ("Unterminated single quote"
+                       ("OK mksh" "OK mksh/geesh"))
+                      ("Unterminated double quote"
+                       ("OK mksh" "OK mksh/geesh"))
+                      ;; The rest of these are well beyond POSIX.
+                      ("$''")
+                      ("$'' with quotes")
+                      ("$'' with newlines")
+                      ("$'' octal escapes don't have leading 0")
+                      ("$'' octal escapes with fewer than 3 chars")
+                      ("$\"\"")))
+                    ("spec/word-split.test.sh"
                      (;; This test requires local variables, which is
                       ;; a Bash extension.
                       ("IFS is scoped")
