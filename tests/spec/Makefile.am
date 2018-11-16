@@ -21,7 +21,8 @@ TESTS =                                         \
     oil/spec/quote.test.sh                      \
     oil/spec/redirect.test.sh                   \
     oil/spec/smoke.test.sh                      \
-    oil/spec/word-split.test.sh
+    oil/spec/word-split.test.sh                 \
+    oil/spec/var-sub.test.sh
 
 clean-local:
 	rm -rf oil

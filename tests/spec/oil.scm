@@ -127,6 +127,17 @@
                       ("IFS unset behaves like $' \\t\\n'"
                        ("echo -e ' a b\\\\tc\\\\n'"
                         "guile -c '(display \" a b\\tc\\n\")'"))))
+                    ("spec/var-sub.test.sh"
+                     (;; We match Bash here.
+                      ("Bad var sub"
+                       ("OK bash" "OK bash/geesh"))
+                      ;; This test expects 'ls' to be at '/bin/ls',
+                      ;; which isn't the case on GuixSD.
+                      ("Braced block inside ${}"
+                       ("which ls" "guile -c '(display \"/bin/ls\")'"))
+                      ;; We match KornShell here.
+                      ("Here doc with bad \"$@\" delimiter"
+                       ("OK mksh" "OK mksh/geesh"))))
                     ("spec/redirect.test.sh"
                      (;; We match Bash and Dash here, just not Oil.
                       ("Redirect in assignment is invalid"
