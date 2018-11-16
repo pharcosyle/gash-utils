@@ -365,6 +365,7 @@ next character statisfies @var{pred} (or is a newline)."
     (#\'
      (let loop ((chr (get-char port)) (acc '()))
        (match chr
+         ((? eof-object?) (throw 'lex-error))
          (#\' `(<sh-quote> ,(list->string (reverse! acc))))
          (x (loop (get-char port) (cons x acc))))))))
 
