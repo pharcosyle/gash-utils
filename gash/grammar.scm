@@ -179,9 +179,14 @@
              (end (peg:end match))
              (tree (peg:tree match)))
         (when (> %debug-level 0)
+          (format #t "parse tree:\n")
           (pretty-print tree))
         (if (eq? (string-length input) end)
-            tree
+            (let ((script (transform tree)))
+              (when (> %debug-level 0)
+                (format #t "script:\n")
+                (pretty-print script))
+              script)
             (if match
                 (begin
                   (format (current-error-port) "parse error: at offset: ~a\n" end)
@@ -220,3 +225,18 @@
                   indent
                   (format-peg (cadar args)))
           (exit 1))))))
+
+(define (transform o)
+  (match o
+    (('command word ... ('io-redirect ('io-here "<<" ('io-here-document string))))
+     `(pipeline (cut display ,string) (command ,@word)))
+    (('command word ... ('io-redirect filedes ... ('io-file ">" file-name)))
+     (cond ((or (null? filedes) (equal? filedes '("1")))
+            `(with-output-to-file ,file-name (command ,@word)))
+           ((equal? filedes '("2"))
+            `(with-error-to-file ,file-name (command ,@word)))
+           (else (error (format #f "TODO: output to filedes=~a\n" filedes)))))
+    (('command word ... ('io-redirect ('io-file "<" file-name)))
+     `(with-input-from-file ,file-name (command ,@word)))
+    ((h t ...) (map transform o))
+    (_ o)))
