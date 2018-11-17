@@ -245,6 +245,8 @@
     (('compound compound) (transform compound))
     (('compound compound ...) `(begin ,@(map transform compound)))
 
+    (('command (word (or "." "source")) file-name)
+     `(source ,(transform file-name)))
     (('command word ... ('io-redirect ('io-here "<<" ('io-here-document string))))
      `(pipeline (cut display ,string) (command ,@word)))
     (('command word ... ('io-redirect filedes ... ('io-file ">" file-name)))

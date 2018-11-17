@@ -59,6 +59,7 @@
             script-status
             sequence
             singlequotes
+            source
             splice
             split
             substitution
@@ -71,6 +72,11 @@
   (match (pke 'background-term term)
     (('pipeline command) (pke 'background: `(pipeline+ #f ,command)))
     (_ term)))
+
+(define (source file-name)
+  (let* ((string (with-input-from-file file-name read-string))
+         (ast (parse-string string)))
+    (run ast)))
 
 (define (command . args)
   (define (exec command)
