@@ -108,8 +108,8 @@
      do-group         <-- do-keyword ws+ compound done-keyword#
 
      if-clause        <-- if-keyword sp+ compound then-keyword# ws+ compound else-part? fi-keyword#
-     else-part        <-- else-keyword ws+ compound /
-                          elif-keyword ws+ compound then-keyword# ws+ compound else-part?
+     else-part        <-- else-keyword ws+ compound / elif
+     elif             <-- elif-keyword ws+ compound then-keyword# ws+ compound else-part?
 
      while-clause     <--  while-keyword compound do-group
 
@@ -232,6 +232,19 @@
     (('script command) (transform command))
     (('script command ...) `(begin ,@(map transform command)))
 
+    ;; FIXME: cannot remove pipeline even if it's a single command
+    ;; `pipeline' is what executes commands and evaluates them
+    ;; (set -e)
+    ;; (('pipeline pipeline) (transform pipeline))
+    ;; or it results in ((if ...)); which won't work either
+    ;; (('pipeline pipeline) (let ((x (transform pipeline)))
+    ;;                         (match x
+    ;;                           (('command command ...) (list x))
+    ;;                           (_ x))))
+
+    (('compound compound) (transform compound))
+    (('compound compound ...) `(begin ,@(map transform compound)))
+
     (('command word ... ('io-redirect ('io-here "<<" ('io-here-document string))))
      `(pipeline (cut display ,string) (command ,@word)))
     (('command word ... ('io-redirect filedes ... ('io-file ">" file-name)))
@@ -242,6 +255,23 @@
            (else (error (format #f "TODO: output to filedes=~a\n" filedes)))))
     (('command word ... ('io-redirect ('io-file "<" file-name)))
      `(with-input-from-file ,file-name (command ,@word)))
+
+    (('command ('if-clause if-clause ...))
+     (transform `(if-clause ,@if-clause)))
+    (('if-clause expr then)
+     `(if (true? ,(transform expr)) ,(transform then) 0))
+    (('if-clause expr then ('else-part else))
+     `(if (true? ,(transform expr)) ,(transform then) ,(transform else)))
+    (('if-clause expr then ..1)
+     `(if (true? ,(transform expr)) (begin ,@(map transform then)) 0))
+    (('if-clause expr then ..1 ('else-part else))
+     `(if (true? ,(transform expr)) (begin ,@(map transform then)) ,(transform else)))
+    (('if-clause expr then ('else-part else ..1))
+     `(if (true? ,(transform expr)) ,(transform then) ,@(map transform else)))
+    (('if-clause expr then ..1 ('else-part else ..1))
+     `(if (true? ,(transform expr)) (begin ,@(map transform then)) (begin ,@(map transform else))))
+
+    (('elif elif ...) (transform `(if-clause ,@elif)))
 
     ((h t ...) (map transform o))
     (_ o)))

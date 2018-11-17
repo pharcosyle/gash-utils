@@ -51,7 +51,6 @@
             do-group
             expression
             glob
-            if-clause
             ignore-error
             literal
             or-terms
@@ -140,8 +139,12 @@
   (let ((glob (append-map glob (apply append args))))
     glob))
 
-(define (run ast)
-  (map (cut local-eval <> (the-environment)) ast))
+(define (run script)
+  ;; fixme: work towards simple eval -- must remove begin for now
+  (match script
+    (('begin script ...)
+     (last (map (cut local-eval <> (the-environment)) script)))
+    (_ (local-eval script (the-environment)))))
 
 (define (script-status)
   ((compose string->number variable) "?"))
@@ -183,28 +186,19 @@
         (set-shell-opt! " errexit" #t))
       r)))
 
-(define-syntax if-clause
+(define-syntax true?
   (lambda (x)
     (syntax-case x ()
-      ((_ expr then)
+      ((_ pipeline)
        (with-syntax ((it (datum->syntax x 'it)))
-         #'(let ((it (ignore-error expr)))
-             (if (zero? it) then))))
-      ((_ expr then else)
-       (with-syntax ((it (datum->syntax x 'it)))
-         #'(let ((it (ignore-error expr)))
-             (if (zero? it) then else)))))))
+         #'(let ((it (ignore-error pipeline)))
+             (status->bool it)))))))
 
-(define-syntax else-part
-  (lambda (x)
-    (syntax-case x ()
-      ((_ else)
-       (with-syntax ((it (datum->syntax x 'it)))
-         #'else))
-      ((_ expr then else)
-       (with-syntax ((it (datum->syntax x 'it)))
-         #'(let ((it (ignore-error expr)))
-             (if (zero? it) then else)))))))
+(define (status->bool o)
+  (match o
+    (#t #t)
+    ((? number?) (zero? o))
+    (_ #f)))
 
 (define-syntax expression
   (lambda (x)
@@ -258,8 +252,10 @@
       (assignment "?" (number->string status))
       (when (and (not (zero? status))
                  (shell-opt? "errexit"))
+        (when (> %debug-level 0)
+          (format (current-error-port) "set -e: exiting\n"))
         (exit status))
-      status))
+      (status->bool status)))
   (let ((commands (filter (lambda (x) (not (eq? x *unspecified*))) commands)))
     (when (> %debug-level 1)
       (format (current-error-port) "pijp: commands=~s\n" commands))
