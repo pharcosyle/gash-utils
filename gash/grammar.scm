@@ -228,6 +228,10 @@
 
 (define (transform o)
   (match o
+
+    (('script command) (transform command))
+    (('script command ...) `(begin ,@(map transform command)))
+
     (('command word ... ('io-redirect ('io-here "<<" ('io-here-document string))))
      `(pipeline (cut display ,string) (command ,@word)))
     (('command word ... ('io-redirect filedes ... ('io-file ">" file-name)))
@@ -238,5 +242,6 @@
            (else (error (format #f "TODO: output to filedes=~a\n" filedes)))))
     (('command word ... ('io-redirect ('io-file "<" file-name)))
      `(with-input-from-file ,file-name (command ,@word)))
+
     ((h t ...) (map transform o))
     (_ o)))

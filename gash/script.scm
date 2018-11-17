@@ -57,7 +57,6 @@
             or-terms
             pipeline
             run
-            script
             script-status
             sequence
             singlequotes
@@ -146,9 +145,6 @@
 
 (define (script-status)
   ((compose string->number variable) "?"))
-
-(define (script . o)
-  o)
 
 (define (for-clause name sequence body)
   (for-each (lambda (value)
