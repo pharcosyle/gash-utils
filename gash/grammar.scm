@@ -258,6 +258,9 @@
     (('command word ... ('io-redirect ('io-file "<" file-name)))
      `(with-input-from-file ,file-name (command ,@word)))
 
+    (('command ('word (and (? string?) string)) ...)
+     `(command ,@string))
+
     (('command ('if-clause if-clause ...))
      (transform `(if-clause ,@if-clause)))
     (('if-clause expr then)
