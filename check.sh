@@ -55,6 +55,7 @@ tests="
 
 11-for
 11-for-split-sequence
+11-for-subshell
 
 20-semi
 20-or
