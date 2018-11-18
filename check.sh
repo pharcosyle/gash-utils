@@ -40,6 +40,7 @@ tests="
 07-variable-or
 07-variable-not-or
 07-variable-or-slash
+07-variable-or-variable
 
 08-variable-and
 08-variable-not-and
