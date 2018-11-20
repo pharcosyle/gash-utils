@@ -18,6 +18,8 @@
 
 (define-module (geesh word)
   #:use-module (geesh environment)
+  #:use-module (geesh pattern)
+  #:use-module (ice-9 ftw)
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
@@ -168,6 +170,45 @@ string, the separator is derived from @var{ifs} using
       (((? string? h) . t)
        (loop t (cons h acc))))))
 
+(define (qword->pattern qword ifs)
+  (let loop ((qword (normalize-word qword)) (acc '()))
+    (match qword
+      (() (parse-pattern (string-concatenate-reverse acc)))
+      ((('<sh-quote> qword*) . t)
+       (loop t (cons (pattern-quote (remove-quotes qword* ifs)) acc)))
+      (((? string? h) . t)
+       (loop t (cons h acc))))))
+
+(define (expand-pathnames qword pwd ifs)
+
+  (define (list-matches patterns)
+    (let loop ((stack `(("" ,@patterns))) (acc '()))
+      (match stack
+        (() (reverse! acc))
+        (((path) . stack-tail)
+         (loop stack-tail (cons path acc)))
+        (((path pattern . next-patterns) . stack-tail)
+         (match (scandir (string-append pwd "/" path)
+                         (cut pattern-match? pattern <>
+                              #:explicit-initial-period? #t))
+           (#f (loop stack-tail acc))
+           (files (loop (append (map (lambda (file)
+                                       (if (string-null? path)
+                                           (cons file next-patterns)
+                                           (cons (string-append path "/" file)
+                                                 next-patterns)))
+                                     files)
+                                stack-tail)
+                        acc)))))))
+
+  (let ((patterns (map (cut qword->pattern <> ifs)
+                       (split-fields qword "/"))))
+    (if (every pattern-plain? patterns)
+        `(,(remove-quotes qword ifs))
+        (match (list-matches patterns)
+          (() `(,(remove-quotes qword ifs)))
+          (matches matches)))))
+
 (define eval-cmd-sub
   ;; A procedure for evaluating (expanding) a command substitution.
   ;; This is parameterized to avoid a circular dependency.
@@ -253,8 +294,12 @@ and arithmetic substitions using the environment @var{env}."
   ;; 'word->qword', so use 'let*' here.
   (let* ((qword (word->qword env word))
          (ifs (or (and env (var-ref env "IFS"))
-                  (string #\space #\tab #\newline))))
+                  (string #\space #\tab #\newline)))
+         (pwd (and env (var-ref env "PWD"))))
     (if split?
-        (map (cut remove-quotes <> ifs)
-             (split-fields qword ifs))
+        (if pwd
+            (append-map (cut expand-pathnames <> pwd ifs)
+                        (split-fields qword ifs))
+            (map (cut remove-quotes <> ifs)
+                 (split-fields qword ifs)))
         (remove-quotes qword ifs))))
