@@ -50,6 +50,7 @@ MODULES =                                       \
   geesh/eval.scm                                \
   geesh/lexer.scm                               \
   geesh/parser.scm                              \
+  geesh/pattern.scm                             \
   geesh/repl.scm                                \
   geesh/shell.scm                               \
   geesh/word.scm
@@ -61,6 +62,7 @@ TESTS =                                         \
   tests/environment.scm                         \
   tests/lexer.scm                               \
   tests/parser.scm                              \
+  tests/pattern.scm                             \
   tests/shell.scm                               \
   tests/word.scm
 
