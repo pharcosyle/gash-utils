@@ -39,7 +39,7 @@
     ("eval" . ,undefined)
     ("exec" . ,undefined)
     ("exit" . ,undefined)
-    ("export" . ,undefined)
+    ("export" . ,(@@ (geesh built-ins export) main))
     ("readonly" . ,undefined)
     ("return" . ,undefined)
     ("set" . ,undefined)
