@@ -18,6 +18,7 @@
 
 (define-module (geesh built-ins read)
   #:use-module (geesh environment)
+  #:use-module (ice-9 match)
   #:use-module (ice-9 rdelim))
 
 ;;; Commentary:
@@ -27,5 +28,7 @@
 ;;; Code:
 
 (define (main env . args)
-  (set-var! env (car args) (read-line (current-input-port)))
-  0)
+  (match (read-line (current-input-port))
+    ((? eof-object?) 1)
+    (str (set-var! env (car args) str)
+         0)))
