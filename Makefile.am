@@ -41,6 +41,8 @@ check-spec:
 	$(MAKE) $(AM_MAKEFLAGS) -L -C tests/spec check
 
 MODULES =                                       \
+  geesh/built-ins/break.scm                     \
+  geesh/built-ins/continue.scm                  \
   geesh/built-ins/echo.scm                      \
   geesh/built-ins/false.scm                     \
   geesh/built-ins/read.scm                      \

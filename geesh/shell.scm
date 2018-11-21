@@ -333,8 +333,22 @@ run @var{thunk2}."
   "Run @var{thunk} for each binding in @var{bindings}.  The value of
 @var{bindings} have the form @code{(@var{name} (@var{value} ...))}."
   (set-environment-status! env 0)
-  (match-let (((name (values ...)) bindings))
-    (for-each (lambda (value)
-                (set-var! env name value)
-                (thunk))
-              values)))
+  (match-let ((break-prompt (environment-break-prompt env))
+              (continue-prompt (environment-continue-prompt env))
+              ((name (values ...)) bindings))
+    (call-with-prompt break-prompt
+      (lambda ()
+        (for-each (lambda (value)
+                    (set-var! env name value)
+                    (call-with-prompt continue-prompt
+                      thunk
+                      (lambda (cont n)
+                        (when (> n 0)
+                          (false-if-exception
+                           (abort-to-prompt continue-prompt (1- n)))))))
+                  values))
+      (lambda (cont n)
+        (when (> n 0)
+          (false-if-exception
+           (abort-to-prompt break-prompt (1- n))))))))
+

@@ -34,8 +34,8 @@
 (define *special-built-ins*
   `(("." . ,undefined)
     (":" . ,undefined)
-    ("break" . ,undefined)
-    ("continue" . ,undefined)
+    ("break" . ,(@@ (geesh built-ins break) main))
+    ("continue" . ,(@@ (geesh built-ins continue) main))
     ("eval" . ,undefined)
     ("exec" . ,undefined)
     ("exit" . ,undefined)

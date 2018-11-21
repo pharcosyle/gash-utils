@@ -36,7 +36,9 @@
             define-environment-function!
             delete-environment-functions!
             environment-arguments
-            with-environment-arguments))
+            with-environment-arguments
+            environment-break-prompt
+            environment-continue-prompt))
 
 ;;; Commentary:
 ;;;
@@ -46,12 +48,15 @@
 ;;; Code:
 
 (define-record-type <environment>
-  (%make-environment vars functions arguments status)
+  (%make-environment vars functions arguments status
+                     break-prompt continue-prompt)
   environment?
   (vars environment-vars set-environment-vars!)
   (functions environment-functions set-environment-functions!)
   (arguments environment-arguments set-environment-arguments!)
-  (status environment-status set-environment-status!))
+  (status environment-status set-environment-status!)
+  (break-prompt environment-break-prompt)
+  (continue-prompt environment-continue-prompt))
 
 (define* (make-environment vars #:optional (arguments '()))
   ;; In order to insure that each pair in the 'vars' alist is mutable,
@@ -61,7 +66,9 @@
                           vars)
                      '()
                      arguments
-                     0))
+                     0
+                     (make-prompt-tag)
+                     (make-prompt-tag)))
 
 (define (var-ref env name)
   "Get the value of the variable @var{name} in @var{env}.  If
