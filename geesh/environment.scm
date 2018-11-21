@@ -38,6 +38,7 @@
             define-environment-function!
             delete-environment-functions!
             environment-arguments
+            set-environment-arguments!
             with-environment-arguments
             environment-break-prompt
             environment-continue-prompt))

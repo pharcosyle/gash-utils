@@ -42,7 +42,7 @@
     ("export" . ,(@@ (geesh built-ins export) main))
     ("readonly" . ,(@@ (geesh built-ins readonly) main))
     ("return" . ,undefined)
-    ("set" . ,undefined)
+    ("set" . ,(@@ (geesh built-ins set) main))
     ("shift" . ,undefined)
     ("times" . ,undefined)
     ("trap" . ,undefined)
