@@ -100,7 +100,11 @@
                                 out)))
                             (loop (read-line in 'concat) transformers))))))))
                  (tests-to-filter
-                  '(("spec/quote.test.sh"
+                  '(("spec/case_.test.sh"
+                     (;; These two are Bash specific.
+                      ("Case statement with ;;&")
+                      ("Case statement with ;&")))
+                    ("spec/quote.test.sh"
                      (;; We match KornShell on these two tests.
                       ("Unterminated single quote"
                        ("OK mksh" "OK mksh/geesh"))
