@@ -27,6 +27,8 @@
             var-ref
             var-ref*
             set-var!
+            set-var-export!
+            set-var-read-only!
             delete-environment-vars!
             environment->environ
             environ->alist
@@ -47,6 +49,13 @@
 ;;;
 ;;; Code:
 
+(define-record-type <variable>
+  (make-variable value export? read-only?)
+  variable?
+  (value variable-value)
+  (export? variable-exported?)
+  (read-only? variable-read-only?))
+
 (define-record-type <environment>
   (%make-environment vars functions arguments status
                      break-prompt continue-prompt)
@@ -62,7 +71,8 @@
   ;; In order to insure that each pair in the 'vars' alist is mutable,
   ;; we copy each one into a new list.
   (%make-environment (map (match-lambda
-                            ((key . val) (cons key val)))
+                            ((key . val)
+                             (cons key (make-variable val #t #f))))
                           vars)
                      '()
                      arguments
@@ -73,7 +83,9 @@
 (define (var-ref env name)
   "Get the value of the variable @var{name} in @var{env}.  If
 @var{name} is unset, return @code{#f}."
-  (assoc-ref (environment-vars env) name))
+  (and=> (assoc-ref (environment-vars env) name)
+         (match-lambda
+           (($ <variable> value _ _) value))))
 
 (define (var-ref* env name)
   "Get the value of the variable @var{name} in @var{env}.  If
@@ -82,8 +94,39 @@
 
 (define (set-var! env name val)
   "Set the variable @var{name} to @var{val} in @var{env}."
-  (set-environment-vars! env (acons name val
-                                    (environment-vars env))))
+  (match (assoc-ref (environment-vars env) name)
+    (#f (set-environment-vars!
+         env (acons name (make-variable val #f #f)
+                    (environment-vars env))))
+    (($ <variable> _ export? read-only?)
+     (when read-only? (throw 'variable-assignment-error))
+     (set-environment-vars!
+      env (acons name (make-variable val export? #f)
+                 (environment-vars env))))))
+
+(define* (set-var-export! env name #:optional val)
+  "Set the export attribute for variable @var{name} in @var{env}.  If
+@var{val} is specified, update the variable's value as well."
+  (match (assoc-ref (environment-vars env) name)
+    (#f (set-environment-vars! env (acons name (make-variable val #t #f)
+                                          (environment-vars env))))
+    (($ <variable> value export? read-only?)
+     (when (and read-only? val) (throw 'variable-assignment-error))
+     (set-environment-vars!
+      env (acons name (make-variable (or val value) #t read-only?)
+                 (environment-vars env))))))
+
+(define* (set-var-read-only! env name #:optional val)
+  "Set the read-only attribute for variable @var{name} in @var{env}.
+If @var{val} is specified, update the variable's value as well."
+  (match (assoc-ref (environment-vars env) name)
+    (#f (set-environment-vars! env (acons name (make-variable val #f #t)
+                                          (environment-vars env))))
+    (($ <variable> value export? read-only?)
+     (when (and read-only? val) (throw 'variable-assignment-error))
+     (set-environment-vars!
+      env (acons name (make-variable (or val value) export? #t)
+                 (environment-vars env))))))
 
 (define (delete-environment-vars! env names)
   (set-environment-vars! env (remove (match-lambda
@@ -95,17 +138,21 @@
 @code{\"name=value\"} strings (an @dfn{environ}).  If @var{bindings}
 is set to a list of pairs of strings, those name-value pairs take
 precedence over the ones in @var{env}."
-  (let loop ((env-vars (append bindings (environment-vars env)))
-             (acc '())
-             (seen '()))
-    (match env-vars
-      (((name . value) . rest)
-       (if (member name seen)
-           (loop rest acc seen)
-           (loop rest
-                 (cons (string-append name "=" value) acc)
-                 (cons name seen))))
-      (() acc))))
+  (let ((exported (filter-map (match-lambda
+                                ((name . ($ <variable> val export? _))
+                                 (and export? val `(,name . ,val))))
+                              (environment-vars env))))
+    (let loop ((env-vars (append bindings exported))
+               (acc '())
+               (seen '()))
+      (match env-vars
+        (((name . value) . rest)
+         (if (member name seen)
+             (loop rest acc seen)
+             (loop rest
+                   (cons (string-append name "=" value) acc)
+                   (cons name seen))))
+        (() acc)))))
 
 (define (environ->alist environ)
   (define (string-split-1 str char_pred)
