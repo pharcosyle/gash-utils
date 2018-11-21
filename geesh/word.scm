@@ -258,7 +258,7 @@ and arithmetic substitions using the environment @var{env}."
     (('<sh-ref-or!> name default)
      (or (parameter-ref env name)
          (let ((new-value (expand-word env (or default "")
-                                       #:split? #f #:rhs-tildes? #t)))
+                                       #:output 'string #:rhs-tildes? #t)))
            (set-var! env name new-value)
            new-value)))
     (('<sh-ref-or!*> name default)
@@ -266,7 +266,7 @@ and arithmetic substitions using the environment @var{env}."
        (if (string-not-null? value)
            value
            (let ((new-value (expand-word env (or default "")
-                                         #:split? #f #:rhs-tildes? #t)))
+                                         #:output 'string #:rhs-tildes? #t)))
              (set-var! env name new-value)
              new-value))))
     (('<sh-ref-assert> name message) (error "Not implemented"))
@@ -287,7 +287,7 @@ and arithmetic substitions using the environment @var{env}."
      (number->string (string-length (parameter-ref* env name))))
     (_ (map (cut word->qword env <>) word))))
 
-(define* (expand-word env word #:key (split? #t) (rhs-tildes? #f))
+(define* (expand-word env word #:key (output 'fields) (rhs-tildes? #f))
   "Expand @var{word} into a list of fields using the environment
 @var{env}."
   ;; The value of '$IFS' may depend on side-effects performed during
@@ -296,10 +296,11 @@ and arithmetic substitions using the environment @var{env}."
          (ifs (or (and env (var-ref env "IFS"))
                   (string #\space #\tab #\newline)))
          (pwd (and env (var-ref env "PWD"))))
-    (if split?
-        (if pwd
-            (append-map (cut expand-pathnames <> pwd ifs)
-                        (split-fields qword ifs))
-            (map (cut remove-quotes <> ifs)
-                 (split-fields qword ifs)))
-        (remove-quotes qword ifs))))
+    (match output
+      ('fields (if pwd
+                   (append-map (cut expand-pathnames <> pwd ifs)
+                               (split-fields qword ifs))
+                   (map (cut remove-quotes <> ifs)
+                        (split-fields qword ifs))))
+      ('string (remove-quotes qword ifs))
+      ('pattern (qword->pattern qword ifs)))))

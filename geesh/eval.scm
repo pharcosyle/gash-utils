@@ -31,17 +31,17 @@
 ;;;
 ;;; Code:
 
-(define* (eval-word env word #:key (split? #t) (rhs-tildes? #f))
+(define* (eval-word env word #:key (output 'fields) (rhs-tildes? #f))
   (parameterize ((eval-cmd-sub (lambda (exps)
                                  (sh:substitute-command env
                                    (lambda ()
                                      (for-each (cut eval-sh env <>) exps))))))
-    (expand-word env word #:split? split? #:rhs-tildes? rhs-tildes?)))
+    (expand-word env word #:output output #:rhs-tildes? rhs-tildes?)))
 
 (define (eval-redir env redir)
   "Evaluate the redirect @var{redir} in environment @var{env}."
   (match-let* (((op fd word) redir)
-               (field (eval-word env word #:split? #f)))
+               (field (eval-word env word #:output 'string)))
     (match op
       ((or '>& '<&)
        (let ((n (string->number field)))
@@ -78,7 +78,7 @@ environment @var{env}."
      (let* ((args (append-map (cut eval-word env <>) cmd-words))
             (bindings (map (lambda (name word)
                              `(,name . ,(eval-word env word
-                                                   #:split? #f
+                                                   #:output 'string
                                                    #:rhs-tildes? #t)))
                            names var-words)))
        (match args
@@ -98,7 +98,7 @@ environment @var{env}."
     (('<sh-set!> (names words) ..1)
      (for-each (lambda (name word)
                  (set-var! env name (eval-word env word
-                                               #:split? #f
+                                               #:output 'string
                                                #:rhs-tildes? #t)))
                names words))
     (('<sh-subshell> . sub-exps)
@@ -133,7 +133,7 @@ environment @var{env}."
             (redirs
              (let ((bindings (map (lambda (name word)
                                     `(,name . ,(eval-word env word
-                                                          #:split? #f
+                                                          #:output 'string
                                                           #:rhs-tildes? #t)))
                                   names var-words)))
                (match args
