@@ -1,11 +1,14 @@
 (define-module (geesh shell)
   #:use-module (geesh built-ins)
   #:use-module (geesh environment)
+  #:use-module (geesh pattern)
   #:use-module (ice-9 match)
   #:use-module (ice-9 textual-ports)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
   #:export (sh:and
+            sh:case
+            sh:cond
             sh:exec-let
             sh:exec
             sh:for
@@ -375,3 +378,28 @@ run @var{thunk2}."
 (define (sh:until env test-thunk thunk)
   (sh:while env (lambda () (sh:not env test-thunk)) thunk))
 
+
+;;; Conditionals.
+
+(define (sh:case env value . cases)
+  (set-environment-status! env 0)
+  (let loop ((cases cases))
+    (match cases
+      (() #t)
+      (((patterns thunk) . tail)
+       (if (any (cut pattern-match? <> value) patterns)
+           (thunk)
+           (loop tail))))))
+
+(define (sh:cond env . cases)
+  (set-environment-status! env 0)
+  (let loop ((cases cases))
+    (match cases
+      (() #t)
+      (((#t thunk))
+       (thunk))
+      (((test-thunk thunk) . tail)
+       (test-thunk)
+       (if (= (environment-status env) 0)
+           (thunk)
+           (loop tail))))))
