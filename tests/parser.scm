@@ -209,17 +209,17 @@
 ;; For loops
 
 (test-equal "Parses for loops over parameters without seperator"
-  '(<sh-for> ("x" (<sh-ref> "@"))
+  '(<sh-for> ("x" ((<sh-quote> (<sh-ref> "@"))))
      (<sh-exec> "echo" (<sh-ref> "x")))
   (parse "for x do echo $x; done"))
 
 (test-equal "Parses for loops over parameters with seperator"
-  '(<sh-for> ("x" (<sh-ref> "@"))
+  '(<sh-for> ("x" ((<sh-quote> (<sh-ref> "@"))))
      (<sh-exec> "echo" (<sh-ref> "x")))
   (parse "for x; do echo $x; done"))
 
 (test-equal "Parses for loops over parameters with \"in\""
-  '(<sh-for> ("x" (<sh-ref> "@"))
+  '(<sh-for> ("x" ())
      (<sh-exec> "echo" (<sh-ref> "x")))
   (parse "for x in; do echo $x; done"))
 

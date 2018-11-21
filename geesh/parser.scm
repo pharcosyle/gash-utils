@@ -352,11 +352,11 @@ the same number of times.)"
 
    (for-clause
     (For name do-group)
-    : `(<sh-for> (,$2 (<sh-ref> "@")) ,$3)
+    : `(<sh-for> (,$2 ((<sh-quote> (<sh-ref> "@")))) ,$3)
     (For name sequential-sep do-group)
-    : `(<sh-for> (,$2 (<sh-ref> "@")) ,$4)
+    : `(<sh-for> (,$2 ((<sh-quote> (<sh-ref> "@")))) ,$4)
     (For name linebreak in sequential-sep do-group)
-    : `(<sh-for> (,$2 (<sh-ref> "@")) ,$6)
+    : `(<sh-for> (,$2 ()) ,$6)
     (For name linebreak in wordlist sequential-sep do-group)
     : `(<sh-for> (,$2 ,$5) ,$7))
 
