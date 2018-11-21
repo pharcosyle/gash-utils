@@ -103,6 +103,8 @@ environment @var{env}."
                names words))
     (('<sh-subshell> . sub-exps)
      (sh:subshell env (exps->thunk env sub-exps)))
+    (('<sh-while> test-exp sub-exps ..1)
+     (sh:while env (exp->thunk env test-exp) (exps->thunk env sub-exps)))
     (('<sh-with-redirects> (redirs ..1) sub-exp)
      (match sub-exp
        ;; For "simple commands" we have to observe a special order of
@@ -152,4 +154,6 @@ environment @var{env}."
             (#f (set-environment-status! env 1))
             (redirs
              (sh:with-redirects env redirs
-               (exp->thunk env sub-exp)))))))))
+               (exp->thunk env sub-exp)))))))
+    (('<sh-until> test-exp sub-exps ..1)
+     (sh:until env (exp->thunk env test-exp) (exps->thunk env sub-exps)))))
