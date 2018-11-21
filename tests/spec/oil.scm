@@ -104,6 +104,21 @@
                      (;; These two are Bash specific.
                       ("Case statement with ;;&")
                       ("Case statement with ;&")))
+                    ("spec/loop.test.sh"
+                     (;; We do not do tilde expansion yet.
+                      ("Tilde expansion within for loop")
+                      ;; This is beyond POSIX.
+                      ("Brace Expansion within Array"
+                       ("N-I dash" "N-I dash/geesh"))
+                      ;; We match Bash here.
+                      ("for loop with invalid identifier"
+                       ("OK bash" "OK bash/geesh"))
+                      ;; For these next two, we do not have arithmetic
+                      ;; substitution, but we can use 'expr' instead.
+                      ("while in pipe"
+                       ("\\$\\(\\(i\\+1\\)\\)" "$(expr $i + 1)"))
+                      ("while in pipe with subshell"
+                       ("\\$\\(\\(i\\+1\\)\\)" "$(expr $i + 1)"))))
                     ("spec/quote.test.sh"
                      (;; We match KornShell on these two tests.
                       ("Unterminated single quote"
