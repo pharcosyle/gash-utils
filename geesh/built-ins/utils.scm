@@ -16,23 +16,20 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Geesh.  If not, see <http://www.gnu.org/licenses/>.
 
-(define-module (geesh built-ins export)
-  #:use-module (geesh built-ins utils)
-  #:use-module (geesh environment)
-  #:use-module (ice-9 match))
+(define-module (geesh built-ins utils)
+  #:use-module (ice-9 match)
+  #:export (split-assignment))
 
 ;;; Commentary:
 ;;;
-;;; The 'export' utility.
+;;; Utility functions shared by built-ins.
 ;;;
 ;;; Code:
 
-(define (main env . args)
-  (match args
-    (("-p") (throw 'not-implemented "export -p"))
-    (_ (for-each (lambda (assignment)
-                   (call-with-values (lambda () (split-assignment assignment))
-                     (lambda (name value)
-                       (set-var-export! env name value))))
-                 args)
-       0)))
+(define (split-assignment assignment)
+  (match (string-index assignment #\=)
+    (#f (values assignment #f))
+    (index (let ((name (substring assignment 0 index)))
+             (match (substring assignment (1+ index))
+               ((? string-null?) (values name #f))
+               (value (values name value)))))))

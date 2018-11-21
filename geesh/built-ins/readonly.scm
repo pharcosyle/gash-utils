@@ -16,23 +16,23 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Geesh.  If not, see <http://www.gnu.org/licenses/>.
 
-(define-module (geesh built-ins export)
+(define-module (geesh built-ins readonly)
   #:use-module (geesh built-ins utils)
   #:use-module (geesh environment)
   #:use-module (ice-9 match))
 
 ;;; Commentary:
 ;;;
-;;; The 'export' utility.
+;;; The 'readonly' utility.
 ;;;
 ;;; Code:
 
 (define (main env . args)
   (match args
-    (("-p") (throw 'not-implemented "export -p"))
+    (("-p") (throw 'not-implemented "readonly -p"))
     (_ (for-each (lambda (assignment)
                    (call-with-values (lambda () (split-assignment assignment))
                      (lambda (name value)
-                       (set-var-export! env name value))))
+                       (set-var-read-only! env name value))))
                  args)
        0)))

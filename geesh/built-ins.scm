@@ -40,7 +40,7 @@
     ("exec" . ,undefined)
     ("exit" . ,undefined)
     ("export" . ,(@@ (geesh built-ins export) main))
-    ("readonly" . ,undefined)
+    ("readonly" . ,(@@ (geesh built-ins readonly) main))
     ("return" . ,undefined)
     ("set" . ,undefined)
     ("shift" . ,undefined)

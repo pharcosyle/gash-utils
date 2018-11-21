@@ -47,8 +47,10 @@ MODULES =                                       \
   geesh/built-ins/export.scm                    \
   geesh/built-ins/false.scm                     \
   geesh/built-ins/read.scm                      \
+  geesh/built-ins/readonly.scm                  \
   geesh/built-ins/true.scm                      \
   geesh/built-ins/unset.scm                     \
+  geesh/built-ins/utils.scm                     \
   geesh/built-ins.scm                           \
   geesh/environment.scm                         \
   geesh/eval.scm                                \
