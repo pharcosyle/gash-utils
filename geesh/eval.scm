@@ -65,6 +65,24 @@ environment @var{env}."
      (sh:and env (exp->thunk env exp1) (exp->thunk env exp2)))
     (('<sh-begin> . sub-exps)
      (for-each (cut eval-sh env <>) sub-exps))
+    (('<sh-case> word (pattern-lists . sub-exp-lists) ...)
+     (let ((value (eval-word env word #:output 'string)))
+       (apply sh:case env value
+              (map (lambda (patterns sub-exps)
+                     `(,(map (cut eval-word env <> #:output 'pattern)
+                             patterns)
+                       ,(exps->thunk env sub-exps)))
+                   pattern-lists
+                   sub-exp-lists))))
+    (('<sh-cond> (test-exps . sub-exp-lists) ..1)
+     (apply sh:cond env
+            (map (lambda (test-exp sub-exps)
+                   `(,(match test-exp
+                        ('<sh-else> #t)
+                        (exp (exp->thunk env exp)))
+                     ,(exps->thunk env sub-exps)))
+                 test-exps
+                 sub-exp-lists)))
     (('<sh-defun> name . sub-exps)
      (let ((proc (lambda (env . args)
                    (eval-sh env `(<sh-begin> ,@sub-exps)))))
