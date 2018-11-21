@@ -15,7 +15,9 @@
             sh:set-redirects
             sh:subshell
             sh:substitute-command
-            sh:with-redirects))
+            sh:while
+            sh:with-redirects
+            sh:until))
 
 ;;; Commentary:
 ;;;
@@ -351,4 +353,25 @@ run @var{thunk2}."
         (when (> n 0)
           (false-if-exception
            (abort-to-prompt break-prompt (1- n))))))))
+
+(define (sh:while env test-thunk thunk)
+  (let ((break-prompt (environment-break-prompt env))
+        (continue-prompt (environment-continue-prompt env)))
+    (call-with-prompt break-prompt
+      (lambda ()
+        (let loop ((last-status 0))
+          (test-thunk)
+          (cond
+           ((= (environment-status env) 0)
+            (thunk)
+            (loop (environment-status env)))
+           (else
+            (set-environment-status! env last-status)))))
+      (lambda (cont n)
+        (when (> n 0)
+          (false-if-exception
+           (abort-to-prompt break-prompt (1- n))))))))
+
+(define (sh:until env test-thunk thunk)
+  (sh:while env (lambda () (sh:not env test-thunk)) thunk))
 
