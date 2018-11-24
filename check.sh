@@ -81,6 +81,7 @@ tests="
 50-redirect
 50-redirect-space
 50-redirect-in
+50-redirect-append
 
 60-function
 60-subst
