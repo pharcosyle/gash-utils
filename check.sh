@@ -95,6 +95,9 @@ tests="
 70-slash-string
 70-slash-string-slash
 
+100-cd
+100-cd-foo
+
 100-sed
 100-sed-once
 100-sed-global

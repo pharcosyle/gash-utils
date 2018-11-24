@@ -65,8 +65,14 @@
     ((dir)
      (let ((old (variable "OLDPWD")))
        (assignment "OLDPWD" (getcwd))
-       (if (string=? dir "-") (chdir old)
-           (chdir dir))))
+       (catch #t
+         (lambda _
+           (if (string=? dir "-") (chdir old)
+               (chdir dir))
+           0)
+         (lambda (key command fmt args exit)
+           (apply format (current-error-port) "cd: ~a: ~a\n" (cons dir args))
+           1))))
     ((args ...)
      (format (current-error-port) "cd: too many arguments: ~a\n" (string-join args)))))
 
