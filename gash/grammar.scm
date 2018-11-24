@@ -143,8 +143,8 @@
      variable-regex   <-- name &slash regex-sep variable-literal '/' variable-string &rbrace /
                           name regex-sep variable-string
      slash            <   '/'
-     variable-string  <-  (!rbrace .)+
-     variable-literal <-  (!rbrace !min !plus !slash .)+
+     variable-string  <-  (!rbrace ((!dq !sq .) / delim))+
+     variable-literal <-  (!rbrace !min !plus !slash ((!dq !sq .) / delim))+
      regex-sep        <-- ('/' / '%%' / '%' / '##' / '#' / '^^' / '^' /',,' / ',' / '*' / '@' / '?')
      min              <   '-'
      plus             <   '+'
