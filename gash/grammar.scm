@@ -64,7 +64,7 @@
      exclamation      <-  '!'
      pipe             <   sp* '|' !'|' ws*
 
-     command          <-- function-def / compound-command / simple-command
+     command          <-- function / compound-command / simple-command
 
      compound-command <-  (subshell / brace-group / for-clause / case-clause /
                           if-clause / while-clause / until-clause) (sp* io-redirect)*
@@ -90,9 +90,9 @@
      word             <-- test / substitution /
                           (number / variable-subst / variable / delim / literal)+
 
-     function-def     <-- name sp* lpar rpar# ws* function-body
+     function         <-- name sp* lpar rpar# ws* function-body
      name             <-- !reserved identifier
-     function-body    <-- brace-group (sp* io-redirect)*
+     function-body    <-  brace-group (sp* io-redirect)*
 
      subshell         <-- lpar compound rpar#
      brace-group      <-- lbrace ws* compound rbrace#
@@ -277,6 +277,9 @@
      `(if (true? ,(transform expr)) (begin ,@(map transform then)) (begin ,@(map transform else))))
 
     (('elif elif ...) (transform `(if-clause ,@elif)))
+
+    (('function name body)
+     `(function ,name (lambda ( . args) ,(transform body))))
 
     ((h t ...) (map transform o))
     (_ o)))
