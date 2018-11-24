@@ -77,12 +77,12 @@
                                           #f)
                  default)))))
 
-(define (variable-or name default)
-  (variable name default))
+(define (variable-or name . default)
+  (variable name (apply string-append default)))
 
-(define (variable-and name default)
+(define (variable-and name . default)
   (let ((value (variable name #f)))
-    (if value default "")))
+    (if value (apply string-append default) "")))
 
 (define (set-shell-opt! name set?)
   (let* ((shell-opts (variable "SHELLOPTS"))

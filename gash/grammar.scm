@@ -137,8 +137,8 @@
      variable         <-- dollar ('*' / '@' / [0-9] / name /
                           lbrace name (variable-literal / &rbrace) rbrace)
      variable-subst   <-  dollar lbrace (variable-or / variable-and / variable-regex) rbrace
-     variable-or      <-- name min variable-word
-     variable-and     <-- name plus variable-word
+     variable-or      <-- name min variable-word variable-word*
+     variable-and     <-- name plus variable-word variable-word*
      variable-word    <-  variable-regex / substitution / variable-subst / variable / variable-literal !slash / variable-string
      variable-regex   <-- name &slash regex-sep variable-literal '/' variable-string &rbrace /
                           name regex-sep variable-string
