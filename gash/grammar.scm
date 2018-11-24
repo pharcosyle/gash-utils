@@ -245,7 +245,7 @@
     (('compound compound) (transform compound))
     (('compound compound ...) `(begin ,@(map transform compound)))
 
-    (('command (word (or "." "source")) file-name)
+    (('command ('word (or "." "source")) file-name)
      `(source ,(transform file-name)))
     (('command word ... ('io-redirect ('io-here "<<" ('io-here-document string))))
      `(pipeline (cut display ,string) (command ,@word)))
@@ -280,6 +280,8 @@
 
     (('function name body)
      `(function ,name (lambda ( . args) ,(transform body))))
+
+    (('word 'delim) '(word ""))
 
     ((h t ...) (map transform o))
     (_ o)))

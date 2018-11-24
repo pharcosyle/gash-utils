@@ -45,6 +45,7 @@
             brace-group
             builtin
             command
+            delim
             doublequotes
             file-name
             for-clause

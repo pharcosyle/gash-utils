@@ -43,6 +43,7 @@ tests='
 07-variable-not-or
 07-variable-or-slash
 07-variable-or-variable
+07-variable-or-doublequote
 
 08-variable-and
 08-variable-not-and
