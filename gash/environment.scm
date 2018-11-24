@@ -67,6 +67,8 @@
          (lambda (n)
            (if (< n (length (%command-line))) (list-ref (%command-line) n)
                "")))
+        ((equal? name "@")
+         (string-join (cdr (%command-line))))
         ((equal? name "#")
          (number->string (length (%command-line))))
         (else

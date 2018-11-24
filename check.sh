@@ -4,7 +4,7 @@ fi
 DIFF=diff
 SHELL=${SHELL-bin/gash}
 
-tests="
+tests='
 00-exit
 00-exit-0
 00-exit-1
@@ -15,6 +15,8 @@ tests="
 01-script-backslash
 01-script-backslash-space
 01-script-backslash-twice
+01-script-$0
+01-script-$@
 
 03-echo
 03-echo-doublequotes
@@ -56,7 +58,7 @@ tests="
 
 11-for
 11-for-split-sequence
-11-for-subshell
+11-for-done-subshell
 
 20-semi
 20-or
@@ -112,7 +114,7 @@ tests="
 100-tar-Z
 100-tar-Z-old
 100-tar-Z-pipe
-"
+'
 
 broken="
 "
