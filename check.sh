@@ -72,6 +72,8 @@ tests='
 30-substitution-backtick
 30-substitution-assignment
 30-for-substitution
+30-substitution-assignment
+30-substitution-redirect
 
 40-eval
 40-eval-echo-variable

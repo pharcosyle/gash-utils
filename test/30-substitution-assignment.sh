@@ -1,3 +1,2 @@
-f=test/test.sh
-b=test/$(basename $f .sh)
-echo b=$b
+echo=$(echo 1 2 3)
+echo echo=$echo
