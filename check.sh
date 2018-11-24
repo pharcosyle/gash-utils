@@ -78,6 +78,7 @@ tests='
 40-assignment-eval-echo
 
 41-dot
+42-sh
 
 50-iohere
 50-iohere-builtin
