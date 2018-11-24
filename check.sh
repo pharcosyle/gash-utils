@@ -89,6 +89,7 @@ tests='
 50-redirect-in
 50-redirect-append
 50-redirect-pipe
+50-redirect-merge
 
 60-function
 60-subst
