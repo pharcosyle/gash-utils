@@ -54,6 +54,7 @@
             jobs-command
             pwd-command
             set-command
+            shift-command
             ))
 
 (define (PATH-search-path program)
@@ -117,6 +118,12 @@
                                  (error (format #f "set: no such option:~s\n" args)))
                                (apply set-command (map (cut string-append set <>) (cdr lst)))))
     ((h ...) (last (map set-command args)))))
+
+(define (shift-command . args)
+  (lambda _
+    (match args
+      (() (when (pair? (cdr (%command-line)))
+            (%command-line (cons (car (%command-line)) (cddr (%command-line)))))))))
 
 (define (eval-command . args)
   (lambda _
@@ -379,6 +386,7 @@ Options:
     ("jobs"    . ,jobs-command)
     ("pwd"     . ,pwd-command)
     ("set"     . ,set-command)
+    ("shift"   . ,shift-command)
     ("test"    . ,test-command)
     ("type"    . ,type-command)
     ("["       . ,bracket-command)

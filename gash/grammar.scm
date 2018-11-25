@@ -283,5 +283,7 @@
 
     (('word 'delim) '(word ""))
 
+    (('pipeline ('command ('word "shift"))) '(shift))
+
     ((h t ...) (map transform o))
     (_ o)))

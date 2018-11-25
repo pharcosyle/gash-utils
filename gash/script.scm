@@ -426,3 +426,6 @@
 
 (define (test . o) ;; TODO replace with implementation in scheme
   (command (cons "test" o)))
+
+(define (shift . o)
+  (apply (shift-command) o))

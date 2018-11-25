@@ -17,6 +17,7 @@ tests='
 01-script-backslash-twice
 01-script-$0
 01-script-$@
+01-script-shift
 
 03-echo
 03-echo-doublequotes
