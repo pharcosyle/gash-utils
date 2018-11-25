@@ -43,6 +43,7 @@ check-spec:
 MODULES =                                       \
   geesh/built-ins/break.scm                     \
   geesh/built-ins/cd.scm                        \
+  geesh/built-ins/colon.scm                     \
   geesh/built-ins/continue.scm                  \
   geesh/built-ins/echo.scm                      \
   geesh/built-ins/export.scm                    \

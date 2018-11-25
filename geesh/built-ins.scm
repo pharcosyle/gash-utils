@@ -33,7 +33,7 @@
 ;; Special built-ins take precedence over any other command.
 (define *special-built-ins*
   `(("." . ,undefined)
-    (":" . ,undefined)
+    (":" . ,(@@ (geesh built-ins colon) main))
     ("break" . ,(@@ (geesh built-ins break) main))
     ("continue" . ,(@@ (geesh built-ins continue) main))
     ("eval" . ,undefined)
