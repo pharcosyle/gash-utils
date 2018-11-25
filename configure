@@ -80,13 +80,17 @@ subst () {
     $1 > $2
 }
 
-subst bin/gash.in bin/gash
-chmod +x bin/gash
-
 SHELLS="
 bash
+gash
 sh
 "
+
+for shell in $SHELLS; do
+    subst ${srcdest}bin/gash.in bin/$shell
+    chmod +x bin/$shell
+done
+
 BUILTINS="
 basename
 cat
@@ -107,7 +111,7 @@ touch
 wc 
 which
 "
-for builtin in $BUILTINS $SHELLS; do
+for builtin in $BUILTINS; do
     subst ${srcdest}bin/builtin.in bin/$builtin
     chmod +x bin/$builtin
 done
