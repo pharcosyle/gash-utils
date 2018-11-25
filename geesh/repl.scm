@@ -29,10 +29,10 @@
 ;;;
 ;;; Code:
 
-(define (run-repl)
-  (let loop ((exp (read-sh (current-input-port))))
+(define* (run-repl #:optional (port (current-input-port)))
+  (let loop ((exp (read-sh port)))
     (if (eof-object? exp)
         (get-status)
         (begin
           (eval-sh exp)
-          (loop (read-sh (current-input-port)))))))
+          (loop (read-sh port))))))

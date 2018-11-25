@@ -20,6 +20,41 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Geesh.  If not, see <http://www.gnu.org/licenses/>.
 
-(use-modules (geesh repl))
+(use-modules (geesh repl)
+             (ice-9 getopt-long))
 
-(exit (run-repl))
+(define options-spec
+  '((command (single-char #\c) (value #t))
+    (stdin (single-char #\s))))
+
+(let* ((options (getopt-long (program-arguments) options-spec
+                             #:stop-at-first-non-option #t))
+       (command (option-ref options 'command #f))
+       (stdin (option-ref options 'stdin #f))
+       (args (option-ref options '() '())))
+  (cond
+   ((and command stdin)
+    (format (current-error-port)
+            "~a: Invalid options.~%"
+            (car (program-arguments)))
+    (exit EXIT_FAILURE))
+   (command
+    (if (null? args)
+        (set-program-arguments (list (car (program-arguments))))
+        (set-program-arguments args))
+    (call-with-input-string command
+      (lambda (port)
+        (exit (run-repl port)))))
+   (stdin
+    (set-program-arguments (cons (car (program-arguments)) args))
+    (exit (run-repl)))
+   (else
+    (cond
+     ((null? args)
+      (set-program-arguments (list (car (program-arguments))))
+      (exit (run-repl)))
+     (else
+      (set-program-arguments args)
+      (call-with-input-file (car args)
+        (lambda (port)
+          (exit (run-repl port)))))))))
