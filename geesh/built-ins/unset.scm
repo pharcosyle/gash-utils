@@ -26,12 +26,12 @@
 ;;;
 ;;; Code:
 
-(define (main env . args)
+(define (main . args)
   (match args
     (("-f" . names)
-     (delete-environment-functions! env names)
+     (for-each unsetfun! names)
      0)
     ((or ("-v" . names)
          names)
-     (delete-environment-vars! env names)
+     (for-each unsetvar! names)
      0)))

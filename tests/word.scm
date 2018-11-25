@@ -28,17 +28,6 @@
 ;;;
 ;;; Code:
 
-;; This function exists to add a layer of slippage between the
-;; "environment" module and our tests.  The "environment" module is
-;; still under development, and it would be annoying to have to
-;; rewrite all the tests.
-(define* (make-test-env vars #:key (noglob? #f) (nounset? #f))
-  "Create a testing environment with the alist @var{vars} as the
-current variables.  If @var{noglob?} is set, enable the `noglob'
-option.  If @var{nounset?} is set, enable the `nounset' option.  (See
-the `set' built-in for details on these options.)"
-  (make-environment vars))
-
 (test-begin "word")
 
 
@@ -46,70 +35,70 @@ the `set' built-in for details on these options.)"
 
 (test-equal "Converts a simple word (string) to a single field"
   '("foo")
-  (expand-word #f "foo"))
+  (expand-word "foo"))
 
 (test-equal "Converts a simple word (list) to a single field"
   '("foo")
-  (expand-word #f '("foo")))
+  (expand-word '("foo")))
 
 (test-equal "Concatenates contiguous parts into a single field"
   '("foobar")
-  (expand-word #f '("foo" "bar")))
+  (expand-word '("foo" "bar")))
 
 (test-equal "Splits a word along unquoted spaces"
   '("foo" "bar")
-  (expand-word #f '("foo bar")))
+  (expand-word '("foo bar")))
 
 (test-equal "Splits a word on leading space"
   '("foo" "bar")
-  (expand-word #f '("foo" " bar")))
+  (expand-word '("foo" " bar")))
 
 (test-equal "Splits a word on trailing space"
   '("foo" "bar")
-  (expand-word #f '("foo " "bar")))
+  (expand-word '("foo " "bar")))
 
 (test-equal "Ignores leading spaces"
   '("foo")
-  (expand-word #f '(" foo")))
+  (expand-word '(" foo")))
 
 (test-equal "Ignores trailing spaces"
   '("foo")
-  (expand-word #f '("foo ")))
+  (expand-word '("foo ")))
 
 (test-equal "Treats multiple spaces as a single space"
   '("foo" "bar")
-  (expand-word #f '("foo  bar")))
+  (expand-word '("foo  bar")))
 
 (test-equal "Handles multiple joins and splits"
   '("hi_how" "are_you")
-  (expand-word #f '("hi_" "how are" "_you")))
+  (expand-word '("hi_" "how are" "_you")))
 
 (test-equal "Handles nested lists"
   '("foo")
-  (expand-word #f '("f" ("oo"))))
+  (expand-word '("f" ("oo"))))
 
 
 ;;; Quotes.
 
 (test-equal "Ignores spaces in quotes"
   '("foo bar")
-  (expand-word #f '(<sh-quote> "foo bar")))
+  (expand-word '(<sh-quote> "foo bar")))
 
 (test-equal "Concatenates strings and quotes"
   '("foo bar")
-  (expand-word #f '("foo" (<sh-quote> " bar"))))
+  (expand-word '("foo" (<sh-quote> " bar"))))
 
 (test-equal "Concatenates quotes"
   '("foo bar")
-  (expand-word #f '((<sh-quote> "foo") (<sh-quote> " bar"))))
+  (expand-word '((<sh-quote> "foo") (<sh-quote> " bar"))))
 
 (test-equal "Handles nested quotes"
   '("foo bar")
-  (expand-word #f '(<sh-quote> (<sh-quote> "foo bar"))))
+  (expand-word '(<sh-quote> (<sh-quote> "foo bar"))))
 
 (test-equal "Splits and concatenates words and quotes"
   '("foo" "bar")
-  (expand-word #f '((<sh-quote> "foo") " " (<sh-quote> "bar"))))
+  (expand-word '((<sh-quote> "foo") " " (<sh-quote> "bar"))))
 
 
 ;;; Tildes.
@@ -123,43 +112,51 @@ the `set' built-in for details on these options.)"
 
 (test-equal "Resolves parameters"
   '("foo")
-  (expand-word (make-test-env '(("x" . "foo")))
-               '(<sh-ref> "x")))
+  (with-variables '(("x" . "foo"))
+    (lambda ()
+      (expand-word '(<sh-ref> "x")))))
 
 (test-equal "Splits parameter results"
   '("foo" "bar")
-  (expand-word (make-test-env '(("x" . "foo bar")))
-               '(<sh-ref> "x")))
+  (with-variables '(("x" . "foo bar"))
+    (lambda ()
+      (expand-word '(<sh-ref> "x")))))
 
 (test-equal "Resolves quoted parameters"
   '("foo")
-  (expand-word (make-test-env '(("x" . "foo")))
-               '(<sh-quote> (<sh-ref> "x"))))
+  (with-variables '(("x" . "foo"))
+    (lambda ()
+      (expand-word '(<sh-quote> (<sh-ref> "x"))))))
 
 (test-equal "Ignores spaces in quoted parameters"
   '("foo bar")
-  (expand-word (make-test-env '(("x" . "foo bar")))
-               '(<sh-quote> (<sh-ref> "x"))))
+  (with-variables '(("x" . "foo bar"))
+    (lambda ()
+      (expand-word '(<sh-quote> (<sh-ref> "x"))))))
 
 (test-equal "Treats empty variables as nothing"
   '()
-  (expand-word (make-test-env '(("x" . "")))
-               '(<sh-ref> "x")))
+  (with-variables '(("x" . ""))
+    (lambda ()
+      (expand-word '(<sh-ref> "x")))))
 
 (test-equal "Treats unset variables as nothing"
   '()
-  (expand-word (make-test-env '())
-               '(<sh-ref> "x")))
+  (with-variables '()
+    (lambda ()
+      (expand-word '(<sh-ref> "x")))))
 
 (test-equal "Preserves empty variables when quoted"
   '("")
-  (expand-word (make-test-env '(("x" . "")))
-               '(<sh-quote> (<sh-ref> "x"))))
+  (with-variables '(("x" . ""))
+    (lambda ()
+      (expand-word '(<sh-quote> (<sh-ref> "x"))))))
 
 (test-equal "Preserves unset variables when quoted"
   '("")
-  (expand-word (make-test-env '())
-               '(<sh-quote> (<sh-ref> "x"))))
+  (with-variables '()
+    (lambda ()
+      (expand-word '(<sh-quote> (<sh-ref> "x"))))))
 
 
 ;;; Parameter operations.
@@ -168,103 +165,120 @@ the `set' built-in for details on these options.)"
 
 (test-equal "Handles 'or' when parameter is set"
   '("foo")
-  (expand-word (make-test-env '(("x" . "foo")))
-               '(<sh-ref-or> "x" "bar")))
+  (with-variables '(("x" . "foo"))
+    (lambda ()
+      (expand-word '(<sh-ref-or> "x" "bar")))))
 
 (test-equal "Handles 'or' when parameter is set and empty"
   '()
-  (expand-word (make-test-env '(("x" . "")))
-               '(<sh-ref-or> "x" "bar")))
+  (with-variables '(("x" . ""))
+    (lambda ()
+      (expand-word '(<sh-ref-or> "x" "bar")))))
 
 (test-equal "Handles 'or' when parameter is unset"
   '("bar")
-  (expand-word (make-test-env '())
-               '(<sh-ref-or> "x" "bar")))
+  (with-variables '()
+    (lambda ()
+      (expand-word '(<sh-ref-or> "x" "bar")))))
 
 (test-equal "Handles 'or' fall-through without default"
   '()
-  (expand-word (make-test-env '())
-               '(<sh-ref-or> "x" #f)))
+  (with-variables '()
+    (lambda ()
+      (expand-word '(<sh-ref-or> "x" #f)))))
 
 ;;; or*
 
 (test-equal "Handles 'or*' when parameter is set"
   '("foo")
-  (expand-word (make-test-env '(("x" . "foo")))
-               '(<sh-ref-or*> "x" "bar")))
+  (with-variables '(("x" . "foo"))
+    (lambda ()
+      (expand-word '(<sh-ref-or*> "x" "bar")))))
 
 (test-equal "Handles 'or*' when parameter is set and empty"
   '("bar")
-  (expand-word (make-test-env '(("x" . "")))
-               '(<sh-ref-or*> "x" "bar")))
+  (with-variables '(("x" . ""))
+    (lambda ()
+      (expand-word '(<sh-ref-or*> "x" "bar")))))
 
 (test-equal "Handles 'or*' when parameter is unset"
   '("bar")
-  (expand-word (make-test-env '())
-               '(<sh-ref-or*> "x" "bar")))
+  (with-variables '()
+    (lambda ()
+      (expand-word '(<sh-ref-or*> "x" "bar")))))
 
 (test-equal "Handles 'or*' fall-through without default"
   '()
-  (expand-word (make-test-env '())
-               '(<sh-ref-or*> "x" #f)))
+  (with-variables '()
+    (lambda ()
+      (expand-word '(<sh-ref-or*> "x" #f)))))
 
 ;;; or!
 
 (test-equal "Handles 'or!' when parameter is set"
   '(("foo") "foo")
-  (let ((env (make-test-env '(("x" . "foo")))))
-    (list (expand-word env '(<sh-ref-or!> "x" "bar"))
-          (var-ref env "x"))))
+  (with-variables '(("x" . "foo"))
+    (lambda ()
+      (list (expand-word '(<sh-ref-or!> "x" "bar"))
+            (getvar "x")))))
 
 (test-equal "Handles 'or!' when parameter is set and empty"
   '(() "")
-  (let ((env (make-test-env '(("x" . "")))))
-    (list (expand-word env '(<sh-ref-or!> "x" "bar"))
-          (var-ref env "x"))))
+  (with-variables '(("x" . ""))
+    (lambda ()
+      (list (expand-word '(<sh-ref-or!> "x" "bar"))
+            (getvar "x")))))
 
 (test-equal "Handles 'or!' when parameter is unset"
   '(("bar") "bar")
-  (let ((env (make-test-env '())))
-    (list (expand-word env '(<sh-ref-or!> "x" "bar"))
-          (var-ref env "x"))))
+  (with-variables '()
+    (lambda ()
+      (list (expand-word '(<sh-ref-or!> "x" "bar"))
+            (getvar "x")))))
 
 (test-equal "Handles 'or!' fall-through without default"
   '(() "")
-  (let ((env (make-test-env '())))
-    (list (expand-word env '(<sh-ref-or!> "x" #f))
-          (var-ref env "x"))))
+  (with-variables '()
+    (lambda ()
+      (list (expand-word '(<sh-ref-or!> "x" #f))
+            (getvar "x")))))
 
 ;;; or!*
 
 (test-equal "Handles 'or!*' when parameter is set"
   '(("foo") "foo")
-  (let ((env (make-test-env '(("x" . "foo")))))
-    (list (expand-word env '(<sh-ref-or!*> "x" "bar"))
-          (var-ref env "x"))))
+  (with-variables '(("x" . "foo"))
+    (lambda ()
+      (list (expand-word '(<sh-ref-or!*> "x" "bar"))
+            (getvar "x")))))
 
 (test-equal "Handles 'or!*' when parameter is set and empty"
   '(("bar") "bar")
-  (let ((env (make-test-env '(("x" . "")))))
-    (list (expand-word env '(<sh-ref-or!*> "x" "bar"))
-          (var-ref env "x"))))
+  (with-variables '(("x" . ""))
+    (lambda ()
+      (list (expand-word '(<sh-ref-or!*> "x" "bar"))
+            (getvar "x")))))
 
 (test-equal "Handles 'or!*' when parameter is unset"
   '(("bar") "bar")
-  (let ((env (make-test-env '())))
-    (list (expand-word env '(<sh-ref-or!*> "x" "bar"))
-          (var-ref env "x"))))
+  (with-variables '()
+    (lambda ()
+      (list (expand-word '(<sh-ref-or!*> "x" "bar"))
+            (getvar "x")))))
 
 (test-equal "Handles 'or!*' fall-through without default"
   '(() "")
-  (let ((env (make-test-env '())))
-    (list (expand-word env '(<sh-ref-or!*> "x" #f))
-          (var-ref env "x"))))
+  (with-variables '()
+    (lambda ()
+      (list (expand-word '(<sh-ref-or!*> "x" #f))
+            (getvar "x")))))
 
 (test-equal "Does not split fields on assignment"
   '(("foo" "bar") "foo bar")
-  (let ((env (make-test-env '(("y" . "foo bar")))))
-    (list (expand-word env '(<sh-ref-or!*> "x" (<sh-ref> "y")))
-          (var-ref env "x"))))
+  (with-variables '(("y" . "foo bar"))
+    (lambda ()
+      (list (expand-word '(<sh-ref-or!*> "x" (<sh-ref> "y")))
+            (getvar "x")))))
 
 ;;; FIXME: Test 'assert'.
 
@@ -272,57 +286,67 @@ the `set' built-in for details on these options.)"
 
 (test-equal "Handles 'and' when parameter is set"
   '("bar")
-  (expand-word (make-test-env '(("x" . "foo")))
-               '(<sh-ref-and> "x" "bar")))
+  (with-variables '(("x" . "foo"))
+    (lambda ()
+      (expand-word '(<sh-ref-and> "x" "bar")))))
 
 (test-equal "Handles 'and' when parameter is set and empty"
   '()
-  (expand-word (make-test-env '(("x" . "")))
-               '(<sh-ref-and> "x" "bar")))
+  (with-variables '(("x" . ""))
+    (lambda ()
+      (expand-word '(<sh-ref-and> "x" "bar")))))
 
 (test-equal "Handles 'and' when parameter is unset"
   '()
-  (expand-word (make-test-env '())
-               '(<sh-ref-and> "x" "bar")))
+  (with-variables '()
+    (lambda ()
+      (expand-word '(<sh-ref-and> "x" "bar")))))
 
 (test-equal "Handles 'and' fall-through without default"
   '()
-  (expand-word (make-test-env '(("x" . "foo")))
-               '(<sh-ref-and> "x" #f)))
+  (with-variables '(("x" . "foo"))
+    (lambda ()
+      (expand-word '(<sh-ref-and> "x" #f)))))
 
 ;;; and*
 
 (test-equal "Handles 'and*' when parameter is set"
   '("bar")
-  (expand-word (make-test-env '(("x" . "foo")))
-               '(<sh-ref-and*> "x" "bar")))
+  (with-variables '(("x" . "foo"))
+    (lambda ()
+      (expand-word '(<sh-ref-and*> "x" "bar")))))
 
 (test-equal "Handles 'and*' when parameter is set and empty"
   '("bar")
-  (expand-word (make-test-env '(("x" . "")))
-               '(<sh-ref-and*> "x" "bar")))
+  (with-variables '(("x" . ""))
+    (lambda ()
+      (expand-word '(<sh-ref-and*> "x" "bar")))))
 
 (test-equal "Handles 'and*' when parameter is unset"
   '()
-  (expand-word (make-test-env '())
-               '(<sh-ref-and*> "x" "bar")))
+  (with-variables '()
+    (lambda ()
+      (expand-word '(<sh-ref-and*> "x" "bar")))))
 
 (test-equal "Handles 'and*' fall-through without default"
   '()
-  (expand-word (make-test-env '(("x" . "foo")))
-               '(<sh-ref-and*> "x" #f)))
+  (with-variables '(("x" . "foo"))
+    (lambda ()
+      (expand-word '(<sh-ref-and*> "x" #f)))))
 
 ;;; length
 
 (test-equal "Handles 'length' when parameter is set"
   '("3")
-  (expand-word (make-test-env '(("x" . "foo")))
-               '(<sh-ref-length> "x")))
+  (with-variables '(("x" . "foo"))
+    (lambda ()
+      (expand-word '(<sh-ref-length> "x")))))
 
 (test-equal "Handles 'length' when parameter is unset"
   '("0")
-  (expand-word (make-test-env '())
-               '(<sh-ref-length> "x")))
+  (with-variables '()
+    (lambda ()
+      (expand-word '(<sh-ref-length> "x")))))
 
 
 ;;; Command substition.
@@ -330,22 +354,22 @@ the `set' built-in for details on these options.)"
 (test-equal "Resolves commands"
   '("foo")
   (parameterize ((eval-cmd-sub identity))
-    (expand-word #f '(<sh-cmd-sub> "foo"))))
+    (expand-word '(<sh-cmd-sub> "foo"))))
 
 (test-equal "Splits command results"
   '("foo" "bar")
   (parameterize ((eval-cmd-sub identity))
-    (expand-word #f '(<sh-cmd-sub> "foo bar"))))
+    (expand-word '(<sh-cmd-sub> "foo bar"))))
 
 (test-equal "Resolves quoted commands"
   '("foo")
   (parameterize ((eval-cmd-sub identity))
-    (expand-word #f '(<sh-quote> (<sh-cmd-sub> "foo")))))
+    (expand-word '(<sh-quote> (<sh-cmd-sub> "foo")))))
 
 (test-equal "Ignores spaces in quoted commands"
   '("foo bar")
   (parameterize ((eval-cmd-sub identity))
-    (expand-word #f '(<sh-quote> (<sh-cmd-sub> "foo bar")))))
+    (expand-word '(<sh-quote> (<sh-cmd-sub> "foo bar")))))
 
 
 ;;; Arithmetic expansion.
@@ -362,42 +386,50 @@ the `set' built-in for details on these options.)"
 
 (test-equal "Respects IFS value"
   '("foo" "bar")
-  (let ((env (make-test-env '(("IFS" . "-")))))
-    (expand-word env '("foo-bar"))))
+  (with-variables '(("IFS" . "-"))
+    (lambda ()
+      (expand-word '("foo-bar")))))
 
 (test-equal "Combines multiple whitespace separators"
   '("foo" "bar")
-  (let ((env (make-test-env '(("IFS" . " ")))))
-    (expand-word env '("foo  bar"))))
+  (with-variables '(("IFS" . " "))
+    (lambda ()
+      (expand-word '("foo  bar")))))
 
 (test-equal "Keeps multiple non-whitespace separators"
   '("foo" "" "bar")
-  (let ((env (make-test-env '(("IFS" . "-")))))
-    (expand-word env '("foo--bar"))))
+  (with-variables '(("IFS" . "-"))
+    (lambda ()
+      (expand-word '("foo--bar")))))
 
 (test-equal "Combines whitespace separators with a non-whitespace separator"
   '("foo" "bar")
-  (let ((env (make-test-env '(("IFS" . "- ")))))
-    (expand-word env '("foo - bar"))))
+  (with-variables '(("IFS" . "- "))
+    (lambda ()
+      (expand-word '("foo - bar")))))
 
 (test-equal "Keeps multiple non-whitespace separators with whitespace"
   '("foo" "" "bar")
-  (let ((env (make-test-env '(("IFS" . "- ")))))
-    (expand-word env '("foo - - bar"))))
+  (with-variables '(("IFS" . "- "))
+    (lambda ()
+      (expand-word '("foo - - bar")))))
 
 (test-equal "Splits on leading non-whitespace separator"
   '("" "foo")
-  (let ((env (make-test-env '(("IFS" . "-")))))
-    (expand-word env '("-foo"))))
+  (with-variables '(("IFS" . "-"))
+    (lambda ()
+      (expand-word '("-foo")))))
 
 (test-equal "Does not split on trailing non-whitespace separator"
   '("foo")
-  (let ((env (make-test-env '(("IFS" . "-")))))
-    (expand-word env '("foo-"))))
+  (with-variables '(("IFS" . "-"))
+    (lambda ()
+      (expand-word '("foo-")))))
 
 (test-equal "Makes one field for single non-whitespace separator"
   '("")
-  (let ((env (make-test-env '(("IFS" . "-")))))
-    (expand-word env '("-"))))
+  (with-variables '(("IFS" . "-"))
+    (lambda ()
+      (expand-word '("-")))))
 
 (test-end)

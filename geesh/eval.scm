@@ -31,17 +31,17 @@
 ;;;
 ;;; Code:
 
-(define* (eval-word env word #:key (output 'fields) (rhs-tildes? #f))
+(define* (eval-word word #:key (output 'fields) (rhs-tildes? #f))
   (parameterize ((eval-cmd-sub (lambda (exps)
-                                 (sh:substitute-command env
+                                 (sh:substitute-command
                                    (lambda ()
-                                     (for-each (cut eval-sh env <>) exps))))))
-    (expand-word env word #:output output #:rhs-tildes? rhs-tildes?)))
+                                     (for-each eval-sh exps))))))
+    (expand-word word #:output output #:rhs-tildes? rhs-tildes?)))
 
-(define (eval-redir env redir)
-  "Evaluate the redirect @var{redir} in environment @var{env}."
+(define (eval-redir redir)
+  "Evaluate the redirect @var{redir}."
   (match-let* (((op fd word) redir)
-               (field (eval-word env word #:output 'string)))
+               (field (eval-word word #:output 'string)))
     (match op
       ((or '>& '<&)
        (let ((n (string->number field)))
@@ -51,127 +51,123 @@
           (else (throw 'bad-dup)))))
       (_ `(,op ,fd ,field)))))
 
-(define (exp->thunk env exp)
-  (lambda () (eval-sh env exp)))
+(define (exp->thunk exp)
+  (lambda () (eval-sh exp)))
 
-(define (exps->thunk env exps)
-  (lambda () (eval-sh env `(<sh-begin> ,@exps))))
+(define (exps->thunk exps)
+  (lambda () (eval-sh `(<sh-begin> ,@exps))))
 
-(define (eval-sh env exp)
-  "Evaluate the Shell expression @var{exp} in the context of the Shell
-environment @var{env}."
+(define (eval-sh exp)
+  "Evaluate the Shell expression @var{exp}."
   (match exp
     (('<sh-and> exp1 exp2)
-     (sh:and env (exp->thunk env exp1) (exp->thunk env exp2)))
+     (sh:and (exp->thunk exp1) (exp->thunk exp2)))
     (('<sh-begin> . sub-exps)
-     (for-each (cut eval-sh env <>) sub-exps))
+     (for-each eval-sh sub-exps))
     (('<sh-case> word (pattern-lists . sub-exp-lists) ...)
-     (let ((value (eval-word env word #:output 'string)))
-       (apply sh:case env value
+     (let ((value (eval-word word #:output 'string)))
+       (apply sh:case value
               (map (lambda (patterns sub-exps)
-                     `(,(map (cut eval-word env <> #:output 'pattern)
+                     `(,(map (cut eval-word <> #:output 'pattern)
                              patterns)
-                       ,(exps->thunk env sub-exps)))
+                       ,(exps->thunk sub-exps)))
                    pattern-lists
                    sub-exp-lists))))
     (('<sh-cond> (test-exps . sub-exp-lists) ..1)
-     (apply sh:cond env
+     (apply sh:cond
             (map (lambda (test-exp sub-exps)
                    `(,(match test-exp
                         ('<sh-else> #t)
-                        (exp (exp->thunk env exp)))
-                     ,(exps->thunk env sub-exps)))
+                        (exp (exp->thunk exp)))
+                     ,(exps->thunk sub-exps)))
                  test-exps
                  sub-exp-lists)))
     (('<sh-defun> name . sub-exps)
-     (let ((proc (lambda (env . args)
-                   (eval-sh env `(<sh-begin> ,@sub-exps)))))
-       (define-environment-function! env name proc)))
+     (let ((proc (lambda args
+                   (eval-sh `(<sh-begin> ,@sub-exps)))))
+       (defun! name proc)))
     (('<sh-exec> words ..1)
-     (let ((args (append-map (cut eval-word env <>) words)))
+     (let ((args (append-map eval-word words)))
        (match args
-         ((name . args) (apply sh:exec env name args))
+         ((name . args) (apply sh:exec name args))
          (() #f))))
     (('<sh-exec-let> ((names var-words) ..1) cmd-words ..1)
-     (let* ((args (append-map (cut eval-word env <>) cmd-words))
+     (let* ((args (append-map eval-word cmd-words))
             (bindings (map (lambda (name word)
-                             `(,name . ,(eval-word env word
+                             `(,name . ,(eval-word word
                                                    #:output 'string
                                                    #:rhs-tildes? #t)))
                            names var-words)))
        (match args
-         ((name . args) (apply sh:exec-let env bindings name args))
+         ((name . args) (apply sh:exec-let bindings name args))
          (() (for-each (match-lambda
-                         ((name . value) (set-var! env name value)))
+                         ((name . value) (setvar! name value)))
                        bindings)))))
     (('<sh-for> (name (words ...)) . sub-exps)
-     (sh:for env `(,name ,(append-map (cut eval-word env <>) words))
-       (exps->thunk env sub-exps)))
+     (sh:for `(,name ,(append-map eval-word words))
+       (exps->thunk sub-exps)))
     (('<sh-not> exp)
-     (sh:not env (exp->thunk env exp)))
+     (sh:not (exp->thunk exp)))
     (('<sh-or> exp1 exp2)
-     (sh:or env (exp->thunk env exp1) (exp->thunk env exp2)))
+     (sh:or (exp->thunk exp1) (exp->thunk exp2)))
     (('<sh-pipeline> cmd*s ..1)
-     (apply sh:pipeline env (map (cut exp->thunk env <>) cmd*s)))
+     (apply sh:pipeline (map exp->thunk cmd*s)))
     (('<sh-set!> (names words) ..1)
      (for-each (lambda (name word)
-                 (set-var! env name (eval-word env word
-                                               #:output 'string
-                                               #:rhs-tildes? #t)))
+                 (setvar! name (eval-word word
+                                          #:output 'string
+                                          #:rhs-tildes? #t)))
                names words))
     (('<sh-subshell> . sub-exps)
-     (sh:subshell env (exps->thunk env sub-exps)))
+     (sh:subshell (exps->thunk sub-exps)))
     (('<sh-while> test-exp sub-exps ..1)
-     (sh:while env (exp->thunk env test-exp) (exps->thunk env sub-exps)))
+     (sh:while (exp->thunk test-exp) (exps->thunk sub-exps)))
     (('<sh-with-redirects> (redirs ..1) sub-exp)
      (match sub-exp
        ;; For "simple commands" we have to observe a special order of
        ;; evaluation: first command words, then redirects, and finally
        ;; assignment words.
        (('<sh-exec> words ..1)
-        (let ((args (append-map (cut eval-word env <>) words)))
-          (match (false-if-exception
-                  (map (cut eval-redir env <>) redirs))
-            (#f (set-environment-status! env 1))
+        (let ((args (append-map eval-word words)))
+          (match (false-if-exception (map eval-redir redirs))
+            (#f (set-status! 1))
             (redirs
              (match args
                ;; This built-in, called with no arguments, is a very
                ;; special case.  We need to treat the redirects
                ;; directly rather than pass them to
                ;; 'sh:with-redirects'.
-               (("exec") (sh:set-redirects env redirs))
+               (("exec") (sh:set-redirects redirs))
                ((name . args)
-                (sh:with-redirects env redirs
+                (sh:with-redirects redirs
                   (lambda ()
-                    (apply sh:exec env name args))))
+                    (apply sh:exec name args))))
                (() #f))))))
        (('<sh-exec-let> ((names var-words) ..1) cmd-words ..1)
-        (let ((args (append-map (cut eval-word env <>) cmd-words)))
-          (match (false-if-exception
-                  (map (cut eval-redir env <>) redirs))
-            (#f (set-environment-status! env 1))
+        (let ((args (append-map eval-word cmd-words)))
+          (match (false-if-exception (map eval-redir redirs))
+            (#f (set-status! 1))
             (redirs
              (let ((bindings (map (lambda (name word)
-                                    `(,name . ,(eval-word env word
+                                    `(,name . ,(eval-word word
                                                           #:output 'string
                                                           #:rhs-tildes? #t)))
                                   names var-words)))
                (match args
                  ;; See the '<sh-exec>' case for why this built-in is
                  ;; treated specially.
-                 (("exec") (sh:set-redirects env redirs))
+                 (("exec") (sh:set-redirects redirs))
                  ((name . args)
-                  (sh:with-redirects env redirs
+                  (sh:with-redirects redirs
                     (lambda ()
-                      (apply sh:exec-let env bindings name args))))
+                      (apply sh:exec-let bindings name args))))
                  (() (for-each (match-lambda
-                                 ((name . value) (set-var! env name value)))
+                                 ((name . value) (setvar! name value)))
                                bindings))))))))
-       (_ (match (false-if-exception
-                  (map (cut eval-redir env <>) redirs))
-            (#f (set-environment-status! env 1))
+       (_ (match (false-if-exception (map eval-redir redirs))
+            (#f (set-status! 1))
             (redirs
-             (sh:with-redirects env redirs
-               (exp->thunk env sub-exp)))))))
+             (sh:with-redirects redirs
+               (exp->thunk sub-exp)))))))
     (('<sh-until> test-exp sub-exps ..1)
-     (sh:until env (exp->thunk env test-exp) (exps->thunk env sub-exps)))))
+     (sh:until (exp->thunk test-exp) (exps->thunk sub-exps)))))

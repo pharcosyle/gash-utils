@@ -27,8 +27,8 @@
 ;;;
 ;;; Code:
 
-(define (main env . args)
+(define (main . args)
   (match (read-line (current-input-port))
     ((? eof-object?) 1)
-    (str (set-var! env (car args) str)
+    (str (setvar! (car args) str)
          0)))

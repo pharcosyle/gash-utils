@@ -85,47 +85,46 @@
   (call-with-temporary-directory
    (lambda (directory)
      (let ((utility (string-append directory "/utility"))
-           (sentinal (string-append directory "/sentinal.txt"))
-           (env (make-environment '())))
+           (sentinal (string-append directory "/sentinal.txt")))
        (make-script utility
          (with-output-to-file ,sentinal
            (lambda ()
              (display "x"))))
-       (sh:exec env utility)
+       (sh:exec utility)
        (file-exists? sentinal)))))
 
 (test-assert "Executes a utility by searching PATH"
   (call-with-temporary-directory
    (lambda (directory)
      (let ((utility (string-append directory "/utility"))
-           (sentinal (string-append directory "/sentinal.txt"))
-           (env (make-environment `(("PATH" . ,directory)))))
+           (sentinal (string-append directory "/sentinal.txt")))
        (make-script utility
          (with-output-to-file ,sentinal
            (lambda ()
              (display "x"))))
-       (sh:exec env "utility")
+       (with-variables `(("PATH" . ,directory))
+         (lambda () (sh:exec "utility")))
        (file-exists? sentinal)))))
 
 (test-assert "Throws error if a utility cannot be found"
   (call-with-temporary-directory
    (lambda (directory)
-     (let ((env (make-environment `(("PATH" . ,directory)))))
-       (catch #t
-         (lambda ()
-           (sh:exec env "utility")
-           #f)
-         (lambda args
-           (match args
-             (('misc-error _ _ ("Command not found.") _) #t)
-             (_ #f))))))))
+     (with-variables `(("PATH" . ,directory))
+       (lambda ()
+         (catch #t
+           (lambda ()
+             (sh:exec "utility")
+             #f)
+           (lambda args
+             (match args
+               (('misc-error _ _ ("Command not found.") _) #t)
+               (_ #f)))))))))
 
 (test-equal "Executes regular built-ins"
   "foo bar\n"
-  (let ((env (make-environment '())))
-    (with-output-to-string
-      (lambda ()
-        (sh:exec env "echo" "foo" "bar")))))
+  (with-output-to-string
+    (lambda ()
+      (sh:exec "echo" "foo" "bar"))))
 
 
 ;;; Redirects.
@@ -136,9 +135,8 @@
   "foo\n"
   (call-with-temporary-directory
    (lambda (directory)
-     (let ((foo (string-append directory "/foo.txt"))
-           (env (make-environment '())))
-       (sh:with-redirects env `((> 1 ,foo))
+     (let ((foo (string-append directory "/foo.txt")))
+       (sh:with-redirects `((> 1 ,foo))
          (lambda ()
            (display "foo")
            (newline)))
@@ -148,9 +146,8 @@
   "foo\n"
   (call-with-temporary-directory
    (lambda (directory)
-     (let ((foo (string-append directory "/foo.txt"))
-           (env (make-environment '())))
-       (sh:with-redirects env `((> 2 ,foo))
+     (let ((foo (string-append directory "/foo.txt")))
+       (sh:with-redirects `((> 2 ,foo))
          (lambda ()
            (display "foo" (current-error-port))
            (newline (current-error-port))))
@@ -161,14 +158,13 @@
   (call-with-temporary-directory
    (lambda (directory)
      (let ((utility (string-append directory "/utility"))
-           (foo (string-append directory "/foo.txt"))
-           (env (make-environment '())))
+           (foo (string-append directory "/foo.txt")))
        (make-script utility
          (display "foo")
          (newline))
-       (sh:with-redirects env `((> 1 ,foo))
+       (sh:with-redirects `((> 1 ,foo))
          (lambda ()
-           (sh:exec env utility)))
+           (sh:exec utility)))
        (call-with-input-file foo get-string-all)))))
 
 (test-equal "Redirects external standard error to file"
@@ -176,14 +172,13 @@
   (call-with-temporary-directory
    (lambda (directory)
      (let ((utility (string-append directory "/utility"))
-           (foo (string-append directory "/foo.txt"))
-           (env (make-environment '())))
+           (foo (string-append directory "/foo.txt")))
        (make-script utility
          (display "foo" (current-error-port))
          (newline (current-error-port)))
-       (sh:with-redirects env `((> 2 ,foo))
+       (sh:with-redirects `((> 2 ,foo))
          (lambda ()
-           (sh:exec env utility)))
+           (sh:exec utility)))
        (call-with-input-file foo get-string-all)))))
 
 (test-equal "Redirects built-in standard input from file"
@@ -191,13 +186,12 @@
   (call-with-temporary-directory
    (lambda (directory)
      (let ((foo (string-append directory "/foo.txt"))
-           (output (string-append directory "/output.txt"))
-           (env (make-environment '())))
+           (output (string-append directory "/output.txt")))
        (with-output-to-file foo
          (lambda ()
            (display "foo")
            (newline)))
-       (sh:with-redirects env `((< 0 ,foo))
+       (sh:with-redirects `((< 0 ,foo))
          (lambda ()
            (with-output-to-file output
              (lambda ()
@@ -210,8 +204,7 @@
    (lambda (directory)
      (let ((utility (string-append directory "/utility"))
            (foo (string-append directory "/foo.txt"))
-           (output (string-append directory "/output.txt"))
-           (env (make-environment '())))
+           (output (string-append directory "/output.txt")))
        (with-output-to-file foo
          (lambda ()
            (display "foo")
@@ -221,9 +214,9 @@
          (with-output-to-file ,output
            (lambda ()
              (display (get-string-all (current-input-port))))))
-       (sh:with-redirects env `((< 0 ,foo))
+       (sh:with-redirects `((< 0 ,foo))
          (lambda ()
-           (sh:exec env utility)))
+           (sh:exec utility)))
        (call-with-input-file output get-string-all)))))
 
 ;; These next two tests are non-deterministic, so we need to allow
@@ -234,9 +227,8 @@
 (test-assert "Redirects built-in standard error to standard output"
   (call-with-temporary-directory
    (lambda (directory)
-     (let ((foo (string-append directory "/foo.txt"))
-           (env (make-environment '())))
-       (sh:with-redirects env `((> 1 ,foo) (>& 2 1))
+     (let ((foo (string-append directory "/foo.txt")))
+       (sh:with-redirects `((> 1 ,foo) (>& 2 1))
          (lambda ()
            (display "foo")
            (newline)
@@ -250,16 +242,15 @@
   (call-with-temporary-directory
    (lambda (directory)
      (let ((utility (string-append directory "/utility"))
-           (foo (string-append directory "/foo.txt"))
-           (env (make-environment '())))
+           (foo (string-append directory "/foo.txt")))
        (make-script utility
          (display "foo")
          (newline)
          (display "bar" (current-error-port))
          (newline (current-error-port)))
-       (sh:with-redirects env `((> 1 ,foo) (>& 2 1))
+       (sh:with-redirects `((> 1 ,foo) (>& 2 1))
          (lambda ()
-           (sh:exec env utility)))
+           (sh:exec utility)))
        (let ((result (call-with-input-file foo get-string-all)))
          (or (string=? result "foo\nbar\n")
              (string=? result "bar\nfoo\n")))))))
@@ -268,13 +259,12 @@
   "foo\nbar\n"
   (call-with-temporary-directory
    (lambda (directory)
-     (let ((foo (string-append directory "/foo.txt"))
-           (env (make-environment '())))
+     (let ((foo (string-append directory "/foo.txt")))
        (with-output-to-file foo
          (lambda ()
            (display "foo")
            (newline)))
-       (sh:with-redirects env `((>> 1 ,foo))
+       (sh:with-redirects `((>> 1 ,foo))
          (lambda ()
            (display "bar")
            (newline)))
@@ -282,31 +272,28 @@
 
 (test-equal "Redirects here-document to standard input"
   "foo\n"
-  (let ((env (make-environment '())))
-    (with-output-to-string
-      (lambda ()
-        (sh:with-redirects env '((<< 0 "foo\n"))
-          (lambda ()
-            (display (get-string-all (current-input-port)))))))))
+  (with-output-to-string
+    (lambda ()
+      (sh:with-redirects '((<< 0 "foo\n"))
+        (lambda ()
+          (display (get-string-all (current-input-port))))))))
 
 (test-equal "Redirects work with string ports"
   "foo\n"
-  (let ((env (make-environment '())))
-    (with-input-from-string "bar\n"
-      (lambda ()
-        (setvbuf (current-input-port) 'none)
-        (with-output-to-string
-          (lambda ()
-            (sh:with-redirects env '((<< 0 "foo\n"))
-              (lambda ()
-                (display (get-string-all (current-input-port)))))))))))
+  (with-input-from-string "bar\n"
+    (lambda ()
+      (setvbuf (current-input-port) 'none)
+      (with-output-to-string
+        (lambda ()
+          (sh:with-redirects '((<< 0 "foo\n"))
+            (lambda ()
+              (display (get-string-all (current-input-port))))))))))
 
 (test-equal "Does not use buffered input from current-input-port"
   "foo\n"
   (call-with-temporary-directory
    (lambda (directory)
-     (let ((bar-baz (string-append directory "/bar-baz.txt"))
-           (env (make-environment '())))
+     (let ((bar-baz (string-append directory "/bar-baz.txt")))
        (with-output-to-file bar-baz
          (lambda ()
            (display "bar\nbaz\n")))
@@ -316,7 +303,7 @@
            (get-line (current-input-port))
            (with-output-to-string
              (lambda ()
-               (sh:with-redirects env '((<< 0 "foo\n"))
+               (sh:with-redirects '((<< 0 "foo\n"))
                  (lambda ()
                    (display (get-string-all (current-input-port)))))))))))))
 
@@ -324,21 +311,19 @@
   "foo\n"
   (call-with-temporary-directory
    (lambda (directory)
-     (let ((foo (string-append directory "/foo.txt"))
-           (env (make-environment '())))
-       (sh:with-redirects env `((> 1 ,foo) (<< 0 "foo\n"))
+     (let ((foo (string-append directory "/foo.txt")))
+       (sh:with-redirects `((> 1 ,foo) (<< 0 "foo\n"))
          (lambda ()
            (display (get-string-all (current-input-port)))))
        (call-with-input-file foo get-string-all)))))
 
 (test-equal "Uses last here-document specified"
   "foo\n"
-  (let ((env (make-environment '())))
-    (with-output-to-string
-      (lambda ()
-        (sh:with-redirects env '((<< 0 "bar\n") (<< 0 "foo\n"))
-          (lambda ()
-            (display (get-string-all (current-input-port)))))))))
+  (with-output-to-string
+    (lambda ()
+      (sh:with-redirects '((<< 0 "bar\n") (<< 0 "foo\n"))
+        (lambda ()
+          (display (get-string-all (current-input-port))))))))
 
 ;; TODO: Read-write tests, closing tests, clobbering tests.
 
@@ -347,11 +332,12 @@
 
 (test-equal "Subshells cannot change variables"
   "foo"
-  (let ((env (make-environment '(("x" . "foo")))))
-    (sh:subshell env
-      (lambda ()
-        (set-var! env "x" "bar")))
-    (var-ref env "x")))
+  (with-variables '(("x" . "foo"))
+    (lambda ()
+      (sh:subshell
+        (lambda ()
+          (setvar! "x" "bar")))
+      (getvar "x"))))
 
 ;; TODO: Test other means of manipulating the environment and exit
 ;; statuses.
@@ -361,45 +347,40 @@
 
 (test-equal "Substitutes output from built-in"
   "foo"
-  (let ((env (make-environment '())))
-    (sh:substitute-command env
-      (lambda ()
-        (display "foo")))))
+  (sh:substitute-command
+    (lambda ()
+      (display "foo"))))
 
 (test-equal "Substitutes output from external utilities"
   "foo"
   (call-with-temporary-directory
    (lambda (directory)
-     (let ((utility (string-append directory "/utility"))
-           (env (make-environment '())))
+     (let ((utility (string-append directory "/utility")))
        (make-script utility
          (display "foo"))
-       (sh:substitute-command env
+       (sh:substitute-command
          (lambda ()
-           (sh:exec env utility)))))))
+           (sh:exec utility)))))))
 
 (test-equal "Trailing newlines are trimmed from substitutions"
   "foo"
-  (let ((env (make-environment '())))
-    (sh:substitute-command env
-      (lambda ()
-        (display "foo")
-        (newline)))))
+  (sh:substitute-command
+    (lambda ()
+      (display "foo")
+      (newline))))
 
 (test-equal "Non-trailing newlines are preserved in substitutions"
   "\nfoo\nbar"
-  (let ((env (make-environment '())))
-    (sh:substitute-command env
-      (lambda ()
-        (newline)
-        (display "foo")
-        (newline)
-        (display "bar")))))
+  (sh:substitute-command
+    (lambda ()
+      (newline)
+      (display "foo")
+      (newline)
+      (display "bar"))))
 
 (test-equal "Empty substitutions produce empty strings"
   ""
-  (let ((env (make-environment '())))
-    (sh:substitute-command env noop)))
+  (sh:substitute-command noop))
 
 
 ;; Pipelines.
@@ -408,10 +389,8 @@
   "foo"
   (call-with-temporary-directory
    (lambda (directory)
-     (let ((foo (string-append directory "/foo.txt"))
-           (env (make-environment '())))
-       (sh:pipeline env
-                    (lambda ()
+     (let ((foo (string-append directory "/foo.txt")))
+       (sh:pipeline (lambda ()
                       (display "foo\n"))
                     (lambda ()
                       (with-output-to-file foo
@@ -425,8 +404,7 @@
    (lambda (directory)
      (let ((utility1 (string-append directory "utility1"))
            (utility2 (string-append directory "utility2"))
-           (foo (string-append directory "/foo.txt"))
-           (env (make-environment '())))
+           (foo (string-append directory "/foo.txt")))
        (make-script utility1
          (display "foo\n"))
        (make-script utility2
@@ -434,11 +412,10 @@
          (with-output-to-file ,foo
            (lambda ()
              (display (get-line (current-input-port))))))
-       (sh:pipeline env
+       (sh:pipeline (lambda ()
+                      (sh:exec utility1))
                     (lambda ()
-                      (sh:exec env utility1))
-                    (lambda ()
-                      (sh:exec env utility2)))
+                      (sh:exec utility2)))
        (call-with-input-file foo get-string-all)))))
 
 (test-equal "Externals and built-ins are connected by pipelines"
@@ -446,13 +423,11 @@
   (call-with-temporary-directory
    (lambda (directory)
      (let ((utility (string-append directory "/utility"))
-           (foo (string-append directory "/foo.txt"))
-           (env (make-environment '())))
+           (foo (string-append directory "/foo.txt")))
        (make-script utility
          (display "foo\n"))
-       (sh:pipeline env
-                    (lambda ()
-                      (sh:exec env utility))
+       (sh:pipeline (lambda ()
+                      (sh:exec utility))
                     (lambda ()
                       (with-output-to-file foo
                         (lambda ()
@@ -464,18 +439,16 @@
   (call-with-temporary-directory
    (lambda (directory)
      (let ((utility (string-append directory "/utility"))
-           (foo (string-append directory "/foo.txt"))
-           (env (make-environment '())))
+           (foo (string-append directory "/foo.txt")))
        (make-script utility
          (use-modules (ice-9 textual-ports))
          (with-output-to-file ,foo
            (lambda ()
              (display (get-line (current-input-port))))))
-       (sh:pipeline env
-                    (lambda ()
+       (sh:pipeline (lambda ()
                       (display "foo\n"))
                     (lambda ()
-                      (sh:exec env utility)))
+                      (sh:exec utility)))
        (call-with-input-file foo get-string-all)))))
 
 (test-end)

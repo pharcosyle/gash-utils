@@ -218,84 +218,77 @@ string, the separator is derived from @var{ifs} using
   "Check if @var{str} is a non-null string."
   (and (string? str) (not (string-null? str))))
 
-(define (parameter-ref env name)
-  "Get the value of the variable or special parameter @var{name} in
-@var{env}.  If @var{name} is unset, return @code{#f}."
+(define* (parameter-ref name #:optional dflt)
+  "Get the value of the variable or special parameter @var{name} from
+the environment.  If @var{name} is unset, return @code{#f}."
   (match name
-    ("@" `(<sh-at> ,(environment-arguments env)))
-    ("*" (let* ((ifs (or (var-ref env "IFS")
+    ("@" `(<sh-at> ,(cdr (program-arguments))))
+    ("*" (let* ((ifs (or (getvar "IFS")
                          (string #\space #\tab #\newline)))
                 (sep (argument-separator ifs)))
-           (string-join (environment-arguments env) sep)))
-    ("?" (number->string (environment-status env)))
-    (_ (var-ref env name))))
+           (string-join (cdr (program-arguments)) sep)))
+    ("?" (number->string (get-status)))
+    (_ (getvar name dflt))))
 
-(define (parameter-ref* env name)
-  "Get the value of the variable or special parameter @var{name} in
-@var{env}.  If @var{name} is unset, return @code{\"\"}."
-  (or (parameter-ref env name) ""))
-
-(define (word->qword env word)
+(define (word->qword word)
   "Convert @var{word} into a qword by resolving all parameter, command,
-and arithmetic substitions using the environment @var{env}."
+and arithmetic substitions."
   (match word
     ((? string?)
      word)
     (('<sh-quote> quoted-word)
-     `(<sh-quote> ,(word->qword env quoted-word)))
+     `(<sh-quote> ,(word->qword quoted-word)))
     (('<sh-cmd-sub> . exps)
      ((eval-cmd-sub) exps))
     (('<sh-ref> name)
-     (parameter-ref* env name))
+     (parameter-ref name ""))
     (('<sh-ref-or> name default)
-     (or (parameter-ref env name)
-         (word->qword env (or default ""))))
+     (or (parameter-ref name)
+         (word->qword (or default ""))))
     (('<sh-ref-or*> name default)
-     (let ((value (parameter-ref env name)))
+     (let ((value (parameter-ref name)))
        (if (string-not-null? value)
            value
-           (word->qword env (or default "")))))
+           (word->qword (or default "")))))
     (('<sh-ref-or!> name default)
-     (or (parameter-ref env name)
-         (let ((new-value (expand-word env (or default "")
+     (or (parameter-ref name)
+         (let ((new-value (expand-word (or default "")
                                        #:output 'string #:rhs-tildes? #t)))
-           (set-var! env name new-value)
+           (setvar! name new-value)
            new-value)))
     (('<sh-ref-or!*> name default)
-     (let ((value (parameter-ref env name)))
+     (let ((value (parameter-ref name)))
        (if (string-not-null? value)
            value
-           (let ((new-value (expand-word env (or default "")
+           (let ((new-value (expand-word (or default "")
                                          #:output 'string #:rhs-tildes? #t)))
-             (set-var! env name new-value)
+             (setvar! name new-value)
              new-value))))
     (('<sh-ref-assert> name message) (error "Not implemented"))
     (('<sh-ref-assert*> name message) (error "Not implemented"))
     (('<sh-ref-and> name value)
-     (if (string-not-null? (parameter-ref env name))
-         (word->qword env (or value ""))
+     (if (string-not-null? (parameter-ref name))
+         (word->qword (or value ""))
          ""))
     (('<sh-ref-and*> name value)
-     (or (and (parameter-ref env name)
-              (word->qword env (or value "")))
+     (or (and (parameter-ref name)
+              (word->qword (or value "")))
          ""))
     (('<sh-ref-except-min> name pattern) (error "Not implemented"))
     (('<sh-ref-except-max> name pattern) (error "Not implemented"))
     (('<sh-ref-skip-min> name pattern) (error "Not implemented"))
     (('<sh-ref-skip-max> name pattern) (error "Not implemented"))
     (('<sh-ref-length> name)
-     (number->string (string-length (parameter-ref* env name))))
-    (_ (map (cut word->qword env <>) word))))
+     (number->string (string-length (parameter-ref name ""))))
+    (_ (map word->qword word))))
 
-(define* (expand-word env word #:key (output 'fields) (rhs-tildes? #f))
-  "Expand @var{word} into a list of fields using the environment
-@var{env}."
+(define* (expand-word word #:key (output 'fields) (rhs-tildes? #f))
+  "Expand @var{word} into a list of fields."
   ;; The value of '$IFS' may depend on side-effects performed during
   ;; 'word->qword', so use 'let*' here.
-  (let* ((qword (word->qword env word))
-         (ifs (or (and env (var-ref env "IFS"))
-                  (string #\space #\tab #\newline)))
-         (pwd (and env (var-ref env "PWD"))))
+  (let* ((qword (word->qword word))
+         (ifs (getvar "IFS" (string #\space #\tab #\newline)))
+         (pwd (getvar "PWD")))
     (match output
       ('fields (if pwd
                    (append-map (cut expand-pathnames <> pwd ifs)

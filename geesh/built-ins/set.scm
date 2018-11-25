@@ -27,7 +27,8 @@
 ;;; Code:
 
 
-(define (main env . args)
+(define (main . args)
   (match args
-    (("--" . args) (set-environment-arguments! env args))
+    (("--" . args)
+     (set-program-arguments (cons (car (program-arguments)) args)))
     (_ (throw 'not-implemented (string-join (cons "set" args))))))

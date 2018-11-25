@@ -27,12 +27,12 @@
 ;;;
 ;;; Code:
 
-(define (main env . args)
+(define (main . args)
   (match args
     (("-p") (throw 'not-implemented "export -p"))
     (_ (for-each (lambda (assignment)
                    (call-with-values (lambda () (split-assignment assignment))
                      (lambda (name value)
-                       (set-var-export! env name value))))
+                       (set-exported! name value))))
                  args)
        0)))

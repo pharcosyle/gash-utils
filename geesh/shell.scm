@@ -29,31 +29,6 @@
 ;;;
 ;;; Code:
 
-(define *fd-count* 10)
-
-(define current-3-port (make-parameter #f))
-(define current-4-port (make-parameter #f))
-(define current-5-port (make-parameter #f))
-(define current-6-port (make-parameter #f))
-(define current-7-port (make-parameter #f))
-(define current-8-port (make-parameter #f))
-(define current-9-port (make-parameter #f))
-
-(define (fd->current-port fd)
-  "Return the current port (e.g. @code{current-input-port})
-corresponding to the the Shell file descriptor @var{fd}."
-  (match fd
-    (0 current-input-port)
-    (1 current-output-port)
-    (2 current-error-port)
-    (3 current-3-port)
-    (4 current-4-port)
-    (5 current-5-port)
-    (6 current-6-port)
-    (7 current-7-port)
-    (8 current-8-port)
-    (9 current-9-port)))
-
 (define (install-current-ports!)
   "Install all current ports into their usual file descriptors.  For
 example, if @code{current-input-port} is a @code{file-port?}, make the
@@ -73,12 +48,11 @@ to @file{/dev/null}."
                 (_ #t)))
             (iota *fd-count*)))
 
-(define (exec-utility env bindings path name args)
-  "Execute @var{path} as a subprocess with environment @var{env} and
-extra environment variables @var{bindings}.  The first argument given
-to the new process will be @var{name}, and the rest of the arguments
-will be @var{args}."
-  (let ((utility-env (environment->environ env bindings)))
+(define (exec-utility bindings path name args)
+  "Execute @var{path} as a subprocess with extra environment variables
+@var{bindings}.  The first argument given to the new process will be
+@var{name}, and the rest of the arguments will be @var{args}."
+  (let ((utility-env (get-environ bindings)))
     ;; We need to flush all ports here to ensure the proper sequence
     ;; of output.  Without flushing, output that we have written could
     ;; stay in a buffer while the utility (which does not know about
@@ -88,7 +62,7 @@ will be @var{args}."
       (0 (install-current-ports!)
          (apply execle path utility-env name args))
       (pid (match-let (((pid . status) (waitpid pid)))
-             (set-environment-status! env (status:exit-val status)))))))
+             (set-status! (status:exit-val status)))))))
 
 (define (slashless? s)
   "Test if the string @var{s} does not contain any slashes ('/')."
@@ -98,10 +72,11 @@ will be @var{args}."
   "Split the search path string @var{s}."
   (if (string-null? s) '() (string-split s #\:)))
 
-(define (find-utility env name)
-  "Search for the path of the utility @var{name} using @var{env}.  If
+(define (find-utility name)
+  "Search for the path of the utility @var{name} using the current
+search path as specified by the environment variable @code{$PATH}.  If
 it cannot be found, return @code{#f}."
-  (let loop ((prefixes (split-search-path (var-ref* env "PATH"))))
+  (let loop ((prefixes (split-search-path (getvar "PATH" ""))))
     (and (pair? prefixes)
          (let* ((prefix (car prefixes))
                 (path (if (string-suffix? "/" prefix)
@@ -111,43 +86,42 @@ it cannot be found, return @code{#f}."
                path
                (loop (cdr prefixes)))))))
 
-(define (sh:exec-let env bindings name . args)
-  "Find and execute @var{name} with arguments @var{args}, environment
-@var{env}, and extra environment variable bindings @var{bindings}."
+(define (sh:exec-let bindings name . args)
+  "Find and execute @var{name} with arguments @var{args} and extra
+environment variable bindings @var{bindings}."
   (if (slashless? name)
       (or (and=> (search-special-built-ins name)
                  (lambda (proc)
                    (for-each (match-lambda
                                ((name . value)
-                                (set-var! env name value)))
+                                (setvar! name value)))
                              bindings)
-                   (let ((exit-val (apply proc env args)))
-                     (set-environment-status! env exit-val))))
-          (and=> (environment-function-ref env name)
+                   (let ((exit-val (apply proc args)))
+                     (set-status! exit-val))))
+          (and=> (getfun name)
                  (lambda (proc)
-                   (with-environment-arguments env args
+                   (with-arguments (cons (car (program-arguments)) args)
                      (lambda ()
-                       (apply proc env args)))))
+                       (apply proc args)))))
           (and=> (search-built-ins name)
                  (lambda (proc)
                    ;; TODO: Use 'bindings' here.
-                   (let ((exit-val (apply proc env args)))
-                     (set-environment-status! env exit-val))))
-          (and=> (find-utility env name)
+                   (let ((exit-val (apply proc args)))
+                     (set-status! exit-val))))
+          (and=> (find-utility name)
                  (lambda (path)
-                   (exec-utility env bindings path name args)))
+                   (exec-utility bindings path name args)))
           (error "Command not found."))
-      (exec-utility env bindings name name args)))
+      (exec-utility bindings name name args)))
 
-(define (sh:exec env name . args)
-  "Find and execute @var{name} with arguments @var{args} and
-environment @var{env}."
-  (apply sh:exec-let env '() name args))
+(define (sh:exec name . args)
+  "Find and execute @var{name} with arguments @var{args}."
+  (apply sh:exec-let '() name args))
 
 
 ;;; Redirects.
 
-(define (redir->parameter+port env redir)
+(define (redir->parameter+port redir)
   "Convert @var{redir} into a pair consisting of the current-port
 parameter to be updated and the port that should be its new value (or
 @code{#f} if it should be considered closed)."
@@ -187,20 +161,20 @@ parameter to be updated and the port that should be its new value (or
        (seek port 0 SEEK_SET)
        (make-parameter+port fd port)))))
 
-(define (sh:set-redirects env redirs)
+(define (sh:set-redirects redirs)
   "Put the redirects @var{redirs} into effect."
   (let loop ((redirs redirs))
     (match redirs
       (() #t)
       ((redir . rest)
        (match (false-if-exception
-               (redir->parameter+port env redir))
-         (#f (set-environment-status! env 1))
+               (redir->parameter+port redir))
+         (#f (set-status! 1))
          ((parameter . port)
           (parameter port)
           (loop rest)))))))
 
-(define (sh:with-redirects env redirs thunk)
+(define (sh:with-redirects redirs thunk)
   "Call @var{thunk} with the redirects @var{redirs} in effect."
   ;; This may be too clever!  We need to parameterize a variable
   ;; number of things in a particular order, and this seems to be the
@@ -208,8 +182,8 @@ parameter to be updated and the port that should be its new value (or
   ((fold-right (lambda (redir thunk)
                  (lambda ()
                    (match (false-if-exception
-                           (redir->parameter+port env redir))
-                     (#f (set-environment-status! env 1))
+                           (redir->parameter+port redir))
+                     (#f (set-status! 1))
                      ((parameter . port)
                       (parameterize ((parameter port))
                         (thunk))
@@ -233,13 +207,13 @@ process."
        (primitive-exit))
     (pid pid)))
 
-(define (sh:subshell env thunk)
+(define (sh:subshell thunk)
   "Run @var{thunk} in a subshell environment."
   (match-let* ((pid (%subshell thunk))
                ((pid . status) (waitpid pid)))
-    (set-environment-status! env (status:exit-val status))))
+    (set-status! (status:exit-val status))))
 
-(define (sh:substitute-command env thunk)
+(define (sh:substitute-command thunk)
   "Run @var{thunk} in a subshell environment and return its output as
 a string."
   (match-let* (((sink . source) (pipe))
@@ -250,7 +224,7 @@ a string."
     (close-port source)
     (match-let ((result (string-trim-right (get-string-all sink) #\newline))
                 ((pid . status) (waitpid pid)))
-      (set-environment-status! env (status:exit-val status))
+      (set-status! (status:exit-val status))
       result)))
 
 
@@ -280,7 +254,7 @@ for an input port and the last will have @code{#f} as an output port."
     (_ (let ((pipes (map (lambda (x) (pipe)) (cdr xs))))
          (map cons xs (swap-and-shift-pairs pipes))))))
 
-(define (plumb env in out thunk)
+(define (plumb in out thunk)
   "Run @var{thunk} in a new process with @code{current-input-port} set
 to @var{in} and @code{current-output-port} set to @var{out}.  If
 @var{in} or @var{out} is @code{#f}, the corresponding ``current'' port
@@ -296,93 +270,76 @@ is left unchanged."
     (when out (close-port out))
     pid))
 
-(define (sh:pipeline env . thunks)
+(define (sh:pipeline . thunks)
   "Run each thunk in @var{thunks} in its own process with the output
 of each thunk sent to the input of the next thunk."
   (let ((pids (map (match-lambda
                      ((thunk . (source . sink))
-                      (plumb env source sink thunk)))
+                      (plumb source sink thunk)))
                    (make-pipes thunks))))
     (unless (null? pids)
       (match-let* ((pid (last pids))
                    ((pid . status) (waitpid pid)))
-        (set-environment-status! env (status:exit-val status))))))
+        (set-status! (status:exit-val status))))))
 
 
 ;;; Boolean expressions.
 
-(define (sh:and env thunk1 thunk2)
-  "Run @var{thunk1} then, if the @code{$?} variable is zero in @var{env},
-run @var{thunk2}."
+(define (sh:and thunk1 thunk2)
+  "Run @var{thunk1} and if it exits with status zero, run
+@var{thunk2}."
   (thunk1)
-  (when (= (environment-status env) 0)
+  (when (= (get-status) 0)
     (thunk2)))
 
-(define (sh:or env thunk1 thunk2)
-  "Run @var{thunk1} then, if the @code{$?} variable is nonzero in
-@var{env}, run @var{thunk2}."
+(define (sh:or thunk1 thunk2)
+  "Run @var{thunk1} and if it exits with a nonzero status, run
+@var{thunk2}."
   (thunk1)
-  (unless (= (environment-status env) 0)
+  (unless (= (get-status) 0)
     (thunk2)))
 
-(define (sh:not env thunk)
-  "Run @var{thunk} and then invert the @code{$?} variable in @var{env}."
+(define (sh:not thunk)
+  "Run @var{thunk}, inverting its exit status."
   (thunk)
-  (let ((inverted-status (if (= (environment-status env) 0) 1 0)))
-    (set-environment-status! env inverted-status)))
+  (let ((inverted-status (if (= (get-status) 0) 1 0)))
+    (set-status! inverted-status)))
 
 
 ;;; Loops.
 
-(define (sh:for env bindings thunk)
+(define (sh:for bindings thunk)
   "Run @var{thunk} for each binding in @var{bindings}.  The value of
 @var{bindings} have the form @code{(@var{name} (@var{value} ...))}."
-  (set-environment-status! env 0)
-  (match-let ((break-prompt (environment-break-prompt env))
-              (continue-prompt (environment-continue-prompt env))
-              ((name (values ...)) bindings))
-    (call-with-prompt break-prompt
+  (set-status! 0)
+  (match-let (((name (values ...)) bindings))
+    (call-with-break
       (lambda ()
         (for-each (lambda (value)
-                    (set-var! env name value)
-                    (call-with-prompt continue-prompt
-                      thunk
-                      (lambda (cont n)
-                        (when (> n 0)
-                          (false-if-exception
-                           (abort-to-prompt continue-prompt (1- n)))))))
-                  values))
-      (lambda (cont n)
-        (when (> n 0)
-          (false-if-exception
-           (abort-to-prompt break-prompt (1- n))))))))
+                    (setvar! name value)
+                    (call-with-continue thunk))
+                  values)))))
 
-(define (sh:while env test-thunk thunk)
-  (let ((break-prompt (environment-break-prompt env))
-        (continue-prompt (environment-continue-prompt env)))
-    (call-with-prompt break-prompt
-      (lambda ()
-        (let loop ((last-status 0))
-          (test-thunk)
-          (cond
-           ((= (environment-status env) 0)
-            (thunk)
-            (loop (environment-status env)))
-           (else
-            (set-environment-status! env last-status)))))
-      (lambda (cont n)
-        (when (> n 0)
-          (false-if-exception
-           (abort-to-prompt break-prompt (1- n))))))))
+(define (sh:while test-thunk thunk)
+  (call-with-break
+    (lambda ()
+      (let loop ((last-status 0))
+        (test-thunk)
+        (cond
+         ((= (get-status) 0)
+          (thunk)
+          (loop (get-status)))
+         (else
+          (set-status! last-status)))))))
 
-(define (sh:until env test-thunk thunk)
-  (sh:while env (lambda () (sh:not env test-thunk)) thunk))
+(define (sh:until test-thunk thunk)
+  (sh:while (lambda () (sh:not test-thunk)) thunk))
 
 
 ;;; Conditionals.
 
-(define (sh:case env value . cases)
-  (set-environment-status! env 0)
+(define (sh:case value . cases)
+  (set-status! 0)
   (let loop ((cases cases))
     (match cases
       (() #t)
@@ -391,8 +348,8 @@ run @var{thunk2}."
            (thunk)
            (loop tail))))))
 
-(define (sh:cond env . cases)
-  (set-environment-status! env 0)
+(define (sh:cond . cases)
+  (set-status! 0)
   (let loop ((cases cases))
     (match cases
       (() #t)
@@ -400,6 +357,6 @@ run @var{thunk2}."
        (thunk))
       (((test-thunk thunk) . tail)
        (test-thunk)
-       (if (= (environment-status env) 0)
+       (if (= (get-status) 0)
            (thunk)
            (loop tail))))))

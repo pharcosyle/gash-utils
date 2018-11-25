@@ -27,12 +27,12 @@
 ;;;
 ;;; Code:
 
-(define (main env . args)
+(define (main . args)
   (match args
     (("-p") (throw 'not-implemented "readonly -p"))
     (_ (for-each (lambda (assignment)
                    (call-with-values (lambda () (split-assignment assignment))
                      (lambda (name value)
-                       (set-var-read-only! env name value))))
+                       (set-read-only! name value))))
                  args)
        0)))

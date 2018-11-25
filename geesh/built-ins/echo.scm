@@ -25,7 +25,7 @@
 ;;;
 ;;; Code:
 
-(define (echo env . args)
+(define (echo . args)
   (let* ((n? (and (pair? args) (string=? (car args) "-n")))
          (args (if n? (cdr args) args)))
     (display (string-join args " "))

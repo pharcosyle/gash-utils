@@ -24,5 +24,5 @@
 ;;;
 ;;; Code:
 
-(define (main env . args)
+(define (main . args)
   0)

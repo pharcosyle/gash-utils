@@ -66,7 +66,6 @@ bin_SCRIPTS =                                   \
   scripts/geesh
 
 TESTS =                                         \
-  tests/environment.scm                         \
   tests/lexer.scm                               \
   tests/parser.scm                              \
   tests/pattern.scm                             \

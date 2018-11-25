@@ -25,12 +25,12 @@
 ;;;
 ;;; Code:
 
-(define (main env . args)
+(define (main . args)
   (let* ((arg (and (pair? args) (car args)))
          (n (string->number (or arg "1"))))
     (if (and arg (or (not n) (not (exact-integer? n)) (< n 1)))
         1
-        (let ((break-prompt (environment-break-prompt env)))
+        (begin
           ;; Since we do not return, we have to set the status here.
-          (set-environment-status! env 0)
-          (abort-to-prompt break-prompt (1- n))))))
+          (set-status! 0)
+          (break (1- n))))))
