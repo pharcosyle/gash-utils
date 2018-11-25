@@ -42,10 +42,12 @@ check-spec:
 
 MODULES =                                       \
   geesh/built-ins/break.scm                     \
+  geesh/built-ins/cd.scm                        \
   geesh/built-ins/continue.scm                  \
   geesh/built-ins/echo.scm                      \
   geesh/built-ins/export.scm                    \
   geesh/built-ins/false.scm                     \
+  geesh/built-ins/pwd.scm                       \
   geesh/built-ins/read.scm                      \
   geesh/built-ins/readonly.scm                  \
   geesh/built-ins/set.scm                       \

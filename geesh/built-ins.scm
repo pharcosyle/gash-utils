@@ -54,7 +54,7 @@
   `( ;; POSIX-specified built-ins.
     ("alias" . ,undefined)
     ("bg" . ,undefined)
-    ("cd" . ,undefined)
+    ("cd" . ,(@@ (geesh built-ins cd) main))
     ("command" . ,undefined)
     ("false" . ,(@@ (geesh built-ins false) main))
     ("fc" . ,undefined)
@@ -64,7 +64,7 @@
     ("jobs" . ,undefined)
     ("kill" . ,undefined)
     ("newgrp" . ,undefined)
-    ("pwd" . ,undefined)
+    ("pwd" . ,(@@ (geesh built-ins pwd) main))
     ("read" . ,(@@ (geesh built-ins read) main))
     ("true" . ,(@@ (geesh built-ins true) main))
     ("umask" . ,undefined)
