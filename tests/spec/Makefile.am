@@ -9,7 +9,7 @@ oil: oil-link
 
 oil/bin/geesh: oil
 	echo "#!/bin/sh" > "$@"
-	echo "$(abs_top_builddir)/pre-inst-env geesh" >> "$@"
+	echo "$(abs_top_builddir)/pre-inst-env geesh "'"$$@"' >> "$@"
 	chmod a+x "$@"
 
 check: oil/bin/geesh ;
