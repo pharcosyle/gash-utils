@@ -41,7 +41,8 @@
 ;; FIXME: export/env vs set
 (define %global-variables
   (map identity ;; FIXME: make mutable
-       `(,(cons "SHELLOPTS" "")
+       `(,(cons "SHELL" (car (command-line)))
+         ,(cons "SHELLOPTS" "")
          ,(cons "PIPESTATUS" "([0]=\"0\"")
          ,(cons "?" "0")
          ,@(map (lambda (key-value)
