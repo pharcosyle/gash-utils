@@ -206,8 +206,11 @@ process."
   ;; duplicate output.
   (flush-all-ports)
   (match (primitive-fork)
-    (0 (thunk)
-       (primitive-exit))
+    (0 (with-continuation-barrier
+        (lambda ()
+          (thunk)
+          (primitive-exit (get-status))))
+       (primitive-exit 1))
     (pid pid)))
 
 (define (sh:subshell thunk)
