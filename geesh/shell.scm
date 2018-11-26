@@ -111,7 +111,10 @@ environment variable bindings @var{bindings}."
           (and=> (find-utility name)
                  (lambda (path)
                    (exec-utility bindings path name args)))
-          (error "Command not found."))
+          (begin (format (current-error-port)
+                         "~a: ~a: Command not found.~%"
+                         (car (program-arguments)) name)
+                 (set-status! 127)))
       (exec-utility bindings name name args)))
 
 (define (sh:exec name . args)

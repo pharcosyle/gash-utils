@@ -106,19 +106,14 @@
          (lambda () (sh:exec "utility")))
        (file-exists? sentinal)))))
 
-(test-assert "Throws error if a utility cannot be found"
+(test-equal "Sets status to 127 if a utility cannot be found"
+  127
   (call-with-temporary-directory
    (lambda (directory)
      (with-variables `(("PATH" . ,directory))
        (lambda ()
-         (catch #t
-           (lambda ()
-             (sh:exec "utility")
-             #f)
-           (lambda args
-             (match args
-               (('misc-error _ _ ("Command not found.") _) #t)
-               (_ #f)))))))))
+         (sh:exec "utility")
+         (get-status))))))
 
 (test-equal "Executes regular built-ins"
   "foo bar\n"
