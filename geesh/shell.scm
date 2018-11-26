@@ -355,7 +355,7 @@ of each thunk sent to the input of the next thunk."
   (set-status! 0)
   (let loop ((cases cases))
     (match cases
-      (() #t)
+      (() (set-status! 0))
       (((#t thunk))
        (thunk))
       (((test-thunk thunk) . tail)
