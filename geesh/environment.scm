@@ -37,6 +37,10 @@
             defun!
             unsetfun!
             with-arguments
+            getopt
+            setopt!
+            *option-names*
+            *option-letters*
             call-with-continue
             continue
             call-with-break
@@ -233,6 +237,50 @@ made from within the dynamic extent of @var{thunk}."
       (lambda ()
         (set! inside-args (program-arguments))
         (set-program-arguments outside-args)))))
+
+
+;;; Options.
+
+(define *options*
+  (map (cut cons <> #f)
+       '(allexport
+         errexit
+         ignoreeof
+         monitor
+         noclobber
+         noglob
+         noexec
+         nolog
+         notify
+         nounset
+         verbose
+         vi
+         xtrace)))
+
+(define (getopt name)
+  "Get the value of the option named @var{name}."
+  (match (assq name *options*)
+    ((_ . value) value)))
+
+(define (setopt! name value)
+  "Set the value of the option named @var{name} to @var{value}."
+  (match (assq name *options*)
+    ((? pair? p) (set-cdr! p value))))
+
+(define *option-names*
+  (map car *options*))
+
+(define *option-letters*
+  '((#\a . allexport)
+    (#\e . errexit)
+    (#\m . monitor)
+    (#\C . noclobber)
+    (#\f . noglob)
+    (#\n . noexec)
+    (#\b . notify)
+    (#\u . nounset)
+    (#\v . verbose)
+    (#\x . xtrace)))
 
 
 ;;; Prompts
