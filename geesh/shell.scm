@@ -29,6 +29,16 @@
 ;;;
 ;;; Code:
 
+(define ignore-errexit? (make-parameter #f))
+
+(define (without-errexit thunk)
+  (parameterize ((ignore-errexit? #t)) (thunk)))
+
+(define (errexit)
+  (unless (or (zero? (get-status)) (ignore-errexit?))
+    (when (getopt 'errexit)
+      (exit (get-status)))))
+
 (define (install-current-ports!)
   "Install all current ports into their usual file descriptors.  For
 example, if @code{current-input-port} is a @code{file-port?}, make the
@@ -115,7 +125,8 @@ environment variable bindings @var{bindings}."
                          "~a: ~a: Command not found.~%"
                          (car (program-arguments)) name)
                  (set-status! 127)))
-      (exec-utility bindings name name args)))
+      (exec-utility bindings name name args))
+  (errexit))
 
 (define (sh:exec name . args)
   "Find and execute @var{name} with arguments @var{args}."
@@ -172,7 +183,8 @@ parameter to be updated and the port that should be its new value (or
       ((redir . rest)
        (match (false-if-exception
                (redir->parameter+port redir))
-         (#f (set-status! 1))
+         (#f (set-status! 1)
+             (errexit))
          ((parameter . port)
           (parameter port)
           (loop rest)))))))
@@ -186,7 +198,8 @@ parameter to be updated and the port that should be its new value (or
                  (lambda ()
                    (match (false-if-exception
                            (redir->parameter+port redir))
-                     (#f (set-status! 1))
+                     (#f (set-status! 1)
+                         (errexit))
                      ((parameter . port)
                       (parameterize ((parameter port))
                         (thunk))
@@ -217,7 +230,8 @@ process."
   "Run @var{thunk} in a subshell environment."
   (match-let* ((pid (%subshell thunk))
                ((pid . status) (waitpid pid)))
-    (set-status! (status:exit-val status))))
+    (set-status! (status:exit-val status))
+    (errexit)))
 
 (define (sh:substitute-command thunk)
   "Run @var{thunk} in a subshell environment and return its output as
@@ -231,6 +245,7 @@ a string."
     (match-let ((result (string-trim-right (get-string-all sink) #\newline))
                 ((pid . status) (waitpid pid)))
       (set-status! (status:exit-val status))
+      (errexit)
       result)))
 
 
@@ -286,7 +301,8 @@ of each thunk sent to the input of the next thunk."
     (unless (null? pids)
       (match-let* ((pid (last pids))
                    ((pid . status) (waitpid pid)))
-        (set-status! (status:exit-val status))))))
+        (set-status! (status:exit-val status))
+        (errexit)))))
 
 
 ;;; Boolean expressions.
@@ -294,20 +310,22 @@ of each thunk sent to the input of the next thunk."
 (define (sh:and thunk1 thunk2)
   "Run @var{thunk1} and if it exits with status zero, run
 @var{thunk2}."
-  (thunk1)
+  (without-errexit thunk1)
   (when (= (get-status) 0)
-    (thunk2)))
+    (thunk2)
+    (errexit)))
 
 (define (sh:or thunk1 thunk2)
   "Run @var{thunk1} and if it exits with a nonzero status, run
 @var{thunk2}."
-  (thunk1)
+  (without-errexit thunk1)
   (unless (= (get-status) 0)
-    (thunk2)))
+    (thunk2)
+    (errexit)))
 
 (define (sh:not thunk)
   "Run @var{thunk}, inverting its exit status."
-  (thunk)
+  (without-errexit thunk)
   (let ((inverted-status (if (= (get-status) 0) 1 0)))
     (set-status! inverted-status)))
 
@@ -330,7 +348,7 @@ of each thunk sent to the input of the next thunk."
   (call-with-break
     (lambda ()
       (let loop ((last-status 0))
-        (test-thunk)
+        (without-errexit test-thunk)
         (cond
          ((= (get-status) 0)
           (thunk)
@@ -362,7 +380,7 @@ of each thunk sent to the input of the next thunk."
       (((#t thunk))
        (thunk))
       (((test-thunk thunk) . tail)
-       (test-thunk)
+       (without-errexit test-thunk)
        (if (= (get-status) 0)
            (thunk)
            (loop tail))))))
