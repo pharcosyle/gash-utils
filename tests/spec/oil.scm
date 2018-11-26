@@ -190,9 +190,6 @@
                       ("Named file descriptor")
                       ;; This requires the errexit option, which we do
                       ;; not use yet.
-                      ("Redirect to empty string")
-                      ;; This test relies on 'set', which we do not
-                      ;; have yet.
                       (">| to clobber")
                       ;; This is Bash specific.
                       ("&> redirects stdout and stderr")
