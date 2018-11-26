@@ -26,9 +26,70 @@
 ;;;
 ;;; Code:
 
+(define (option? o)
+  (memq o *option-names*))
+
+(define (option-letter? chr)
+  (assoc chr *option-letters*))
+
+(define (set-option! option value args)
+  (setopt! option value)
+  (unless (null? args)
+    (set-program-arguments (cons (car (program-arguments)) args))))
 
 (define (main . args)
   (match args
-    (("--" . args)
-     (set-program-arguments (cons (car (program-arguments)) args)))
-    (_ (throw 'not-implemented (string-join (cons "set" args))))))
+    (("-o")
+     (for-each (lambda (option)
+                 (format #t "~a\t~a~%"
+                         option (getopt option)))
+               *option-names*)
+     EXIT_SUCCESS)
+    (("+o")
+     (for-each (lambda (option)
+                 (format #t "set ~a ~a~%"
+                         (if (getopt option) "-o" "+o") option))
+               *option-names*)
+     EXIT_SUCCESS)
+    (_ (let loop ((args args))
+         (match args
+           (() EXIT_SUCCESS)
+           (("--" . args)
+            (set-program-arguments (cons (car (program-arguments)) args))
+            EXIT_SUCCESS)
+           (("-o" option-string . args)
+            (let ((option (string->symbol option-string)))
+              (match option
+                ((? option?)
+                 (setopt! option #t)
+                 (loop args))
+                (_ (format (current-error-port)
+                           "~a: set: invalid option ~a~%"
+                           (car (program-arguments)) option)
+                   EXIT_FAILURE))))
+           (("+o" option-string . args)
+            (let ((option (string->symbol option-string)))
+              (match option
+                ((? option?)
+                 (setopt! option #f)
+                 (loop args))
+                (_ (format (current-error-port)
+                           "~a: set: invalid option ~a~%"
+                           (car (program-arguments)) option)
+                   EXIT_FAILURE))))
+           ((op . args)
+            (match (string->list op)
+              ((#\- (? option-letter? chr))
+               (setopt! (assoc-ref *option-letters* chr) #t)
+               (loop args))
+              ((#\+ (? option-letter? chr))
+               (setopt! (assoc-ref *option-letters* chr) #f)
+               (loop args))
+              (_ (format (current-error-port)
+                         "~a: set: invalid option ~s~%"
+                         (car (program-arguments)) op)
+                 EXIT_FAILURE)))
+           (_ (format (current-error-port)
+                      "~a: set: invalid options ~s~%"
+                      (car (program-arguments)) args)
+              EXIT_FAILURE))))))

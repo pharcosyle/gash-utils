@@ -172,6 +172,9 @@
                       ;; We do not support named file descriptors
                       ;; (they are not in POSIX).
                       ("Named file descriptor")
+                      ;; This requires the errexit option, which we do
+                      ;; not use yet.
+                      ("Redirect to empty string")
                       ;; This test relies on 'set', which we do not
                       ;; have yet.
                       (">| to clobber")
