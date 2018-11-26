@@ -104,6 +104,22 @@
                      (;; These two are Bash specific.
                       ("Case statement with ;;&")
                       ("Case statement with ;&")))
+                    ("spec/errexit.test.sh"
+                     (;; We do not have the time built-in.
+                      ("errexit and time { }")
+                      ;; Follow Dash on this one.
+                      ("errexit with (( ))"
+                       ("N-I dash" "N-I dash/geesh"))
+                      ;; These next two are due to a difference
+                      ;; between the Oil shell and every other shell.
+                      ;; Oil thinks that setting the errexit option in
+                      ;; a context in which it is normally ignored
+                      ;; should make it no longer ignored.  We leave
+                      ;; it ignored like every other shell.
+                      ("setting errexit while it's being ignored")
+                      ("setting errexit while it's being ignored in a subshell")
+                      ;; We do not do background processes yet.
+                      ("background processes respect errexit")))
                     ("spec/loop.test.sh"
                      (;; We do not do tilde expansion yet.
                       ("Tilde expansion within for loop")
