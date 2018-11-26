@@ -32,11 +32,11 @@
 
 ;; Special built-ins take precedence over any other command.
 (define *special-built-ins*
-  `(("." . ,undefined)
+  `(("." . ,(@@ (geesh built-ins dot) main))
     (":" . ,(@@ (geesh built-ins colon) main))
     ("break" . ,(@@ (geesh built-ins break) main))
     ("continue" . ,(@@ (geesh built-ins continue) main))
-    ("eval" . ,undefined)
+    ("eval" . ,(@@ (geesh built-ins eval) main))
     ("exec" . ,undefined)
     ("exit" . ,undefined)
     ("export" . ,(@@ (geesh built-ins export) main))
