@@ -1,0 +1,19 @@
+image: debian:buster
+
+before_script:
+  - apt-get update -qq && apt-get install -y -qq
+      autoconf
+      automake
+      guile-2.2-dev
+      make
+      pkg-config
+  - which guile
+  - guile --version
+  # Guile's M4 macros are pretty sure that the `guild' binary has to
+  # have the exact same suffix as the `guile' binary.  In practice,
+  # this means we need a `guild-2.2' binary.
+  - ln -s /usr/bin/guild /usr/bin/guild-2.2
+
+test:
+  script:
+    - ./bootstrap && ./configure && make && make check

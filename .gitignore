@@ -5,6 +5,7 @@ Makefile.in
 aclocal.m4
 autom4te.cache/*
 build-aux/*
+!build-aux/gitlab-ci.yml
 config.log
 config.status
 configure
