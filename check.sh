@@ -109,6 +109,9 @@ tests='
 100-cd
 100-cd-foo
 
+100-test-file
+100-bracket-file
+
 100-sed
 100-sed-once
 100-sed-global
@@ -123,6 +126,7 @@ tests='
 100-tar-Z
 100-tar-Z-old
 100-tar-Z-pipe
+
 '
 
 broken="
