@@ -92,6 +92,7 @@ tests='
 50-redirect-append
 50-redirect-pipe
 50-redirect-merge
+50-redirect-sed
 
 60-function
 60-subst
