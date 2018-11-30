@@ -102,6 +102,7 @@ find
 grep
 ls
 mkdir
+mv
 reboot
 rm
 rmdir

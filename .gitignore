@@ -12,12 +12,14 @@
 /bin/grep
 /bin/ls
 /bin/mkdir
+/bin/mv
 /bin/reboot
 /bin/rm
 /bin/rmdir
 /bin/sed
 /bin/sh
 /bin/tar
+/bin/touch
 /bin/wc
 /bin/which
 /.config.make

@@ -39,6 +39,8 @@
   #:use-module (gash commands find)
   #:use-module (gash commands grep)
   #:use-module (gash commands ls)
+  #:use-module (gash commands mkdir)
+  #:use-module (gash commands mv)
   #:use-module (gash commands reboot)
   #:use-module (gash commands rm)
   #:use-module (gash commands sed)
@@ -57,6 +59,8 @@
             find-command
             grep-command
             ls-command
+            mkdir-command
+            mv-command
             reboot-command
             rm-command
             sed-command
@@ -86,7 +90,8 @@
 (define find-command (wrap-command "find" find))
 (define grep-command (wrap-command "grep" grep))
 (define ls-command (wrap-command "ls" ls))
-(define mkdir-command (wrap-command "mkdir" mkdir))
+(define mkdir-command (wrap-command "mkdir" mkdir'))
+(define mv-command (wrap-command "mv" mv))
 (define reboot-command (wrap-command "reboot" reboot'))
 (define rm-command (wrap-command "rm" rm))
 (define rmdir-command (wrap-command "rmdir" rmdir))
@@ -106,7 +111,8 @@
     ("find"     . ,find-command)
     ("grep"     . ,grep-command)
     ("ls"       . ,ls-command)
-    ("mkdir"    . ,mkdir)
+    ("mkdir"    . ,mkdir-command)
+    ("mv"       . ,mv-command)
     ("reboot"   . ,reboot-command)
     ("rm"       . ,rm-command)
     ("rmdir"    . ,rmdir-command)

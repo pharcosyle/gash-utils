@@ -35,10 +35,10 @@
   #:use-module (gash shell-utils)
 
   #:export (
-            mkdir
+            mkdir'
             ))
 
-(define (mkdir . args)
+(define (mkdir' . args)
   (let* ((option-spec
 	  '((help (single-char #\h))
             (mode (single-char #\m) (value #t))
@@ -67,8 +67,8 @@ Options:
 ")
            (exit (if usage? 2 0)))
           (else
-           (let ((mode (if mode (umask (chmodifiers->mode (parse-modifiers mode)))
+           (let ((mode (if mode (umask (chmodifiers->mode (parse-chmodifiers mode)))
                            #o755)))
              (for-each (if parents? mkdir-p (@ (guile) mkdir)) files))))))
 
-(define main mkdir)
+(define main mkdir')
