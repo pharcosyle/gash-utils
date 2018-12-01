@@ -26,11 +26,59 @@
 ;;; Code:
 
 (define-module (gash commands cp)
+  #:use-module (ice-9 match)
+  #:use-module (srfi srfi-26)
+  #:use-module (gash config)
+  #:use-module (gash shell-utils)
   #:export (
             cp
             ))
 
-(define (cp name source dest . rest)
-  (copy-file source dest))
+(define (copy-file-force? force?)
+  (lambda (src dest)
+    (if (not force?) (copy-file src dest)
+        (catch 'system-error
+          (lambda _
+            (copy-file src dest))
+          (lambda (key func fmt msg errno . rest)
+            (format #t "errno:~s\n" (car errno))
+            (match errno
+              ((13)
+               (delete-file dest)
+               (copy-file src dest))
+              (_ (throw key func fmt msg errno))))))))
+
+(define (cp name . args)
+  (define (usage port)
+    (display "Usage: cp [OPTION]... SOURCE... DEST
+
+Options:
+  -f, --force     if an existing destination file cannot be opened,
+                    remove it and try again
+  -h, --help      display this help and exit
+  -V, --version   display version information and exit
+" port))
+  (match args
+    (((or "-f" "--force") args ...)
+     (apply cp (cons 'force args)))
+    (((or "-h" "--help") t ...)
+     (usage (current-output-port))
+     (exit 0))
+    (((or "-V" "--version") t ...)
+     (format #t "cp (GASH) ~a\n" %version) (exit 0))
+    ((source (and (? directory-exists?) dir))
+     ((copy-file-force? (eq? name 'force))
+      source (string-append dir "/" (basename source))))
+    ((source dest)
+     ((copy-file-force? (eq? name 'force)) source dest))
+    ((sources ... dir)
+     (unless (directory-exists? dir)
+       (error (format #f "mv: target `~a' is not a directory\n" dir)))
+     (for-each
+      (copy-file-force? (eq? name 'force))
+      sources
+      (map (compose (cute string-append dir "/" <>) basename)
+           sources)))
+    (_ (usage (current-error-port)) (exit 2))))
 
 (define main cp)
