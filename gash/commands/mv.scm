@@ -30,18 +30,34 @@
             ))
 
 (define (mv name . args)
+  (define (usage port)
+    (display "Usage: mv [OPTION]... SOURCE... DEST
+
+Options:
+  -f, --force     ignored for compatibility
+  -h, --help      display this help and exit
+  -V, --version   display version information and exit
+" port))
   (match args
-    ((or "-h" "--help")
-     (format #t "mv SOURCE... DEST\n"))
-    ((or "-V" "--version")
+    (((or "-f" "--force") args ...)
+     (apply mv (cons name args)))
+    (((or "-h" "--help") t ...)
+     (usage (current-output-port))
+     (exit 0))
+    (((or "-V" "--version") t ...)
      (format #t "mv (GASH) ~a\n" %version) (exit 0))
+    ((source (and (? directory-exists?) dir))
+     (rename-file source (string-append dir "/" (basename source))))
     ((source dest)
      (rename-file source dest))
-    ((sources ... dest)
-     (unless (directory-exists? dest)
-       (error (format #f "mv: target `~a' is not a directory\n" dest)))
-     (for-each rename-file
-               sources
-               (map (cut string-append dest "/" <>) sources)))))
+    ((sources ... dir)
+     (unless (directory-exists? dir)
+       (error (format #f "mv: target `~a' is not a directory\n" dir)))
+     (for-each
+      rename-file
+      sources
+      (map (compose (cute string-append dir "/" <>) basename)
+           sources)))
+    (_ (usage (current-error-port)) (exit 2))))
 
 (define main mv)
