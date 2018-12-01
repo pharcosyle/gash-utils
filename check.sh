@@ -73,6 +73,7 @@ tests='
 20-exec
 
 30-substitution
+30-substitution-word
 30-substitution-backtick
 30-substitution-assignment
 30-for-substitution
