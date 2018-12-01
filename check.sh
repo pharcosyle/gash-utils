@@ -61,6 +61,10 @@ tests='
 10-if-else
 10-else-multiple
 10-if-elif
+10-if-test
+10-if-test-false
+10-if-bracket
+10-if-bracket-false
 10-if-redirect
 
 11-for
