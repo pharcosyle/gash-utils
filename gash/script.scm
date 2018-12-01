@@ -96,6 +96,8 @@
                                                         escape-builtin?))
                  (lambda _ (status:exit-val (apply system* command))))))
           (else (lambda () #t))))
+  (when (> %debug-level 1)
+    (format (current-error-port) "command: ~s\n" args))
   (match args
     (((or "." "source") file-name)
      (let* ((string (with-input-from-file file-name read-string))
@@ -423,9 +425,6 @@
 
 (define (regex-sep o)
   o)
-
-(define (test . o) ;; TODO replace with implementation in scheme
-  (command (cons "test" o)))
 
 (define (shift . o)
   (apply (shift-command) o))
