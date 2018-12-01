@@ -24,6 +24,7 @@ tests='
 03-echo-nesting
 03-echo-escaped-doublequotes
 03-echo-quoted-doublequotes
+03-echo-brace
 
 04-echo-var
 04-echo-equal
