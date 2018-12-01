@@ -70,6 +70,7 @@ tests='
 20-pipe-exit-0
 20-pipe-exit-1
 20-pipe-sed
+20-exec
 
 30-substitution
 30-substitution-backtick
