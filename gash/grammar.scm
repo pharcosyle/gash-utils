@@ -250,12 +250,22 @@
      `(pipeline (cut display ,string) (command ,@word)))
     (('command word ... ('io-redirect filedes ... ('io-file ">" file-name)))
      (cond ((or (null? filedes) (equal? filedes '("1")))
-            `(with-output-to-file ,file-name (command ,@word)))
+            `(with-output-to-file ,file-name
+               ,(let ((command (transform `(command ,@word))))
+                  (match command
+                    (('with-input-from-file arg ...)
+                     `(cut with-input-from-file ,@arg))
+                    (_ command)))))
            ((equal? filedes '("2"))
-            `(with-error-to-file ,file-name (command ,@word)))
+            `(with-error-to-file ,file-name
+               ,(let ((command (transform `(command ,@word))))
+                  (match command
+                    (('with-input-from-file arg ...)
+                     `(cut with-input-from-file ,@arg))
+                    (_ command)))))
            (else (error (format #f "TODO: output to filedes=~a\n" filedes)))))
     (('command word ... ('io-redirect ('io-file "<" file-name)))
-     `(with-input-from-file ,file-name (command ,@word)))
+     `(with-input-from-file ,file-name ,(transform `(command ,@word))))
 
     (('command ('word (and (? string?) string)) ...)
      `(command ,@string))
