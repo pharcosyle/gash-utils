@@ -18,6 +18,7 @@ tests='
 01-script-backslash-space
 01-script-backslash-twice
 01-script-$0
+01-script-$#
 01-script-$@
 01-script-shift
 
@@ -100,6 +101,7 @@ tests='
 50-redirect-sed
 
 60-function
+60-function-at
 60-subst
 
 70-hash
