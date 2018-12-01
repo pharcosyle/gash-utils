@@ -9,6 +9,8 @@ tests='
 00-exit-0
 00-exit-1
 00-exit-2
+00-exit-error
+00-exit-var
 
 01-script-newline
 01-script-semi
