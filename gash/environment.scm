@@ -21,6 +21,7 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
 
+  #:use-module (ice-9 match)
   #:use-module (gash io)
 
   #:export (
@@ -55,12 +56,13 @@
 (define %functions '())
 
 (define* (assignment name #:optional value)
-  (if value
-      (set! %global-variables
-        (assoc-set! %global-variables name value))
-      (set! %global-variables
-        (assoc-set! %global-variables name "")))
-  #t)
+  (let ((value (match value
+                 ((? string?) value)
+                 (((? string?) ...) (apply string-append value))
+                 (#f ""))))
+    (set! %global-variables
+          (assoc-set! %global-variables name value))
+    #t))
 
 (define* (variable name #:optional (default ""))
   (cond ((string->number name)
@@ -69,7 +71,8 @@
            (if (< n (length (%command-line))) (list-ref (%command-line) n)
                "")))
         ((equal? name "@")
-         (string-join (cdr (%command-line))))
+         (if (pair? (cdr (%command-line))) (cdr (%command-line))
+             ""))
         ((equal? name "#")
          (number->string (length (cdr (%command-line)))))
         (else

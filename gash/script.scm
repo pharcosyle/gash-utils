@@ -104,6 +104,9 @@
             (ast (parse-string string)))
        (run ast)
        0))
+    (((? string?) ..1) (exec (append-map glob args)))
+    (((and (or (? string?)) c) ((and (? string?) a) ...))
+     (exec (append-map glob (cons c a))))
     (_  (exec (append-map glob args)))))
 
 (define (glob? pattern)
@@ -180,6 +183,7 @@
       (_ (list o))))
   (match o
     (((? string?) ...) (string-join (flatten o) ""))
+    ((((? string?) ...)) (flatten (car o)))
     (_ o)))
 
 (define-syntax-rule (substitution commands)
@@ -417,8 +421,11 @@
     ((h ... t) t)
     (_ o)))
 
-(define (delim . o)
-  (string-join o ""))
+(define (delim o . rest)
+  (match rest
+    (() o)
+    (((? string?) ...) (string-append o (string-join rest "")))
+    ((((? string?) ...)) (string-append o (string-join (car rest) "")))))
 
 (define (name o)
   o)
