@@ -109,6 +109,7 @@ rmdir
 sed
 tar
 touch
+tr
 wc 
 which
 "

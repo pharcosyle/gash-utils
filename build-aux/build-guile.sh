@@ -73,6 +73,7 @@ ${srcdest}gash/commands/rmdir.scm
 ${srcdest}gash/commands/sed.scm
 ${srcdest}gash/commands/tar.scm
 ${srcdest}gash/commands/touch.scm
+${srcdest}gash/commands/tr.scm
 ${srcdest}gash/commands/wc.scm
 ${srcdest}gash/commands/which.scm
 
@@ -97,6 +98,7 @@ ${srcdest}bin/rmdir
 ${srcdest}bin/sed
 ${srcdest}bin/tar
 ${srcdest}bin/touch
+${srcdest}bin/tr
 ${srcdest}bin/wc
 ${srcdest}bin/which
 "

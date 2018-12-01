@@ -46,6 +46,7 @@
   #:use-module (gash commands sed)
   #:use-module (gash commands tar)
   #:use-module (gash commands touch)
+  #:use-module (gash commands tr)
   #:use-module (gash commands wc)
   #:use-module (gash commands which)
 
@@ -66,6 +67,7 @@
             sed-command
             tar-command
             touch-command
+            tr-command
             rm-command
             wc-command
             which-command
@@ -98,6 +100,7 @@
 (define sed-command (wrap-command "sed" sed))
 (define tar-command (wrap-command "tar" tar))
 (define touch-command (wrap-command "touch" touch))
+(define tr-command (wrap-command "tr" tr))
 (define wc-command (wrap-command "wc" wc))
 (define which-command (wrap-command "which" which))
 
@@ -119,6 +122,7 @@
     ("sed"      . ,sed-command)
     ("tar"      . ,tar-command)
     ("touch"    . ,touch-command)
+    ("tr"       . ,tr-command)
     ("wc"       . ,wc-command)
     ("which"    . ,which-command)
     ))
