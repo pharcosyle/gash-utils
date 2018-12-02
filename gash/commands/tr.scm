@@ -24,16 +24,10 @@
   #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 rdelim)
   #:use-module (gash config)
+  #:use-module (gash util)
   #:export (
             tr
             ))
-
-(define (string-replace-string string from to)
-  (cond ((string-contains string from)
-         =>
-         (lambda (i)
-           (string-replace string to i (+ i (string-length from)))))
-        (else string)))
 
 (define (tr . args)
   (let* ((option-spec

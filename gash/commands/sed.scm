@@ -29,6 +29,7 @@
   #:use-module (gash config)
   #:use-module (gash guix-utils)
   #:use-module (gash shell-utils)
+  #:use-module (gash util)
 
   #:export (
             sed
@@ -114,6 +115,9 @@ Usage: sed [OPTION]... [SCRIPT] [FILE]...
                 (cond ((string-prefix? "s" o)
                        (let* ((command (substring o 1))
                               (string (substring command 1))
+                              (string (string-replace-string string "\\n" "\n"))
+                              (string (string-replace-string string "\\r" "\r"))
+                              (string (string-replace-string string "\\t" "\t"))
                               (separator (string-ref command 0)))
                          (receive (search replace modifier-string)
                              (apply values (string-split string separator))

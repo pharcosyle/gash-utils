@@ -27,6 +27,7 @@
             wrap-command
             char->string
             string->string-list
+            string-replace-string
             ))
 
 (define (disjoin . predicates)
@@ -42,3 +43,10 @@
 
 (define (char->string c)
   (make-string 1 c))
+
+(define (string-replace-string string from to)
+  (cond ((string-contains string from)
+         =>
+         (lambda (i)
+           (string-replace string to i (+ i (string-length from)))))
+        (else string)))
