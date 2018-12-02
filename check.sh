@@ -134,6 +134,7 @@ tests='
 100-sed-twice
 100-sed-undo
 100-sed-file
+100-sed-fooRbar
 
 100-tar
 100-tar-Z
