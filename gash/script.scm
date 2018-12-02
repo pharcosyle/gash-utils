@@ -105,8 +105,8 @@
        (run ast)
        0))
     (((? string?) ..1) (exec (append-map glob args)))
-    (((and (or (? string?)) c) ((and (? string?) a) ...))
-     (exec (append-map glob (cons c a))))
+    (((and (or (? string?)) c) ... ((and (? string?) a) ...))
+     (apply command (append c a)))
     (_  (exec (append-map glob args)))))
 
 (define (glob? pattern)
