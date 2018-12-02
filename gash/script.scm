@@ -80,6 +80,10 @@
     (run ast)))
 
 (define (command . args)
+  (define (flatten o)
+    (match o
+      ((h t ...) (append (flatten h) (append-map flatten t)))
+      (_ (list o))))
   (define (exec command)
     (cond ((procedure? command) command)
           ((assoc-ref %functions (car command))
@@ -98,16 +102,15 @@
           (else (lambda () #t))))
   (when (> %debug-level 1)
     (format (current-error-port) "command: ~s\n" args))
-  (match args
-    (((or "." "source") file-name)
-     (let* ((string (with-input-from-file file-name read-string))
-            (ast (parse-string string)))
-       (run ast)
-       0))
-    (((? string?) ..1) (exec (append-map glob args)))
-    (((and (or (? string?)) c) ... ((and (? string?) a) ...))
-     (apply command (append c a)))
-    (_  (exec (append-map glob args)))))
+  (let ((args (flatten args)))
+    (match args
+      (((or "." "source") file-name)
+       (let* ((string (with-input-from-file file-name read-string))
+              (ast (parse-string string)))
+         (run ast)
+         0))
+      (((? string?) ..1) (exec (append-map glob args)))
+      (_  (exec (append-map glob args))))))
 
 (define (glob? pattern)
   (and (string? pattern) (string-match "\\?|\\*" pattern)))

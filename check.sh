@@ -32,6 +32,7 @@ tests='
 04-echo-var
 04-echo-equal
 04-echo-word-at
+04-echo-word-at-word
 
 05-assignment
 05-assignment-echo
