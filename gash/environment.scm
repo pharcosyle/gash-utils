@@ -71,7 +71,7 @@
         ((equal? name "@")
          (string-join (cdr (%command-line))))
         ((equal? name "#")
-         (number->string (length (%command-line))))
+         (number->string (length (cdr (%command-line)))))
         (else
          (or (assoc-ref %global-variables name)
              (if (shell-opt? "nounset") (begin
