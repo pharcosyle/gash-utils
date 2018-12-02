@@ -104,6 +104,7 @@ tests='
 50-redirect-pipe
 50-redirect-merge
 50-redirect-sed
+50-redirect-in-out
 
 60-function
 60-function-at
@@ -139,6 +140,7 @@ tests='
 100-tar-Z-old
 100-tar-Z-pipe
 
+100-tr
 '
 
 broken="
