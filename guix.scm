@@ -81,7 +81,7 @@
 
 (define-public guile-gash
   (let ((version "0.1")
-        (commit "0a09ab114af631f9763459203014ee5208c9058e")
+        (commit "5b7f85aa3d15523edd05a07ed2b16b6f69690d53")
         (revision "0")
         (builtins '(
                     "basename"
@@ -101,6 +101,7 @@
                     "sed"
                     "tar"
                     "touch"
+                    "tr"
                     "wc"
                     "which"
                     ))
@@ -115,7 +116,7 @@
                                     "/gash-" commit ".tar.gz"))
                 (sha256
                  (base32
-                  "0986yd6y8jnsbwn5mx6y3ihc0x6mm79qq41ny6c6m1h402n6rw0n"))))
+                  "05nq0knklgk2iczsqmnhnh1365iv6gs3cxam38qf7dmdlglbf0sa"))))
       (build-system guile-build-system)
       (arguments
        `(#:phases
