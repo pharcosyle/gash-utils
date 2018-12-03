@@ -124,6 +124,7 @@ tests='
 100-cd
 100-cd-foo
 
+100-test
 100-test-file
 100-bracket-file
 
