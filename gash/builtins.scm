@@ -112,6 +112,8 @@
     (("+u") (set-shell-opt! "nounset" #f))
     (("-x") (set-shell-opt! "xtrace" #t))
     (("+x") (set-shell-opt! "xtrace" #f))
+    (("-o" option) (format (current-error-port) "warning: set: not supported: ~a\n" args))
+    (("+o" option) (format (current-error-port) "warning: set: not supported: ~a\n" args))
     (((and (? string?) arg)) (let* ((lst (string->string-list arg))
                                     (set (car lst)))
                                (when (not (member set '("-" "+")))
