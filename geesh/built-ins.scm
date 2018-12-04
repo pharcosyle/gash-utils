@@ -37,7 +37,7 @@
     ("break" . ,(@@ (geesh built-ins break) main))
     ("continue" . ,(@@ (geesh built-ins continue) main))
     ("eval" . ,(@@ (geesh built-ins eval) main))
-    ("exec" . ,undefined)
+    ("exec" . ,(@@ (geesh built-ins exec) main))
     ("exit" . ,undefined)
     ("export" . ,(@@ (geesh built-ins export) main))
     ("readonly" . ,(@@ (geesh built-ins readonly) main))

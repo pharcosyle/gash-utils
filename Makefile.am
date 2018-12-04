@@ -48,6 +48,7 @@ MODULES =                                       \
   geesh/built-ins/dot.scm                       \
   geesh/built-ins/echo.scm                      \
   geesh/built-ins/eval.scm                      \
+  geesh/built-ins/exec.scm                      \
   geesh/built-ins/export.scm                    \
   geesh/built-ins/false.scm                     \
   geesh/built-ins/pwd.scm                       \
