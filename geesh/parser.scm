@@ -125,14 +125,19 @@ contain any quote forms."
   "Read a here-document from @var{port} for each operator and here-end
 pair in @var{op+ends}."
   (map (match-lambda
-         ((op . end) (let ((end* (remove-quotes end)))
-                       (get-here-doc (remove-quotes end) port
-                                     #:trim-tabs? (eq? op '<<-)
-                                     #:quoted? (not (eq? end end*))))))
+         ((op . end)
+          (let ((end* (remove-quotes end)))
+            (match (get-here-doc (remove-quotes end) port
+                                 #:trim-tabs? (eq? op '<<-)
+                                 #:quoted? (not (eq? end end*)))
+              ((? lexical-token? token)
+               (lexical-token-value token))))))
        op+ends))
 
-(define (make-lexer port)
-  "Make a lexer thunk that reads tokens from @var{port}."
+(define* (make-lexer port #:key (here-docs-hook noop))
+  "Make a lexer thunk that reads tokens from @var{port}.  If
+@var{here-docs-hook} is set, it will be called for each list of
+here-documents the lexer encounters."
   (define next-tokens '())
   (define here-ends '())
   (lambda ()
@@ -154,14 +159,11 @@ pair in @var{op+ends}."
                   (set! next-tokens `(,here-end)))
                 token))
              ('NEWLINE
-              (if (null? here-ends)
-                  token
-                  (let ((here-docs (read-here-docs (reverse here-ends) port)))
-                    (set! here-ends '())
-                    (set! next-tokens (append here-docs `(,token)))
-                    (make-lexical-token 'HERE-DOC-SEP
-                                        (lexical-token-source token)
-                                        ""))))
+              (match here-ends
+                (() token)
+                (_ (here-docs-hook (read-here-docs (reverse here-ends) port))
+                   (set! here-ends '())
+                   token)))
              (_ token))))
         ((next-token . rest)
          (set! next-tokens rest)
@@ -171,7 +173,7 @@ pair in @var{op+ends}."
                       (open-bracket-hook noop)
                       (close-bracket-hook noop))
   "Make an LALR parser for the Shell language. The optional hooks are
-all thunks. The @var{command-hook} thunk is called after reducing a
+all thunks. The @var{command-hook} thunk is called to transform each
 complete command. The @var{open-bracket-hook} thunk is called after
 reducing an opening bracket. The @var{close-bracket-hook} is called
 after reducing a closing bracket. (Note that a @var{open-bracket-hook}
@@ -234,19 +236,12 @@ the same number of times.)"
    (complete-commands
     (complete-commands newline-list complete-command)
     : (begin
-        (command-hook)
-        (cons $3 $1))
+        (cons (command-hook $3) $1))
     (complete-command)
     : (begin
-        (command-hook)
-        `(,$1)))
+        `(,(command-hook $1))))
 
    (complete-command
-    (complete-command HERE-DOC-SEP here-doc-list)
-    : (let-values (((complete-command here-docs) (merge-here-docs $1 $3)))
-        (unless (null? here-docs)
-          (error "Unused here-documents"))
-        complete-command)
     (list separator-op)
     : (let ((lst (match $2
                    ('AND (reverse! (cons `(<sh-async> ,(car $1)) (cdr $1))))
@@ -335,11 +330,6 @@ the same number of times.)"
         (cmds `(<sh-begin> ,@(reverse! cmds)))))
 
    (term
-    (term HERE-DOC-SEP here-doc-list)
-    : (let-values (((term here-docs) (merge-here-docs $1 (reverse $3))))
-        (unless (null? here-docs)
-          (error "Unused here-documents"))
-        term)
     (term separator and-or)
     : (match $2
         ('AND (cons* $3 `(<sh-async> ,(car $1)) (cdr $1)))
@@ -700,15 +690,7 @@ the same number of times.)"
 
    (pattern!
     (pattern)
-    : (begin (open-bracket-hook) $1))
-
-   ;; A helper rule for handling here-docs.
-
-   (here-doc-list
-    (here-doc-list HERE-DOC)
-    : (append $1 `(,$2))
-    (HERE-DOC)
-    : `(,$1))))
+    : (begin (open-bracket-hook) $1))))
 
 (define* (syntax-error message #:optional token)
   "Handle a parser error"
@@ -735,13 +717,30 @@ and @var{close-bracket-hook} thunks are called for each opening
 bracket and closing bracket respectively.  Their return values are
 ignored."
 
+  (define here-docs '())
+
+  (define (add-here-docs docs)
+    (set! here-docs (append-reverse docs here-docs)))
+
+  (define (insert-here-docs exp)
+    (let-values (((exp here-docs*)
+                  (merge-here-docs exp (reverse here-docs))))
+      (unless (null? here-docs*)
+        (error "Unused here-documents"))
+      (set! here-docs '())
+      exp))
+
   (define lex
-    (let ((pre-lex (make-lexer port)))
+    (let ((pre-lex (make-lexer port #:here-docs-hook add-here-docs)))
       (lambda ()
         (lex-hook pre-lex))))
 
+  (define (command-hook* command)
+    (command-hook)
+    (insert-here-docs command))
+
   (define %parse
-    (make-parser #:command-hook command-hook
+    (make-parser #:command-hook command-hook*
                  #:open-bracket-hook open-bracket-hook
                  #:close-bracket-hook close-bracket-hook))
 

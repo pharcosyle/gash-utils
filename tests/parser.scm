@@ -193,6 +193,66 @@
                  (<sh-exec> "cat")))
   (parse "(cat <<eof1); cat <<eof2\nfoo\neof1\nbar\neof2"))
 
+(test-equal "Parses here-document in a conjunction"
+  '(<sh-and> (<sh-with-redirects> ((<< 0 (<sh-quote> "foo\n")))
+               (<sh-exec> "cat"))
+             (<sh-exec> "echo" "bar"))
+  (parse "cat <<eof &&\nfoo\neof\necho bar"))
+
+(test-equal "Parses here-document in a disjunction"
+  '(<sh-or> (<sh-with-redirects> ((<< 0 (<sh-quote> "foo\n")))
+               (<sh-exec> "cat"))
+             (<sh-exec> "echo" "bar"))
+  (parse "cat <<eof ||\nfoo\neof\necho bar"))
+
+(test-equal "Parses here-document in a pipeline"
+  '(<sh-pipeline> (<sh-with-redirects> ((<< 0 (<sh-quote> "foo\n")))
+                    (<sh-exec> "cat"))
+                  (<sh-exec> "echo" "bar"))
+  (parse "cat <<eof |\nfoo\neof\necho bar"))
+
+(test-equal "Parses here-document before \"in\" in a for loop"
+  '(<sh-begin> (<sh-with-redirects> ((<< 0 (<sh-quote> "foo\n")))
+                 (<sh-exec> "cat"))
+               (<sh-for> ("x" ("a"))
+                 (<sh-exec> "echo" (<sh-ref> "x"))))
+  (parse "cat <<eof; for x\nfoo\neof\nin a; do echo $x; done"))
+
+(test-equal "Parses here-document before \"do\" in a for loop"
+  '(<sh-begin> (<sh-with-redirects> ((<< 0 (<sh-quote> "foo\n")))
+                 (<sh-exec> "cat"))
+               (<sh-for> ("x" ("a"))
+                 (<sh-exec> "echo" (<sh-ref> "x"))))
+  (parse "cat <<eof; for x in a\nfoo\neof\ndo echo $x; done"))
+
+(test-equal "Parses here-document before \"in\" in a case statement"
+  '(<sh-begin> (<sh-with-redirects> ((<< 0 (<sh-quote> "foo\n")))
+                 (<sh-exec> "cat"))
+               (<sh-case> (<sh-ref> "x")
+                 (("*") (<sh-exec> "echo" "bar"))))
+  (parse "cat <<eof; case $x\nfoo\neof\nin *) echo bar; esac"))
+
+(test-equal "Parses here-document after \"in\" in a case statement"
+  '(<sh-begin> (<sh-with-redirects> ((<< 0 (<sh-quote> "foo\n")))
+                 (<sh-exec> "cat"))
+               (<sh-case> (<sh-ref> "x")
+                 (("*") (<sh-exec> "echo" "bar"))))
+  (parse "cat <<eof; case $x in\nfoo\neof\n*) echo bar; esac"))
+
+(test-equal "Parses here-document after empty pattern in a case statement"
+  '(<sh-begin> (<sh-with-redirects> ((<< 0 (<sh-quote> "foo\n")))
+                 (<sh-exec> "cat"))
+               (<sh-case> (<sh-ref> "x")
+                 (("*") #f)))
+  (parse "cat <<eof; case $x in *)\nfoo\neof\nesac"))
+
+(test-equal "Parses here-document after \";;\" in a case statement"
+  '(<sh-begin> (<sh-with-redirects> ((<< 0 (<sh-quote> "foo\n")))
+                 (<sh-exec> "cat"))
+               (<sh-case> (<sh-ref> "x")
+                 (("*") (<sh-exec> "echo" "bar"))))
+  (parse "cat <<eof; case $x in *) echo bar ;;\nfoo\neof\nesac"))
+
 (test-equal "Parses two here-documents split by two newlines"
   '(<sh-subshell>
     (<sh-begin> (<sh-with-redirects> ((<< 0 (<sh-quote> "foo\n")))
