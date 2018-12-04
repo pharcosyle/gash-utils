@@ -85,10 +85,7 @@
               ((#\+ (? option-letter? chr))
                (setopt! (assoc-ref *option-letters* chr) #f)
                (loop args))
-              (_ (format (current-error-port)
-                         "~a: set: invalid option ~s~%"
-                         (car (program-arguments)) op)
-                 EXIT_FAILURE)))
+              (_ (loop (cons* "--" op args)))))
            (_ (format (current-error-port)
                       "~a: set: invalid options ~s~%"
                       (car (program-arguments)) args)
