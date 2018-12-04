@@ -227,8 +227,14 @@ the environment.  If @var{name} is unset, return @code{#f}."
                          (string #\space #\tab #\newline)))
                 (sep (argument-separator ifs)))
            (string-join (cdr (program-arguments)) sep)))
+    ("0" (car (program-arguments)))
+    ("#" (number->string (length (cdr (program-arguments)))))
     ("?" (number->string (get-status)))
-    (_ (getvar name dflt))))
+    (x (let ((n (string->number x)))
+         (if (and n (integer? n) (> n 0)
+                  (<= n (length (cdr (program-arguments)))))
+             (list-ref (program-arguments) n)
+             (getvar name dflt))))))
 
 (define (word->qword word)
   "Convert @var{word} into a qword by resolving all parameter, command,
