@@ -67,7 +67,7 @@
     ("pwd" . ,(@@ (geesh built-ins pwd) main))
     ("read" . ,(@@ (geesh built-ins read) main))
     ("true" . ,(@@ (geesh built-ins true) main))
-    ("umask" . ,undefined)
+    ("umask" . ,(@@ (geesh built-ins umask) main))
     ("unalias" . ,undefined)
     ("wait" . ,undefined)
     ;; Other built-ins.

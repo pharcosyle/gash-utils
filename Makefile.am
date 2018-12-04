@@ -56,6 +56,7 @@ MODULES =                                       \
   geesh/built-ins/set.scm                       \
   geesh/built-ins/shift.scm                     \
   geesh/built-ins/true.scm                      \
+  geesh/built-ins/umask.scm                     \
   geesh/built-ins/unset.scm                     \
   geesh/built-ins/utils.scm                     \
   geesh/built-ins.scm                           \
