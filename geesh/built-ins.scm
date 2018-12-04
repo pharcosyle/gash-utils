@@ -43,7 +43,7 @@
     ("readonly" . ,(@@ (geesh built-ins readonly) main))
     ("return" . ,undefined)
     ("set" . ,(@@ (geesh built-ins set) main))
-    ("shift" . ,undefined)
+    ("shift" . ,(@@ (geesh built-ins shift) main))
     ("times" . ,undefined)
     ("trap" . ,undefined)
     ("unset" . ,(@@ (geesh built-ins unset) main))))
