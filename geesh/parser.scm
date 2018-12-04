@@ -131,11 +131,8 @@ pair in @var{op+ends}."
                                      #:quoted? (not (eq? end end*))))))
        op+ends))
 
-(define (make-lexer port read-sh/bracketed read-sh/backquoted)
-  "Make a lexer thunk that reads tokens from @var{port}. When the lexer
-needs to read subcommands, it uses @var{read-sh/bracketed} to read
-bracketed subcommands and @var{read-sh/backquoted} to read backquoted
-subcommands."
+(define (make-lexer port)
+  "Make a lexer thunk that reads tokens from @var{port}."
   (define next-tokens '())
   (define here-ends '())
   (lambda ()
@@ -724,6 +721,39 @@ the same number of times.)"
              #f)
       (throw 'syntax-error #f message #f token #f)))
 
+(define* (parse port #:key (lex-hook (lambda (lex) (lex)))
+                (command-hook noop)
+                (open-bracket-hook noop)
+                (close-bracket-hook noop))
+  "Parse a Shell script from @var{port}.  There are several hooks that
+can be installed while parsing.  The procedure @var{lex-hook} is
+called before reading each token.  It must take a thunk (which it can
+use to invoke the normal lexer) and return a token.  The
+@var{command-hook} thunk is called after parsing each complete
+command.  Its return value is ignored.  The @var{open-bracket-hook}
+and @var{close-bracket-hook} thunks are called for each opening
+bracket and closing bracket respectively.  Their return values are
+ignored."
+
+  (define lex
+    (let ((pre-lex (make-lexer port)))
+      (lambda ()
+        (lex-hook pre-lex))))
+
+  (define %parse
+    (make-parser #:command-hook command-hook
+                 #:open-bracket-hook open-bracket-hook
+                 #:close-bracket-hook close-bracket-hook))
+
+  (%parse lex syntax-error))
+
+(define (->command-list code)
+  "Make the Shell syntax tree @var{code} a list of commands."
+  (match code
+    ((? eof-object?) '())
+    (((? symbol? tag) . rest) `((,tag . ,rest)))
+    (code code)))
+
 (define (call-with-backquoted-input-port port proc)
   "Call @var{proc} with a wrapped version of @var{port} that will
 return the end-of-file object upon encountering an unescaped backquote
@@ -751,58 +781,43 @@ return the end-of-file object upon encountering an unescaped backquote
 (define (read-sh/bracketed port)
   "Read Shell code from @var{port} until the first unmatched closing
 bracket."
-  (let* ((bracket-depth 0)
-         (incr-bracket-depth! (lambda ()
-                                (set! bracket-depth (1+ bracket-depth))))
-         (decr-bracket-depth! (lambda ()
-                                (set! bracket-depth (1- bracket-depth))))
-         (balanced? (lambda () (= 0 bracket-depth)))
-         (pre-lex (make-lexer port read-sh/bracketed read-sh/backquoted))
-         (lex (lambda ()
-                (let ((token (pre-lex)))
-                  (if (and (balanced?)
-                           (lexical-token? token)
-                           (eq? (lexical-token-category token) 'RPAREN))
-                      (begin
-                        (unget-char port #\))
-                        '*eoi*)
-                      token))))
-         (parse (make-parser #:open-bracket-hook incr-bracket-depth!
-                             #:close-bracket-hook decr-bracket-depth!)))
-    (match (parse lex syntax-error)
-      ((? eof-object?) '())
-      (((? symbol? tag) . rest) `((,tag . ,rest)))
-      (code code))))
+
+  (define bracket-depth 0)
+  (define (incr-bracket-depth!) (set! bracket-depth (1+ bracket-depth)))
+  (define (decr-bracket-depth!) (set! bracket-depth (1- bracket-depth)))
+
+  (define (stop-if-balanced lex)
+    (let ((token (lex)))
+      (if (and (= 0 bracket-depth)
+               (lexical-token? token)
+               (eq? (lexical-token-category token) 'RPAREN))
+          (begin
+            (unget-char port #\))
+            '*eoi*)
+          token)))
+
+  (->command-list (parse port #:lex-hook stop-if-balanced
+                         #:open-bracket-hook incr-bracket-depth!
+                         #:close-bracket-hook decr-bracket-depth!)))
 
 (define (read-sh/backquoted port)
   "Read Shell code from @var{port} until the first unescaped backquote."
   (call-with-backquoted-input-port port
     (lambda (port)
-      (let ((lex (make-lexer port read-sh/bracketed read-sh/backquoted))
-            (parse (make-parser)))
-        (match (parse lex syntax-error)
-          ((? eof-object?) '())
-          (((? symbol? tag) . rest) `((,tag . ,rest)))
-          (code code))))))
+      (->command-list (parse port)))))
 
 (define* (read-sh #:optional (port #f))
   "Read a complete Shell command from @var{port} (or the current input
 port if @var{port} is unspecified)."
-  (let* ((port (or port (current-output-port)))
-         (stop? #f)
-         (stop! (lambda () (set! stop? #t)))
-         (pre-lex (make-lexer port read-sh/bracketed read-sh/backquoted))
-         (lex (lambda () (if stop? '*eoi* (pre-lex))))
-         (parse (make-parser #:command-hook stop!)))
-    (parse lex syntax-error)))
+
+  (define stop? #f)
+  (define (stop!) (set! stop? #t))
+
+  (let* ((port (or port (current-output-port))))
+    (parse port #:lex-hook (lambda (lex) (if stop? '*eoi* (lex)))
+           #:command-hook stop!)))
 
 (define* (read-sh-all #:optional (port #f))
   "Read all complete Shell commands from @var{port} (or the current
 input port if @var{port} is unspecified)."
-  (let* ((port (or port (current-input-port)))
-         (lex (make-lexer port read-sh/bracketed read-sh/backquoted))
-         (parse (make-parser)))
-    (match (parse lex syntax-error)
-      ((? eof-object?) '())
-      (((? symbol? tag) . rest) `((,tag . ,rest)))
-      (x x))))
+  (->command-list (parse (or port (current-input-port)))))
