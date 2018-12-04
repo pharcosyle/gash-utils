@@ -517,7 +517,7 @@ end of a line; by itself it won't match the terminating newline of a line."
                      program o))))))
 
 (define (apply-chmodifiers file modifiers)
-  (let ((mode (chmodifiers->mode modifiers (warn 'file-mode(stat:mode (lstat file))))))
+  (let ((mode (chmodifiers->mode modifiers (stat:mode (lstat file)))))
     ((@ (guile) chmod) file mode)))
 
 (define (chmodifier-numeric-mode o executable?)

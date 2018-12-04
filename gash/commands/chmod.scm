@@ -92,8 +92,8 @@ Each MODE is of the form '[ugoa]*([-+=]([rwxXst]*|[ugo]))+|[-+=][0-7]+'.
                         (m (if xecutable?  (cons (make-chmodifier 'o '- '(X)) m) m)))
                    (values m files)))
                 (else (values (parse-chmodifiers (car files)) (cdr files))))
-             (let ((files (if (option-ref options 'recursive #f) (append-map find-files files)
-                              files)))
-               (for-each (cut apply-chmodifiers <> modifiers) files)))))))
+             (let ((files (if (not (option-ref options 'recursive #f)) files
+                              (append-map (cut find-files <> #:directories? #t) files))))
+               (for-each (cut apply-chmodifiers <> modifiers) (reverse files))))))))
 
 (define main chmod)
