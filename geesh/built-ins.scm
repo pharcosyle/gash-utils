@@ -45,7 +45,7 @@
     ("set" . ,(@@ (geesh built-ins set) main))
     ("shift" . ,(@@ (geesh built-ins shift) main))
     ("times" . ,undefined)
-    ("trap" . ,undefined)
+    ("trap" . ,(@@ (geesh built-ins trap) main))
     ("unset" . ,(@@ (geesh built-ins unset) main))))
 
 ;; Regular built-ins take precendence over utilities in the search
