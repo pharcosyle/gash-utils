@@ -317,7 +317,8 @@ Options:
                   (expression
                    (pipeline (command expression)))))
                ((not (= (length files) 1))
-                (format (current-error-port) "test: too many files: ~a\n" files)
+                (format (current-error-port) "test: too many files: ~s\n" files)
+                (format (current-error-port) "test: command: ~s\n" args)
                 1)
                ((option-ref options 'is-file #f)
                 (regular-file? file))
@@ -343,16 +344,15 @@ Options:
   (case-lambda
     (() #f)
     (args
-     (lambda _
-       (cond ((and (pair? args) (equal? (car args) "--help"))
-              (test-command "--help"))
-             ((and (pair? args) (equal? (car args) "--version"))
-              (test-command "--version"))
-             (else
-              (if (not (equal? (last args) "]")) (begin
-                                                   (format (current-error-port) "gash: [: missing `]'\n")
-                                                   #f)
-                  (apply test-command (drop-right args 1)))))))))
+     (cond ((and (pair? args) (equal? (car args) "--help"))
+            (test-command "--help"))
+           ((and (pair? args) (equal? (car args) "--version"))
+            (test-command "--version"))
+           (else
+            (if (not (equal? (last args) "]")) (begin
+                                                 (format (current-error-port) "gash: [: missing `]'\n")
+                                                 #f)
+                (apply test-command (drop-right args 1))))))))
 
 (define (term->string o)
   (match o

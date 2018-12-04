@@ -294,8 +294,8 @@
 
     (('pipeline ('command ('word "shift"))) '(shift))
 
-    (('command ('word (or "[" "\\[") ('test-args test-args ...) "]"))
-     `(command (word "[") ,@(map transform test-args) (word "]")))
+    (('command ('word (and (or "[" "\\[") bracket) ('test-args test-args ...) "]"))
+     `(command (word ,bracket) ,@(map transform test-args) (word "]")))
 
     ((h t ...) (map transform o))
     (_ o)))
