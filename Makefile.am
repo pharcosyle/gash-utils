@@ -49,11 +49,13 @@ MODULES =                                       \
   geesh/built-ins/echo.scm                      \
   geesh/built-ins/eval.scm                      \
   geesh/built-ins/exec.scm                      \
+  geesh/built-ins/exit.scm                      \
   geesh/built-ins/export.scm                    \
   geesh/built-ins/false.scm                     \
   geesh/built-ins/pwd.scm                       \
   geesh/built-ins/read.scm                      \
   geesh/built-ins/readonly.scm                  \
+  geesh/built-ins/return.scm                    \
   geesh/built-ins/set.scm                       \
   geesh/built-ins/shift.scm                     \
   geesh/built-ins/true.scm                      \
