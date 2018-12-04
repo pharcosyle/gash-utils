@@ -33,4 +33,4 @@
         (begin
           ;; Since we do not return, we have to set the status here.
           (set-status! 0)
-          (break (1- n))))))
+          (sh:break (1- n))))))

@@ -42,9 +42,9 @@
             *option-names*
             *option-letters*
             call-with-continue
-            continue
+            sh:continue
             call-with-break
-            break
+            sh:break
             *fd-count*
             fd->current-port))
 
@@ -297,7 +297,7 @@ exit the dynamic extent of @var{thunk}."
         (false-if-exception
          (abort-to-prompt *continue-tag* (1- n)))))))
 
-(define* (continue #:optional (n 0))
+(define* (sh:continue #:optional (n 0))
   "Exit to the closest invocation of @code{call-with-continue}.  If
 @var{n} is set, exit to the @math{n + 1}th closest invocation."
   (abort-to-prompt *continue-tag* n))
@@ -314,7 +314,7 @@ exit the dynamic extent of @var{thunk}."
         (false-if-exception
          (abort-to-prompt *break-tag* (1- n)))))))
 
-(define* (break #:optional (n 0))
+(define* (sh:break #:optional (n 0))
   "Exit to the closest invocation of @code{call-with-break}.  If
 @var{n} is set, exit to the @math{n + 1}th closest invocation."
   (abort-to-prompt *break-tag* n))

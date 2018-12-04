@@ -33,4 +33,4 @@
         (begin
           ;; Since we do not return, we have to set the status here.
           (set-status! 0)
-          (continue (1- n))))))
+          (sh:continue (1- n))))))
