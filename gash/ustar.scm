@@ -453,17 +453,17 @@
                                                          #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:verbosity verbosity))
                    files))))))
 
-(define (ustar-header-file-name header)
-  (let ((name (ustar-header-name header))
-        (prefix (ustar-header-prefix header)))
-    (if (string-null? prefix) name
-        (string-append prefix "/" name))))
+(define* (ustar-header-file-name header #:key (strip 0))
+  (let* ((name (ustar-header-name header))
+         (prefix (ustar-header-prefix header))
+         (file-name (if (string-null? prefix) name
+                        (string-append prefix "/" name))))
+    (if (zero? strip) file-name
+        (string-join (list-tail (string-split file-name #\/) strip) "/"))))
 
 (define* (read-ustar-file port header #:key (extract? #t) (strip 0))
   (let* ((size (ustar-header-size header))
-         (file-name (ustar-header-file-name header))
-         (file-name (if (zero? strip) file-name
-                        (string-join (list-tail (string-split file-name #\/) strip) "/")))
+         (file-name (ustar-header-file-name header #:strip strip))
          (dir (dirname file-name))
          (extract? (and extract? (not (string-null? file-name))))
          (thunk (lambda _
@@ -481,18 +481,18 @@
     (when extract?
       (mkdir-p dir))
     (if extract?
-        (case (ustar-header-type header)
-          ((regular)
-           (if (file-exists? file-name) (delete-file file-name))
-           (with-output-to-file file-name thunk #:binary #t))
-          ((directory) (mkdir-p file-name))
-          ((symlink) (symlink (ustar-header-link-name header) file-name )))
-        (thunk))
-    (when (and extract?
-               (not (eq? (ustar-header-type header) 'symlink)))
-      (chmod file-name (ustar-header-mode header))
-      (let ((mtime (ustar-header-mtime header)))
-        (utime file-name mtime mtime)))))
+        (let ((mtime (ustar-header-mtime header)))
+          (case (ustar-header-type header)
+            ((regular)
+             (if (file-exists? file-name) (delete-file file-name))
+             (with-output-to-file file-name thunk #:binary #t)
+             (utime file-name mtime mtime)
+             (chmod file-name (ustar-header-mode header)))
+            ((directory)
+             (mkdir-p file-name)
+             (utime file-name mtime mtime))
+            ((symlink) (symlink (ustar-header-link-name header) file-name ))))
+        (thunk))))
 
 (define (ustar-header->stat header)
   (let* ((stat-size 17)
@@ -516,7 +516,8 @@
   (for-each
    (cut write-ustar-file out <>
         #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:sort-order sort-order #:verbosity verbosity)
-   files))
+   files)
+  (write-ustar-footer out))
 
 (define* (write-ustar-archive file-name files #:key group mtime numeric-owner? owner sort-order verbosity)
   (catch #t
@@ -531,13 +532,20 @@
       (exit 1))))
 
 (define* (read-ustar-port in files #:key (extract? #t) (strip 0) verbosity)
-  (let loop ((header (read-ustar-header in)))
-    (when (and header
-               (not (eof-object? header)))
-      (unless (zero? verbosity)
-        (display-header header #:verbose? (> verbosity 1)))
-      (read-ustar-file in header #:extract? extract? #:strip strip)
-      (loop (read-ustar-header in)))))
+  (let ((dirs
+         (let loop ((header (read-ustar-header in)) (dirs '()))
+           (if (not (and header (not (eof-object? header)))) dirs
+               (begin
+                 (unless (zero? verbosity)
+                   (display-header header #:verbose? (> verbosity 1)))
+                 (read-ustar-file in header #:extract? extract? #:strip strip)
+                 (loop (read-ustar-header in)
+                       (if (eq? (ustar-header-type header) 'directory) (cons header dirs)
+                           dirs)))))))
+    (define (chmod-header header)
+      (chmod (ustar-header-file-name header #:strip strip)
+             (ustar-header-mode header)))
+    (for-each chmod-header dirs)))
 
 (define* (read-ustar-archive file-name files #:key (extract? #t) (strip 0) verbosity)
   (catch #t

@@ -143,6 +143,7 @@ tests='
 100-tar-Z
 100-tar-Z-old
 100-tar-Z-pipe
+100-tar-ro
 
 100-tr
 '
