@@ -115,7 +115,7 @@
 
      until-clause     <--  until-keyword compound do-group
 
-     test             <-  '[' sp+ test-args sp+ ']'#
+     test             <-  ('[' / '\\[') sp+ test-args sp+ ']'#
      test-args        <-- (sp* word)+
 
      literal          <-  !reserved (escaped / !allowed .)+
@@ -294,7 +294,7 @@
 
     (('pipeline ('command ('word "shift"))) '(shift))
 
-    (('command ('word "[" ('test-args test-args ...) "]"))
+    (('command ('word (or "[" "\\[") ('test-args test-args ...) "]"))
      `(command (word "[") ,@(map transform test-args) (word "]")))
 
     ((h t ...) (map transform o))
