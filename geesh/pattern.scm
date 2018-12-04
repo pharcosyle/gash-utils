@@ -34,17 +34,23 @@
                                 (end (string-length s)))
   (parse-rdelim s ":]" start end))
 
-(define ascii-lower-case
-  (char-set->list (char-set-intersection char-set:ascii
-                                         char-set:lower-case)))
-
-(define ascii-upper-case
-  (char-set->list (char-set-intersection char-set:ascii
-                                         char-set:upper-case)))
-
-(define ascii-digits
-  (char-set->list (char-set-intersection char-set:ascii
-                                         char-set:digit)))
+(define character-range
+  (let ((lower "abcdefghijklmnopqrstuvwxyz")
+        (upper "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        (digits "0123456789"))
+    (lambda (start end)
+      (let loop ((strs (list lower upper digits)))
+        (match strs
+          (() #f)
+          ((str . tail)
+           (match (string-index str start)
+             (#f (loop tail))
+             (sindex
+              (match (string-index str end)
+                (#f (loop tail))
+                (eindex (if (<= sindex eindex)
+                            (string->list str sindex (1+ eindex))
+                            (loop tail))))))))))))
 
 (define* (parse-matching-bracket-expression s #:optional (start 0)
                                             (end (string-length s)))
@@ -75,15 +81,11 @@
                    (and (< (1+ i) end) (char=? (string-ref s (1+ i)) #\])))
                (loop (1+ i) (cons #\- acc))
                (let ((alpha (and (pair? acc) (car acc)))
+                     ;; XXX: Escaped range end?
                      (omega (and (< (1+ i) end) (string-ref s (1+ i)))))
-                 (match `(,alpha . ,omega)
-                   ((#\a . #\z)
-                    (loop (+ i 2) (append ascii-lower-case acc)))
-                   ((#\A . #\Z)
-                    (loop (+ i 2) (append ascii-upper-case acc)))
-                   ((#\0 . #\9)
-                    (loop (+ i 2) (append ascii-digits acc)))
-                   (_ (throw 'pattern-range-expression))))))
+                 (match (character-range alpha omega)
+                   (#f (throw 'pattern-range-expression))
+                   (chrs (loop (+ i 2) (append chrs acc)))))))
       (#\\ (if (< (1+ i) end)
                (loop (+ i 2) (cons (string-ref s (1+ i)) acc))
                (loop (1+ i) acc)))
