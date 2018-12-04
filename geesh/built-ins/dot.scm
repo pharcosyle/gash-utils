@@ -36,11 +36,13 @@
          (call-with-input-file file
            (lambda (port)
              (set-status! 0)
-             (let loop ()
-               (match (read-sh port)
-                 ((? eof-object?) (get-status))
-                 (exp ((get-evaluator) exp)
-                      (loop)))))))
+             (call-with-return
+              (lambda ()
+                (let loop ()
+                  (match (read-sh port)
+                    ((? eof-object?) (get-status))
+                    (exp ((get-evaluator) exp)
+                         (loop)))))))))
        (lambda args
          (format (current-error-port)
                  "~a: .: ~a: ~a.~%"

@@ -112,7 +112,9 @@ environment variable bindings @var{bindings}."
                  (lambda (proc)
                    (with-arguments (cons (car (program-arguments)) args)
                      (lambda ()
-                       (apply proc args)))))
+                       (call-with-return
+                        (lambda ()
+                          (apply proc args)))))))
           (and=> (search-built-ins name)
                  (lambda (proc)
                    ;; TODO: Use 'bindings' here.

@@ -20,6 +20,7 @@
   #:use-module (geesh environment)
   #:use-module (geesh eval)
   #:use-module (geesh parser)
+  #:use-module (ice-9 match)
   #:use-module (ice-9 rdelim)
   #:export (run-repl))
 
@@ -31,8 +32,7 @@
 
 (define* (run-repl #:optional (port (current-input-port)))
   (let loop ((exp (read-sh port)))
-    (if (eof-object? exp)
-        (get-status)
-        (begin
-          (eval-sh exp)
-          (loop (read-sh port))))))
+    (match exp
+      ((? eof-object?) (sh:exit))
+      (_ (eval-sh exp)
+         (loop (read-sh port))))))

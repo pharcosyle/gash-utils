@@ -45,6 +45,10 @@
             sh:continue
             call-with-break
             sh:break
+            call-with-return
+            sh:return
+            set-atexit!
+            sh:exit
             *fd-count*
             fd->current-port))
 
@@ -318,6 +322,36 @@ exit the dynamic extent of @var{thunk}."
   "Exit to the closest invocation of @code{call-with-break}.  If
 @var{n} is set, exit to the @math{n + 1}th closest invocation."
   (abort-to-prompt *break-tag* n))
+
+(define *return-tag* (make-prompt-tag))
+
+(define (call-with-return thunk)
+  "Call @var{thunk} in such a way that a call to @code{return} will
+exit the dynamic extent of @var{thunk}."
+  (call-with-prompt *return-tag*
+    thunk
+    (lambda (cont status)
+      (set-status! status))))
+
+(define* (sh:return #:optional (status (get-status)))
+  "Exit to the closest invocation of @code{call-with-return} setting
+status to @var{status}.  If @var{status} is not set, keep the current
+status."
+  (abort-to-prompt *return-tag* status))
+
+(define *atexit* #f)
+(define *exiting?* #f)
+
+(define (set-atexit! handler)
+  (set! *atexit* handler))
+
+(define* (sh:exit #:optional status)
+  (if (and (not *exiting?*) (thunk? *atexit*))
+      (begin
+        (set! *exiting?* #t)
+        (*atexit*)
+        (exit (or status (get-status))))
+      (exit (or status (get-status)))))
 
 
 ;;; Files.
