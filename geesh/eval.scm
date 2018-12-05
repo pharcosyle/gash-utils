@@ -55,7 +55,13 @@
   (lambda () (eval-sh exp)))
 
 (define (exps->thunk exps)
-  (lambda () (eval-sh `(<sh-begin> ,@exps))))
+  ;; XXX: It probably makes more sense to exclude '#f' expressions at
+  ;; the syntax level.  For now, we filter them out here.
+  (if exps
+      (match (filter values exps)
+        (() noop)
+        (exps (lambda () (eval-sh `(<sh-begin> ,@exps)))))
+      noop))
 
 (define (eval-sh exp)
   "Evaluate the Shell expression @var{exp}."
