@@ -23,6 +23,7 @@
   #:use-module (srfi srfi-26)
   #:export (get-status
             set-status!
+            get-root-pid
             getvar
             setvar!
             unsetvar!
@@ -60,7 +61,7 @@
 ;;; Code:
 
 
-;;; Status.
+;;; Status and PID.
 
 (define *status* 0)
 
@@ -71,6 +72,11 @@
 (define (set-status! n)
   "Set the current status."
   (set! *status* n))
+
+(define *root-pid* (getpid))
+
+(define (get-root-pid)
+  *root-pid*)
 
 
 ;;; Variables.

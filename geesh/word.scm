@@ -230,6 +230,7 @@ the environment.  If @var{name} is unset, return @code{#f}."
     ("0" (car (program-arguments)))
     ("#" (number->string (length (cdr (program-arguments)))))
     ("?" (number->string (get-status)))
+    ("$" (number->string (get-root-pid)))
     (x (let ((n (string->number x)))
          (if (and n (integer? n) (> n 0)
                   (<= n (length (cdr (program-arguments)))))
