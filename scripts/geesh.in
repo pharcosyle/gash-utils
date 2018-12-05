@@ -20,6 +20,9 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Geesh.  If not, see <http://www.gnu.org/licenses/>.
 
+(add-to-load-path "@MODDIR@")
+(set! %load-compiled-path (cons "@GODIR@" %load-compiled-path))
+
 (use-modules (geesh repl)
              (ice-9 getopt-long))
 

@@ -76,6 +76,15 @@ MODULES =                                       \
 bin_SCRIPTS =                                   \
   scripts/geesh
 
+do_subst = sed                                  \
+  -e 's,[@]GUILE[@],$(GUILE),g'                 \
+  -e 's,[@]MODDIR[@],$(moddir),g'               \
+  -e 's,[@]GODIR[@],$(godir),g'
+
+scripts/geesh: scripts/geesh.in Makefile
+	$(do_subst) < $(srcdir)/scripts/geesh.in > scripts/geesh
+	chmod a+x scripts/geesh
+
 TESTS =                                         \
   tests/lexer.scm                               \
   tests/parser.scm                              \
@@ -83,8 +92,12 @@ TESTS =                                         \
   tests/shell.scm                               \
   tests/word.scm
 
+EXTRA_DIST =                                    \
+  scripts/geesh.in
+
 CLEANFILES =                                    \
   $(GOBJECTS)                                   \
+  $(bin_SCRIPTS)                                \
   $(TESTS:tests/%.scm=%.log)                    \
   $(TESTS:tests/%.scm=%.trs)
 
