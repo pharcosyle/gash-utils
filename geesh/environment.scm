@@ -84,11 +84,28 @@
              `(,(substring str 0 index) . ,(substring str (1+ index))))))
   (filter-map (cut string-split-1 <> #\=) env))
 
-(define *variables*
-  (alist->hash-table
-   (map (match-lambda
-          ((name . value) `(,name . ,(vector value #t #f))))
-        (environ->alist (environ)))))
+(define (initial-pwd env)
+  (let* ((pwd (assoc-ref env "PWD"))
+         (pwd-p (false-if-exception (canonicalize-path pwd))))
+    (if (and pwd
+             (string-prefix? "/" pwd)
+             pwd-p
+             (string=? pwd-p (getcwd))
+             (not (any (lambda (component)
+                         (member component '("." "..")))
+                       (string-split pwd #\/))))
+        pwd
+        (getcwd))))
+
+(define (initial-variables)
+  (let ((env (environ->alist (environ))))
+    (alist->hash-table
+     (map (match-lambda
+            ((name . value) `(,name . ,(vector value #t #f))))
+          (append `(("PWD" . ,(initial-pwd env)))
+                  env)))))
+
+(define *variables* (initial-variables))
 
 (define (exported? name)
   "Check if the variable @var{name} has been exported."
