@@ -40,6 +40,9 @@ test-list: ; @echo $(TESTS)
 check-spec:
 	$(MAKE) $(AM_MAKEFLAGS) -L -C tests/spec check
 
+dist-hook:
+	echo $(VERSION) > $(distdir)/.tarball-version
+
 MODULES =                                       \
   geesh/built-ins/break.scm                     \
   geesh/built-ins/cd.scm                        \
