@@ -52,7 +52,8 @@
        (add-before 'configure 'bootstrap
          (lambda _
            (zero? (system* "sh" "bootstrap")))))))
-  (home-page #f)
-  (synopsis #f)
-  (description #f)
-  (license #f))
+  (home-page "https://gitlab.com/samplet/geesh")
+  (synopsis "POSIX-compatible shell written in Guile Scheme")
+  (description "Geesh is a POSIX-compatible shell written in Guile
+Scheme.  It is designed to be capable of bootstrapping Bash.")
+  (license license:gpl3+))
