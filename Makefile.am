@@ -40,6 +40,10 @@ test-list: ; @echo $(TESTS)
 check-spec:
 	$(MAKE) $(AM_MAKEFLAGS) -L -C tests/spec check
 
+.PHONY: check-bootstrap
+check-bootstrap:
+	guix build -f tests/bash-without-bash.scm
+
 dist-hook:
 	echo $(VERSION) > $(distdir)/.tarball-version
 
