@@ -1,2 +1,3 @@
 foo=bar
-echo $foo
+echo foo:$foo
+echo bar:$bar

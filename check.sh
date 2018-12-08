@@ -96,6 +96,7 @@ tests='
 
 41-dot
 42-sh
+42-sh-export
 
 50-iohere
 50-iohere-builtin
