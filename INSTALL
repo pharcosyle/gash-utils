@@ -22,7 +22,6 @@ Building and Installing Gash
 
 ** Check it
    make check
-
 ** Install it
    make install
 
