@@ -90,11 +90,34 @@
 
 (define quit-tag (make-prompt-tag))
 
+(define (make-regexp-factory)
+  (let* ((previous-pattern #f)
+         (ht (make-hash-table))
+         (make-regexp/memoized
+          (lambda args
+            (or (hash-ref ht args #f)
+                (let ((regexp (apply make-regexp args)))
+                  (hash-set! ht args regexp)
+                  regexp)))))
+    (lambda (pattern . flags)
+      (if (string-null? pattern)
+          (if previous-pattern
+              (apply make-regexp/memoized previous-pattern flags)
+              (error "SED: no previous regular expression"))
+          (begin
+            (set! previous-pattern pattern)
+            (apply make-regexp/memoized pattern flags))))))
+
+(define regexp-factory
+  (make-parameter
+   (lambda _
+     (error "SED: no regexp-factory available"))))
+
 (define (substitute str pattern replacement flags)
   (let* ((global? (memq 'g flags))
          (flags (cons (if (extended?) regexp/extended regexp/basic)
                       (if (memq 'i flags) `(,regexp/icase) '())))
-         (regexp (apply make-regexp (replace-escapes pattern) flags))
+         (regexp (apply (regexp-factory) (replace-escapes pattern) flags))
          (proc (replace->lambda (replace-escapes replacement) global?)))
     (match (list-matches regexp str)
       ((and m+ (_ _ ...)) (proc str m+))
@@ -104,7 +127,7 @@
   (if (string? address)
       (let* ((flags `(,(if (extended?) regexp/extended regexp/basic)))
              (pattern (replace-escapes address))
-             (regexp (apply make-regexp pattern flags)))
+             (regexp (apply (regexp-factory) pattern flags)))
         (cut regexp-exec regexp <>))
       (error "SED: unsupported address type" address)))
 
@@ -133,18 +156,19 @@
 (define* (edit-stream commands #:optional
                       (in (current-input-port))
                       (out (current-output-port)))
-  (let loop ((pattern-space (read-line in)))
-    (unless (eof-object? pattern-space)
-      (call-with-prompt quit-tag
-        (lambda ()
-          (let ((result (execute-commands commands pattern-space)))
+  (parameterize ((regexp-factory (make-regexp-factory)))
+    (let loop ((pattern-space (read-line in)))
+      (unless (eof-object? pattern-space)
+        (call-with-prompt quit-tag
+          (lambda ()
+            (let ((result (execute-commands commands pattern-space)))
+              (display result out)
+              (newline out)
+              (loop (read-line in))))
+          (lambda (cont result)
             (display result out)
-            (newline out)
-            (loop (read-line in))))
-        (lambda (cont result)
-          (display result out)
-          (newline out))))
-    #t))
+            (newline out))))
+      #t)))
 
 (define (sed . args)
   (let* ((option-spec
