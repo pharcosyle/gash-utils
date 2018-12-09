@@ -129,6 +129,11 @@ tests='
 100-test-file
 100-bracket-file
 
+100-basename-root
+100-dirname-root
+100-basename-autoconf
+100-dirname-autoconf
+
 100-sed
 100-sed-once
 100-sed-global

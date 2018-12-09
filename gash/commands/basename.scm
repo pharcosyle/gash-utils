@@ -68,8 +68,9 @@ Options:
                                 (if (and (> (string-length file) 1)
                                          (string-suffix? "/" file)) (string-drop-right file 1)
                                          file)))
-                          (if suffix (display ((@ (guile) basename) file suffix))
-                              (display ((@ (guile) basename) file))))
+                           (cond ((string=? file "/") (display "/"))
+                                 (suffix (display ((@ (guile) basename) file suffix)))
+                                 (else (display ((@ (guile) basename) file)))))
                         (if zero? (display #\nul) (newline)))
                       files))))))
 
