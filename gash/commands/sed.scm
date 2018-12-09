@@ -26,6 +26,7 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
   #:use-module (ice-9 regex)
+  #:use-module (rnrs io ports)
   #:use-module (srfi srfi-26)
 
   #:use-module (gash commands sed reader)
@@ -179,10 +180,17 @@ Usage: sed [OPTION]... [SCRIPT] [FILE]...
            (let* ((script-files (multi-opt options 'file))
                   (scripts (multi-opt options 'expression)))
              (receive (scripts files)
-                 (if (pair? (append script-files scripts)) (values scripts files)
-                     (values (list-head files 1) (cdr files)))
-              (when (pair? script-files)
-                (error "SED: script files not supported"))
+                 (cond
+                  ((and (pair? script-files) (pair? scripts))
+                   ;; XXX: Until we respect the order in which scripts
+                   ;; are specified, we cannot do this properly.
+                   (error "SED: cannot mix argument and file scripts"))
+                  ((pair? script-files)
+                   (values (map (cut call-with-input-file <> get-string-all)
+                                script-files)
+                           files))
+                  ((pair? scripts) (values scripts files))
+                  (else (values (list-head files 1) (cdr files))))
               (let* ((script (string-join scripts "\n"))
                      (commands
                       (call-with-input-string script
