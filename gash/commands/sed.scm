@@ -1,5 +1,6 @@
 ;;; Gash --- Guile As SHell
 ;;; Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;; Copyright © 2018 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Gash.
 ;;;
@@ -25,7 +26,9 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
   #:use-module (ice-9 regex)
+  #:use-module (srfi srfi-26)
 
+  #:use-module (gash commands sed reader)
   #:use-module (gash config)
   #:use-module (gash guix-utils)
   #:use-module (gash shell-utils)
@@ -35,7 +38,7 @@
             sed
             ))
 
-(define (replace->lambda string modifiers)
+(define (replace->lambda string global?)
   (define (replace->string m s)
     (list->string
      (let loop ((lst (string->list string)))
@@ -73,8 +76,50 @@
          (let* ((refs (- (vector-length m) 2))
                 (replace (replace->string m string))
                 (replace (cons* replace (substring l o (match:start m)) r)))
-           (if (memq #\g modifiers) (loop rest (match:end m) replace)
+           (if global? (loop rest (match:end m) replace)
                (loop '() (match:end m) replace))))))))
+
+(define (replace-escapes str)
+  (let* ((str (string-replace-string str "\\n" "\n"))
+         (str (string-replace-string str "\\r" "\r"))
+         (str (string-replace-string str "\\t" "\t")))
+    str))
+
+(define extended? (make-parameter #f))
+
+(define (substitute str pattern replacement flags)
+  (let* ((global? (memq 'g flags))
+         (flags (cons (if (extended?) regexp/extended regexp/basic)
+                      (if (memq 'i flags) `(,regexp/icase) '())))
+         (regexp (apply make-regexp (replace-escapes pattern) flags))
+         (proc (replace->lambda (replace-escapes replacement) global?)))
+    (match (list-matches regexp str)
+      ((and m+ (_ _ ...)) (proc str m+))
+      (_ str))))
+
+(define (execute-function function str)
+  (match function
+    (('s pattern replacement flags)
+     (substitute str pattern replacement flags))
+    (_ (error "SED: unsupported function" function))))
+
+(define (execute-commands commands str)
+  (match commands
+    (() str)
+    ((('always function) . rest)
+     (execute-commands rest (execute-function function str)))
+    ((cmd . rest) (error "SED: could not process command" cmd))))
+
+(define* (edit-stream commands #:optional
+                      (in (current-input-port))
+                      (out (current-output-port)))
+  (let loop ((pattern-space (read-line in)))
+    (unless (eof-object? pattern-space)
+      (let ((result (execute-commands commands pattern-space)))
+        (display result out)
+        (newline out)
+        (loop (read-line in))))
+    #t))
 
 (define (sed . args)
   (let* ((option-spec
@@ -87,12 +132,13 @@
             (version (single-char #\V))))
 	 (options (getopt-long args option-spec))
 	 (files (option-ref options '() '()))
-         (extended? (or (option-ref options 'extended #f)
-                        (option-ref options 'posix-extended #f)))
 	 (help? (option-ref options 'help #f))
          (in-place? (option-ref options 'in-place #f))
 	 (usage? (and (not help?) (or (and (null? files) (isatty? (current-input-port))))))
          (version? (option-ref options 'version #f)))
+    (when (or (option-ref options 'extended #f)
+              (option-ref options 'posix-extended #f))
+      (extended? #t))
     (cond (version? (format #t "sed (GASH) ~a\n" %version) (exit 0))
           ((or help? usage?) (format (if usage? (current-error-port) #t)
                                      "\
@@ -111,33 +157,21 @@ Usage: sed [OPTION]... [SCRIPT] [FILE]...
              (receive (scripts files)
                  (if (pair? (append script-files scripts)) (values scripts files)
                      (values (list-head files 1) (cdr files)))
-              (define (script->command o)
-                (cond ((string-prefix? "s" o)
-                       (let* ((command (substring o 1))
-                              (string (substring command 1))
-                              (string (string-replace-string string "\\n" "\n"))
-                              (string (string-replace-string string "\\r" "\r"))
-                              (string (string-replace-string string "\\t" "\t"))
-                              (separator (string-ref command 0)))
-                         (receive (search replace modifier-string)
-                             (apply values (string-split string separator))
-                           (let* ((modifiers (string->list modifier-string))
-                                  (flags (if extended? (list regexp/extended) (list regexp/basic)))
-                                  (flags (if (memq #\i modifiers) (cons regexp/icase flags)
-                                             flags)))
-                             `((,search . ,flags) . ,(replace->lambda replace modifiers))))))
-                      (else (error (format #f "SED: command not supported: ~s\n" o)))))
               (when (pair? script-files)
                 (error "SED: script files not supported"))
-              (let ((commands (map script->command scripts)))
+              (let* ((script (string-join scripts "\n"))
+                     (commands
+                      (call-with-input-string script
+                        (cut read-sed-all <> #:extended? (extended?)))))
                 (cond ((and in-place? (pair? files))
-                       (for-each (lambda (file) (substitute* file commands)) files))
+                       (with-atomic-file-replacement
+                        (cut edit-stream commands <> <>)))
                       ((pair? files)
                        (for-each (lambda (file)
-                                   (with-input-from-file file
-                                     (lambda _ (substitute-port commands))))
+                                   (call-with-input-file file
+                                     (cut edit-stream commands <>)))
                                  files))
-                      (else (substitute-port commands))))))))))
+                      (else (edit-stream commands))))))))))
 
 (use-modules (ice-9 rdelim))
 (define main sed)

@@ -77,6 +77,8 @@ ${srcdest}gash/commands/tr.scm
 ${srcdest}gash/commands/wc.scm
 ${srcdest}gash/commands/which.scm
 
+${srcdest}gash/commands/sed/reader.scm
+
 "
 
 SCRIPTS="
