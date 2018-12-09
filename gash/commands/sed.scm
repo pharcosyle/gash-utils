@@ -97,6 +97,14 @@
       ((and m+ (_ _ ...)) (proc str m+))
       (_ str))))
 
+(define (address->pred address)
+  (if (string? address)
+      (let* ((flags `(,(if (extended?) regexp/extended regexp/basic)))
+             (pattern (replace-escapes address))
+             (regexp (apply make-regexp pattern flags)))
+        (cut regexp-exec regexp <>))
+      (error "SED: unsupported address type" address)))
+
 (define (execute-function function str)
   (match function
     (('s pattern replacement flags)
@@ -108,6 +116,12 @@
     (() str)
     ((('always function) . rest)
      (execute-commands rest (execute-function function str)))
+    ((('at address function) . rest)
+     ;; XXX: This should be "compiled" ahead of time so that it only
+     ;; runs once intead of once per line.
+     (if ((address->pred address) str)
+         (execute-commands rest (execute-function function str))
+         (execute-commands rest str)))
     ((cmd . rest) (error "SED: could not process command" cmd))))
 
 (define* (edit-stream commands #:optional
