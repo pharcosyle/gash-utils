@@ -107,6 +107,8 @@
 
 (define (execute-function function str)
   (match function
+    (('begin . commands)
+     (execute-commands commands str))
     (('s pattern replacement flags)
      (substitute str pattern replacement flags))
     (_ (error "SED: unsupported function" function))))
