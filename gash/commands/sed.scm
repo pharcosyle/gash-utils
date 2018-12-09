@@ -87,6 +87,8 @@
 
 (define extended? (make-parameter #f))
 
+(define quit-tag (make-prompt-tag))
+
 (define (substitute str pattern replacement flags)
   (let* ((global? (memq 'g flags))
          (flags (cons (if (extended?) regexp/extended regexp/basic)
@@ -109,6 +111,7 @@
   (match function
     (('begin . commands)
      (execute-commands commands str))
+    (('q) (abort-to-prompt quit-tag str))
     (('s pattern replacement flags)
      (substitute str pattern replacement flags))
     (_ (error "SED: unsupported function" function))))
@@ -131,10 +134,15 @@
                       (out (current-output-port)))
   (let loop ((pattern-space (read-line in)))
     (unless (eof-object? pattern-space)
-      (let ((result (execute-commands commands pattern-space)))
-        (display result out)
-        (newline out)
-        (loop (read-line in))))
+      (call-with-prompt quit-tag
+        (lambda ()
+          (let ((result (execute-commands commands pattern-space)))
+            (display result out)
+            (newline out)
+            (loop (read-line in))))
+        (lambda (cont result)
+          (display result out)
+          (newline out))))
     #t))
 
 (define (sed . args)
