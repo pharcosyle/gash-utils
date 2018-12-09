@@ -146,7 +146,7 @@ tests='
 100-sed-fooRbar
 100-sed-pattern-address
 100-sed-quit
-100-sed-autoconf-dirname
+100-sed-autoconf-basename
 
 100-tar
 100-tar-Z

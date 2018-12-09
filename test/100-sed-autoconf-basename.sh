@@ -1,4 +1,4 @@
-dirname='/^.*\/\([^/][^/]*\)\/*$/{
+basename='/^.*\/\([^/][^/]*\)\/*$/{
 	    s//\1/
 	    q
 	  }
@@ -12,4 +12,4 @@ dirname='/^.*\/\([^/][^/]*\)\/*$/{
   }
   s/.*/./; q'
 
-echo 'X/foo/bar' | \sed "$dirname"
+echo 'X/foo/bar' | \sed "$basename"
