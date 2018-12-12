@@ -24,7 +24,7 @@
       version)))
 
 (define (make-select)
-  (let* ((directory (repository-discover "/home/samplet/code/geesh"))
+  (let* ((directory (repository-discover *srcdir*))
          (repository (repository-open directory))
          (oid (reference-target (repository-head repository)))
          (commit (commit-lookup repository oid))
