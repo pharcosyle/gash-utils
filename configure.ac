@@ -13,7 +13,7 @@ AM_CONDITIONAL([HAVE_GENHTML], [test -n $GENHTML])
 
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([pre-inst-env], [chmod +x pre-inst-env])
-AC_CONFIG_FILES([tests/config.scm])
+AC_CONFIG_FILES([tests/unit/config.scm])
 AC_CONFIG_FILES([tests/spec/Makefile])
 AC_CONFIG_FILES([tools/coverage], [chmod +x tools/coverage])
 

@@ -20,7 +20,7 @@
   #:use-module (geesh environment)
   #:use-module (geesh word)
   #:use-module (srfi srfi-64)
-  #:use-module (tests automake))
+  #:use-module (tests unit automake))
 
 ;;; Commentary:
 ;;;

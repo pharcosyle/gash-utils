@@ -19,7 +19,7 @@
 (define-module (test-pattern)
   #:use-module (geesh pattern)
   #:use-module (srfi srfi-64)
-  #:use-module (tests automake))
+  #:use-module (tests unit automake))
 
 ;;; Commentary:
 ;;;

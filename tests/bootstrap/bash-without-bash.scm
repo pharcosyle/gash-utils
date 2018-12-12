@@ -6,7 +6,7 @@
              (ice-9 match))
 
 (define geesh
-  (load (string-append (current-source-directory) "/../guix.scm")))
+  (load (string-append (current-source-directory) "/../../guix.scm")))
 
 (define geesh-with-links
   (package

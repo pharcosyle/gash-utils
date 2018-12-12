@@ -21,7 +21,7 @@
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-64)
   #:use-module (system base lalr)
-  #:use-module (tests automake))
+  #:use-module (tests unit automake))
 
 ;;; Commentary:
 ;;;

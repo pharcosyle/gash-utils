@@ -16,7 +16,7 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Geesh.  If not, see <http://www.gnu.org/licenses/>.
 
-(define-module (tests automake)
+(define-module (tests unit automake)
   #:use-module (srfi srfi-64))
 
 ;;; Commentary:

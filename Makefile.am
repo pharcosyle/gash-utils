@@ -42,7 +42,7 @@ check-spec:
 
 .PHONY: check-bootstrap
 check-bootstrap:
-	guix build -f tests/bash-without-bash.scm
+	guix build -f tests/bootstrap/bash-without-bash.scm
 
 dist-hook:
 	echo $(VERSION) > $(distdir)/.tarball-version
@@ -92,12 +92,14 @@ scripts/geesh: scripts/geesh.in Makefile
 	$(do_subst) < $(srcdir)/scripts/geesh.in > scripts/geesh
 	chmod a+x scripts/geesh
 
-TESTS =                                         \
-  tests/lexer.scm                               \
-  tests/parser.scm                              \
-  tests/pattern.scm                             \
-  tests/shell.scm                               \
-  tests/word.scm
+UNIT_TESTS =                                    \
+  tests/unit/lexer.scm                          \
+  tests/unit/parser.scm                         \
+  tests/unit/pattern.scm                        \
+  tests/unit/shell.scm                          \
+  tests/unit/word.scm
+
+TESTS = $(UNIT_TESTS)
 
 EXTRA_DIST =                                    \
   scripts/geesh.in
@@ -105,8 +107,8 @@ EXTRA_DIST =                                    \
 CLEANFILES =                                    \
   $(GOBJECTS)                                   \
   $(bin_SCRIPTS)                                \
-  $(TESTS:tests/%.scm=%.log)                    \
-  $(TESTS:tests/%.scm=%.trs)
+  $(TESTS:tests/unit/%.scm=%.log)               \
+  $(TESTS:tests/unit/%.scm=%.trs)
 
 clean-local:
 	$(MAKE) $(AM_MAKEFLAGS) -L -C tests/spec clean

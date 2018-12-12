@@ -19,7 +19,7 @@
 (define-module (test-parser)
   #:use-module (geesh parser)
   #:use-module (srfi srfi-64)
-  #:use-module (tests automake))
+  #:use-module (tests unit automake))
 
 ;;; Commentary:
 ;;;

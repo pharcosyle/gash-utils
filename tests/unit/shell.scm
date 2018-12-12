@@ -23,8 +23,8 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 textual-ports)
   #:use-module (srfi srfi-64)
-  #:use-module (tests automake)
-  #:use-module (tests config))
+  #:use-module (tests unit automake)
+  #:use-module (tests unit config))
 
 ;;; Commentary:
 ;;;
