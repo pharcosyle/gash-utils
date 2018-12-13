@@ -1,0 +1,129 @@
+#! /bin/sh
+
+VERSION=0.1
+
+# parse --prefix=PREFIX, mainly for GuixSD/Debian
+cmdline=$(echo "$@")
+PREFIX=${cmdline##*--prefix=}
+PREFIX=${PREFIX% *}
+PREFIX=${PREFIX% -*}
+if [ -z "$PREFIX" ]; then
+   PREFIX=/usr/local
+fi
+
+BASH=$(command -v bash)
+GUILE=${GUILE-$(command -v guile)}
+GUILD=${GUILD-$(command -v guild || command -v guile-tools)}
+guile_site_dir=$PREFIX/share/guile/site/$guile_effective_version
+guile_site_ccache_dir=$PREFIX/lib/guile/$guile_effective_version/site-ccache
+guile_effective_version=$(guile -c '(display (effective-version))')
+MAKEINFO=$(command -v makeinfo)
+GEESH_PREFIX=${GEESH_PREFIX-$HOME/src/geesh}
+if [ -d $GEESH_PREFIX ]; then
+    GUILE_LOAD_PATH=$GEESH_PREFIX:$GUILE_LOAD_PATH
+    GUILE_LOAD_COMPILED_PATH=$GEESH_PREFIX:$GUILE_LOAD_COMPILED_PATH
+    if ! $GUILE -c '(use-modules (geesh parser)) (exit (defined? '"'"'read-sh-all))'; then
+        echo "warning: building without Geesh"
+    fi
+fi
+
+if [ "$srcdir" = . ]; then
+    top_builddir=.
+else
+    srcdest=${srcdest}
+    top_builddir=$PWD
+fi
+abs_top_srcdir=${abs_top_srcdir-$(cd ${srcdir} && pwd)}
+abs_top_builddir=$PWD
+
+cat > .config.make <<EOF
+BASH=$BASH
+GUILE=$GUILE
+GUILD=$GUILD
+prefix=$PREFIX
+bindir=$PREFIX/bin
+docdir=$PREFIX/share/doc/gash
+guile_effective_version=$guile_effective_version
+guile_site_dir=$guile_site_dir
+guile_site_ccache_dir=$guile_site_ccache_dir
+MAKEINFO=$MAKEINFO
+SHELL=$BASH
+VERSION=$VERSION
+EOF
+
+BZIP2=$(command -v bzip2)
+COMPRESS=$(command -v compress)
+[ -z "$COMPRESS" ] && COMPRESS=$PWD/bin/compress
+GZIP=$(command -v gzip)
+XZ=$(command -v xz)
+
+subst () {
+    sed \
+    -e s,"@srcdest@,$srcdest,"\
+    -e s,"@srcdir@,$srcdir,"\
+    -e s,"@abs_top_srcdir@,$abs_top_srcdir,"\
+    -e s,"@abs_top_builddir@,$abs_top_builddir,"\
+    -e s,"@top_builddir@,$top_builddir,"\
+    -e s",@BASH@,$BASH,"\
+    -e s",@GUILE@,$GUILE,"\
+    -e s,"@prefix@,$prefix,"\
+    -e s",@guile_site_dir@,$guile_site_dir,"\
+    -e s",@guile_site_ccache_dir@,$guile_site_ccache_dir,"\
+    -e s",@BZIP2@,$BZIP2,"\
+    -e s",@COMPRESS@,$COMPRESS,"\
+    -e s",@GZIP@,$GZIP,"\
+    -e s",@XZ@,$XZ,"\
+    -e s",@VERSION@,$VERSION,"\
+    -e s",@guile_site_dir@,$guile_site_dir,"\
+    -e s",@guile_site_ccache_dir@,$guile_site_ccache_dir,"\
+    -e s",@builtin@,$builtin,"\
+    $1 > $2
+}
+
+SHELLS="
+bash
+gash
+sh
+"
+
+for shell in $SHELLS; do
+    subst ${srcdest}bin/gash.in bin/$shell
+    chmod +x bin/$shell
+done
+
+BUILTINS="
+basename
+cat
+chmod
+compress
+cp
+dirname
+find
+grep
+ls
+mkdir
+mv
+reboot
+rm
+rmdir
+sed
+tar
+touch
+tr
+wc 
+which
+"
+for builtin in $BUILTINS; do
+    subst ${srcdest}bin/builtin.in bin/$builtin
+    chmod +x bin/$builtin
+done
+
+subst ${srcdest}gash/config.scm.in gash/config.scm
+subst ${srcdest}build-aux/pre-inst-env.in pre-inst-env
+chmod +x pre-inst-env
+
+cat <<EOF
+Run:
+  make            to build gash
+  make help       for help on other targets
+EOF

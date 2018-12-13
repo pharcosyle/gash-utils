@@ -1,0 +1,15 @@
+Rutger EW van Beusekom <rutger.van.beusekom@gmail.com>
+Main author
+All files except the imported files listed below
+
+Adapted from GNU Guix
+gash/commands/*.scm
+gash/shell-utils.scm
+gash/guix-utils.scm
+
+Adapted from Mes
+build-aux/build-guile.sh
+
+Adapted from Guile100 Challenge
+gash/compress.scm
+gash/ustar.scm

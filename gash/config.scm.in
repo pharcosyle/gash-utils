@@ -1,0 +1,57 @@
+;;; Gash --- Guile As SHell
+;;; Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;;
+;;; This file is part of Gash.
+;;;
+;;; Gash is free software; you can redistribute it and/or modify it
+;;; under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation; either version 3 of the License, or (at
+;;; your option) any later version.
+;;;
+;;; Gash is distributed in the hope that it will be useful, but WITHOUT ANY
+;;; WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+;;; FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+;;; details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with Gash.  If not, see <http://www.gnu.org/licenses/>.
+
+(define-module (gash config)
+  #:export (%bzip2
+            %commands
+            %xz
+            %compress
+            %gzip
+            %version))
+
+;;; Commentary:
+;;;
+;;; Compile-time configuration of gash.  When adding a substitution variable
+;;; here, make sure to have configure substitute it.
+;;;
+;;; Code:
+
+(define %version
+  "@VERSION@")
+
+(define %bzip2
+  "@BZIP2@")
+
+(define %compress
+  (let ((compress "@COMPRESS@")
+        (reloc (string-append (dirname (car (command-line))) "/compress")))
+    (cond ((getenv "COMPRESS"))
+          ((file-exists? compress) compress)
+          ((file-exists? reloc) reloc))))
+
+(define %commands
+  (let* ((guile-site-ccache-dir "@guile_site_ccache_dir@")
+         (commands-dir (string-append guile-site-ccache-dir "/gash/commands")))
+    (cond ((getenv "COMMANDS"))
+          (else commands-dir))))
+
+(define %gzip
+  "@GZIP@")
+
+(define %xz
+  "@XZ@")

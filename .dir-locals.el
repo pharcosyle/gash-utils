@@ -1,6 +1,17 @@
-((scheme-mode
+((nil
   .
-  ((eval . (put '<sh-case> 'scheme-indent-function 1))
+  ((indent-tabs-mode . nil)))
+ (makefile-mode
+  (indent-tabs-mode . t))
+ (scheme-mode
+  .
+  ((geiser-active-implementations . (guile))
+   (eval
+    .
+    (progn
+      (let ((top (locate-dominating-file default-directory ".dir-locals.el")))
+        (add-to-list 'geiser-guile-load-path top))))
+   (eval . (put '<sh-case> 'scheme-indent-function 1))
    (eval . (put '<sh-defun> 'scheme-indent-function 1))
    (eval . (put '<sh-exec-let> 'scheme-indent-function 1))
    (eval . (put '<sh-for> 'scheme-indent-function 1))

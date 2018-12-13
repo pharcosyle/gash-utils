@@ -1,0 +1,2 @@
+\dirname /root
+\dirname /

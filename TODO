@@ -1,0 +1,14 @@
+* setup test driven development: done
+* execute tests using gash: done
+* parsing posix shell: nested "'""'": done
+* globbing: done
+* job control: done
+* substitution: done
+* readline: prompt2: in progress
+* pipe: in progress: mix built-in with process
+* compound: case, while, until
+* expansion: done
+* alias:
+* iohere:
+* redirection:
+* posix compliance:

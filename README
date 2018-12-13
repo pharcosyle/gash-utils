@@ -1,1 +1,20 @@
-Geesh is a shell interpreter written in Guile Scheme.
+This project aims to produce at least a POSIX compliant sh replacement
+or even implement GNU bash.  On top of that it also intends to make
+scheme available for interactive and scripting application.  The
+approach also intends to allow capturing the intermediate scheme
+representation of the "original" shell script to offer a migration
+path away from [ba]sh. On top of this GNU make could similarly be
+replaced, as make turns out to be fraught with limitations and
+complexities.  One of the features I personally desire is not be
+forced to keep doing what was done in the past, i.e. once an object
+file is produced, it does not have to be produced again as long as the
+original is kept around. The orignal must be replaced when any of its
+dependencies change (source, compiler options, linker, etc.)
+
+I feel that the shell has been instrumental on my path to embracing
+functional programming, however now I mostly experience that the
+language itselfs folds on functional expression, pun intended.
+
+
+* history flattened vs full, i.e. navigate interactively without
+  redundancy vs export as script

@@ -1,0 +1,23 @@
+Working up to a 0.1 release.
+
+TODO:
+  * Fix word/delim/substitute
+  * Implement export
+  * Pass all tests
+  * Add missing tests, repeat :-)
+
+Try
+
+    make check-bash
+    make check-gash
+
+or
+
+    bash -e test/42-sh-export.sh
+    ./pre-inst-env gash -e test/42-sh-export.sh
+
+To use Geesh, assuming you have built it in ../geesh, do something like
+
+    GUILE_LOAD_PATH=../geesh:$GUILE_LOAD_PATH
+    GUILE_LOAD_COMPILED_PATH=../geesh:$GUILE_LOAD_COMPILED_PATH
+    ./pre-inst-env gash --geesh -dd -p -c 'cat < README > bla'

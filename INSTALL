@@ -1,0 +1,29 @@
+                                                              -*- org -*-
+Building and Installing Gash
+
+* Get it
+   git clone https://gitlab.com/rutger.van.beusekom/gash
+
+* Regular build
+** Prerequisites
+*** Guix
+    guix environment -l guix.scm
+
+*** Other GNU/Linux
+  - [[https://gitlab.com/samplet/geesh][geesh]], 0.1-rc is known to work.
+  - GNU Guile, version 2.2.3 or is known to work.
+  - GNU make, version 4.2 known to work.
+  - SH, /bin/sh, GNU Bash 4.3 is known to work.
+  - git, 2.10 is known to work.
+
+** Build it
+   ./configure
+   make
+
+** Check it
+   make check
+** Install it
+   make install
+
+* Guix it
+   guix package -f guix.scm
