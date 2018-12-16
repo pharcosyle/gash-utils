@@ -1,3 +1,4 @@
 CC=echo
+empty=
 file=ar.o
-$CC -I${srcdir} $file
+$CC -I${empty} $file
