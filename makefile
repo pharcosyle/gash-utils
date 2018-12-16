@@ -5,7 +5,7 @@ default: all
 
 .config.make: makefile
 
-bin/gash: bin/gash.in
+scripts/gash: scripts/gash.in
 	$(MAKE) do-configure
 
 gash/config.scm:
@@ -33,21 +33,21 @@ ifneq ($(BASH),)
 endif
 
 check-gash: all
-	SHELL=bin/gash ./check.sh
+	SHELL=scripts/gash ./check.sh
 
 check-parse: all
-	SHELL='bin/gash -p' PARSE=1 ./check.sh
+	SHELL='scripts/gash -p' PARSE=1 ./check.sh
 
 check-geesh: all
-	SHELL='bin/gash --geesh' ./check.sh
+	SHELL='scripts/gash --geesh' ./check.sh
 
 install: all
 	mkdir -p $(DESTDIR)$(bindir)
-	cp bin/gash $(DESTDIR)$(bindir)/gash
+	cp scripts/gash $(DESTDIR)$(bindir)/gash
 	mkdir -p $(DESTDIR)$(guile_site_dir)
 	tar -cf- gash/*.scm | tar -C $(DESTDIR)$(guile_site_dir) -xf-
 	mkdir -p $(DESTDIR)$(guile_site_ccache_dir)
-	cp bin/gash.go  $(DESTDIR)$(guile_site_ccache_dir)
+	cp scripts/gash.go  $(DESTDIR)$(guile_site_ccache_dir)
 	tar -cf- gash/*.go | tar -C $(DESTDIR)$(guile_site_ccache_dir) -xf-
 	mkdir -p $(DESTDIR)$(docdir)
 	cp -f COPYING README TODO $(docdir)

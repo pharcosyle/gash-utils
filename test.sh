@@ -3,7 +3,7 @@ if [ -n "$V" ]; then
     set -x
 fi
 DIFF=${DIFF-diff}
-SHELL=${SHELL-bin/gash}
+SHELL=${SHELL-scripts/gash}
 
 t="$1"
 b=test/$(basename "$t" .sh)

@@ -87,8 +87,8 @@ sh
 "
 
 for shell in $SHELLS; do
-    subst ${srcdest}bin/gash.in bin/$shell
-    chmod +x bin/$shell
+    subst ${srcdest}scripts/gash.in scripts/$shell
+    chmod +x scripts/$shell
 done
 
 BUILTINS="

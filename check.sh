@@ -2,7 +2,7 @@ if [ -n "$V" ]; then
     set -x
 fi
 DIFF=diff
-SHELL=${SHELL-bin/gash}
+SHELL=${SHELL-scripts/gash}
 
 tests='
 00-exit
@@ -172,7 +172,7 @@ fail=0
 total=0
 for t in $tests; do
     if [ "$PARSE" ]; then
-        bin/gash -p "test/$t.sh"
+        scripts/gash -p "test/$t.sh"
     else
         sh test.sh "test/$t" &> test/"$t".log
     fi

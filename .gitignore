@@ -10,7 +10,6 @@
 /bin/cp
 /bin/dirname
 /bin/find
-/bin/gash
 /bin/grep
 /bin/ls
 /bin/mkdir
@@ -50,6 +49,7 @@ config.status
 coverage/*
 lcov.info
 pre-inst-env
+scripts/gash
 scripts/geesh
 tests/spec/oil
 tests/spec/oil-link

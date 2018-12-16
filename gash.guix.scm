@@ -155,7 +155,7 @@
                    (("@GZIP@") (which "gzip"))
                    (("@XZ@") (which "xz")))
                  (for-each
-                  (lambda (s) (make-script "bin/gash.in" s)) ',shells)
+                  (lambda (s) (make-script "scripts/gash.in" s)) ',shells)
                  (for-each
                   (lambda (s) (make-script "bin/builtin.in" s)) ',builtins))
                #t))
@@ -164,7 +164,7 @@
                (let* ((out (assoc-ref outputs "out"))
                       (bin (string-append out "/bin"))
                       (libexec/gash (string-append out "/libexec/gash")))
-                 (install-file "bin/gash" bin)
+                 (install-file "scripts/gash" bin)
                  (for-each
                   (lambda (name)
                     (install-file (string-append "bin/" name) libexec/gash))

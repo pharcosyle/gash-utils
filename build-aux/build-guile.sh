@@ -89,7 +89,6 @@ ${srcdest}bin/compress
 ${srcdest}bin/cp
 ${srcdest}bin/dirname
 ${srcdest}bin/find
-${srcdest}bin/gash
 ${srcdest}bin/grep
 ${srcdest}bin/ls
 ${srcdest}bin/mkdir
@@ -103,6 +102,7 @@ ${srcdest}bin/touch
 ${srcdest}bin/tr
 ${srcdest}bin/wc
 ${srcdest}bin/which
+${srcdest}scripts/gash
 "
 
 export host=$($GUILE -c "(display %host-type)")
