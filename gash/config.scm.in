@@ -18,7 +18,6 @@
 
 (define-module (gash config)
   #:export (%bzip2
-            %commands
             %xz
             %compress
             %gzip
@@ -43,12 +42,6 @@
     (cond ((getenv "COMPRESS"))
           ((file-exists? compress) compress)
           ((file-exists? reloc) reloc))))
-
-(define %commands
-  (let* ((guile-site-ccache-dir "@guile_site_ccache_dir@")
-         (commands-dir (string-append guile-site-ccache-dir "/gash/commands")))
-    (cond ((getenv "COMMANDS"))
-          (else commands-dir))))
 
 (define %gzip
   "@GZIP@")
