@@ -35,17 +35,11 @@ Makefile.in
 aclocal.m4
 autom4te.cache/*
 build-aux/*
-!build-aux/build-guile.sh
 !build-aux/git-version-gen
 !build-aux/gitlab-ci.yml
-!build-aux/pre-inst-env.in
-!build-aux/trace.sh
 config.log
 config.status
-
-# Preserve this Gash file for now.
-# configure
-
+configure
 coverage/*
 lcov.info
 pre-inst-env

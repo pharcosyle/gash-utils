@@ -44,10 +44,59 @@ check-spec:
 check-bootstrap:
 	guix build -f tests/bootstrap/bash-without-bash.scm
 
+.PHONY: check-gash
+check-gash:
+	SHELL=gash $(top_builddir)/pre-inst-env $(top_builddir)/check.sh
+
 dist-hook:
 	echo $(VERSION) > $(distdir)/.tarball-version
 
 MODULES =                                       \
+  gash/bournish-commands.scm                    \
+  gash/builtins.scm                             \
+  gash/commands/basename.scm                    \
+  gash/commands/cat.scm                         \
+  gash/commands/chmod.scm                       \
+  gash/commands/compress.scm                    \
+  gash/commands/cp.scm                          \
+  gash/commands/dirname.scm                     \
+  gash/commands/find.scm                        \
+  gash/commands/grep.scm                        \
+  gash/commands/ls.scm                          \
+  gash/commands/mkdir.scm                       \
+  gash/commands/mv.scm                          \
+  gash/commands/reboot.scm                      \
+  gash/commands/rm.scm                          \
+  gash/commands/rmdir.scm                       \
+  gash/commands/sed.scm                         \
+  gash/commands/sed/reader.scm                  \
+  gash/commands/tar.scm                         \
+  gash/commands/touch.scm                       \
+  gash/commands/tr.scm                          \
+  gash/commands/wc.scm                          \
+  gash/commands/which.scm                       \
+  gash/compress.scm                             \
+  gash/config.scm                               \
+  gash/environment.scm                          \
+  gash/gash.scm                                 \
+  gash/geesh.scm                                \
+  gash/grammar.scm                              \
+  gash/guix-utils.scm                           \
+  gash/io.scm                                   \
+  gash/job.scm                                  \
+  gash/lzw.scm                                  \
+  gash/peg.scm                                  \
+  gash/peg/cache.scm                            \
+  gash/peg/codegen.scm                          \
+  gash/peg/simplify-tree.scm                    \
+  gash/peg/string-peg.scm                       \
+  gash/peg/using-parsers.scm                    \
+  gash/pipe.scm                                 \
+  gash/readline.scm                             \
+  gash/script.scm                               \
+  gash/shell-utils.scm                          \
+  gash/ustar.scm                                \
+  gash/util.scm                                 \
   geesh/built-ins/break.scm                     \
   geesh/built-ins/cd.scm                        \
   geesh/built-ins/colon.scm                     \
@@ -81,12 +130,17 @@ MODULES =                                       \
   geesh/word.scm
 
 bin_SCRIPTS =                                   \
+  scripts/gash                                  \
   scripts/geesh
 
 do_subst = sed                                  \
   -e 's,[@]GUILE[@],$(GUILE),g'                 \
   -e 's,[@]MODDIR[@],$(moddir),g'               \
   -e 's,[@]GODIR[@],$(godir),g'
+
+scripts/gash: scripts/gash.in Makefile
+	$(do_subst) < $(srcdir)/scripts/gash.in > scripts/gash
+	chmod a+x scripts/gash
 
 scripts/geesh: scripts/geesh.in Makefile
 	$(do_subst) < $(srcdir)/scripts/geesh.in > scripts/geesh
