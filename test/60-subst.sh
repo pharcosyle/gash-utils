@@ -4,6 +4,6 @@ subst () {
         $1 > $2
 }
 
-subst test/data/foo foo.tmp
+subst tests/data/foo foo.tmp
 cat foo.tmp
 rm foo.tmp

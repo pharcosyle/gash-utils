@@ -1,3 +1,3 @@
 bar=baz
 export baz
-sh test/data/script.sh
+sh tests/data/script.sh

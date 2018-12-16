@@ -1,1 +1,1 @@
-\sed s",\r,\n," < test/data/fooRbar
+\sed s",\r,\n," < tests/data/fooRbar

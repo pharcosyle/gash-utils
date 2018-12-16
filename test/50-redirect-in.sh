@@ -1,1 +1,1 @@
-\cat < test/data/foo
+\cat < tests/data/foo

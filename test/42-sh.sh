@@ -1,2 +1,2 @@
-sh test/data/script.sh
+sh tests/data/script.sh
 echo $foo

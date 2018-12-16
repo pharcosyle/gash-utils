@@ -1,1 +1,1 @@
-\tr -d o < test/data/foo
+\tr -d o < tests/data/foo

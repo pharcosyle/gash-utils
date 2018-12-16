@@ -1,1 +1,1 @@
-\sed s,foo,bar, test/data/foo
+\sed s,foo,bar, tests/data/foo

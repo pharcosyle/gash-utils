@@ -1,1 +1,1 @@
-\tar -cZf- --sort=name test/data/star | \tar -tZf-
+\tar -cZf- --sort=name tests/data/star | \tar -tZf-

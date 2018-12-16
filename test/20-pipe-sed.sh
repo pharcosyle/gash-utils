@@ -1,1 +1,1 @@
-echo -e 'a\nb\nc' test/data/star/* | \sed 's, ,\n,g'
+echo -e 'a\nb\nc' tests/data/star/* | \sed 's, ,\n,g'

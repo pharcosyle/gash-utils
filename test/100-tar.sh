@@ -1,1 +1,1 @@
-\tar -cf- --sort=name test/data/star | \tar -tf-
+\tar -cf- --sort=name tests/data/star | \tar -tf-
