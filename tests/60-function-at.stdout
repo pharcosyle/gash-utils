@@ -1,4 +1,4 @@
 5:-v -s --long file0 file1
-0:test/60-function-at.sh
+0:tests/60-function-at.sh
 1:-v
 2:-s

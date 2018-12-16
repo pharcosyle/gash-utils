@@ -6,7 +6,7 @@ DIFF=${DIFF-diff}
 SHELL=${SHELL-scripts/gash}
 
 t="$1"
-b=test/$(basename "$t" .sh)
+b=tests/$(basename "$t" .sh)
 set +e
 timeout 1 $SHELL -e "$b".sh -s --long file0 file1 > "$b".1 2> "$b".2
 r=$?

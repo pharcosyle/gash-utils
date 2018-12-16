@@ -172,9 +172,9 @@ fail=0
 total=0
 for t in $tests; do
     if [ "$PARSE" ]; then
-        scripts/gash -p "test/$t.sh"
+        scripts/gash -p "tests/$t.sh"
     else
-        sh test.sh "test/$t" &> test/"$t".log
+        sh test.sh "tests/$t" &> tests/"$t".log
     fi
     r=$?
     total=$((total+1))
