@@ -209,7 +209,6 @@ FULL_TESTS =                                    \
   tests/10-if-test-false.sh                     \
   tests/10-if-bracket.sh                        \
   tests/10-if-bracket-false.sh                  \
-  tests/10-if-redirect.sh                       \
   tests/11-for.sh                               \
   tests/11-for-split-sequence.sh                \
   tests/11-for-done-subshell.sh                 \
@@ -237,12 +236,10 @@ FULL_TESTS =                                    \
   tests/50-iohere.sh                            \
   tests/50-iohere-builtin.sh                    \
   tests/50-redirect.sh                          \
-  tests/50-redirect-space.sh                    \
   tests/50-redirect-in.sh                       \
   tests/50-redirect-append.sh                   \
   tests/50-redirect-pipe.sh                     \
   tests/50-redirect-merge.sh                    \
-  tests/50-redirect-sed.sh                      \
   tests/50-redirect-in-out.sh                   \
   tests/60-function.sh                          \
   tests/60-function-at.sh                       \
@@ -255,7 +252,6 @@ FULL_TESTS =                                    \
   tests/70-slash.sh                             \
   tests/70-slash-string.sh                      \
   tests/70-slash-string-slash.sh                \
-  tests/100-cd.sh                               \
   tests/100-cd-foo.sh                           \
   tests/100-test.sh                             \
   tests/100-test-file.sh                        \
@@ -309,6 +305,15 @@ XFAIL_TESTS =                                   \
   tests/100-basename-autoconf.sh                \
   tests/100-dirname-autoconf.sh                 \
   tests/100-tar-Z-pipe.sh
+
+# These tests will not be run.  Put tests here
+# that pass or fail based on environmental
+# factors.
+BROKEN_TESTS =                                  \
+  tests/10-if-redirect.sh                       \
+  tests/50-redirect-sed.sh                      \
+  tests/50-redirect-space.sh                    \
+  tests/100-cd.sh
 
 EXTRA_DIST =                                    \
   scripts/geesh.in

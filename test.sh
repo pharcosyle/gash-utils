@@ -8,7 +8,7 @@ TEST_SHELL=${TEST_SHELL-scripts/gash}
 t="$1"
 b=tests/$(basename "$t" .sh)
 set +e
-timeout 1 $TEST_SHELL -e "$b".sh -s --long file0 file1 > "$b".1 2> "$b".2
+timeout 10 $TEST_SHELL -e "$b".sh -s --long file0 file1 > "$b".1 2> "$b".2
 r=$?
 set -e
 if [ -f "$b".exit ]; then
