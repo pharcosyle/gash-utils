@@ -73,7 +73,11 @@ buffered data is lost."
                   (dup2 (fileno out) 1)
                   (catch 'system-error
                     (lambda ()
-                      (apply execl (car command) command))
+                      (match command
+                        (((? string? name) . _)
+                         (apply execl name command))
+                        (((? procedure? proc) . args)
+                         (apply proc args))))
                     (lambda args
                       (format (current-error-port)
                               "filtered-port: failed to execute '~{~a ~}': ~a~%"
@@ -159,7 +163,11 @@ data is lost."
             (dup2 (fileno output) 1)
             (catch 'system-error
               (lambda ()
-                (apply execl (car command) command))
+                (match command
+                  (((? string? name) . _)
+                   (apply execl name command))
+                  (((? procedure? proc) . args)
+                   (apply proc args))))
               (lambda args
                 (format (current-error-port)
                         "filtered-output-port: failed to execute '~{~a ~}': ~a~%"

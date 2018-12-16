@@ -36,12 +36,20 @@
 (define %bzip2
   "@BZIP2@")
 
+(define (exec-internal-compress . args)
+  (let* ((guile "@GUILE@")
+         (expr `(begin
+                  (set! %load-path ',%load-path)
+                  (set! %load-compiled-path ',%load-compiled-path)
+                  ((@@ (gash commands compress) main) "compress" ,@args)))
+         (script (with-output-to-string (lambda () (write expr)))))
+    (execl guile guile "--no-auto-compile" "-c" script)))
+
 (define %compress
-  (let ((compress "@COMPRESS@")
-        (reloc (string-append (dirname (car (command-line))) "/compress")))
-    (cond ((getenv "COMPRESS"))
-          ((file-exists? compress) compress)
-          ((file-exists? reloc) reloc))))
+  (let ((external-compress "@COMPRESS@"))
+    (if (string-null? external-compress)
+        exec-internal-compress
+        external-compress)))
 
 (define %gzip
   "@GZIP@")
