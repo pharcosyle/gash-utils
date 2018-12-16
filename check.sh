@@ -17,9 +17,9 @@ tests='
 01-script-backslash
 01-script-backslash-space
 01-script-backslash-twice
-01-script-$0
-01-script-$#
-01-script-$@
+01-script-arg-0
+01-script-arg-length
+01-script-arg-list
 01-script-shift
 
 03-echo
