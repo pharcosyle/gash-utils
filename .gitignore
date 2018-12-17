@@ -27,6 +27,8 @@
 /doc/version.texi
 /gash/config.scm
 /pre-inst-env
+/scripts/*
+!/scripts/template.in
 /tests/*.1
 /tests/*.2
 /tests/*.log

@@ -1,5 +1,5 @@
 #! @GUILE@ \
---no-auto-compile -e main -L @guile_site_dir@ -C @guile_site_ccache_dir@ -L . -C . -s
+--no-auto-compile -e main -L @MODDIR@ -C @CCACHEDIR@ -L . -C . -s
 !#
 ;;; Gash --- Guile As SHell
 ;;; Copyright © 2016,2017,2018 R.E.W. van Beusekom <rutger.van.beusekom@gmail.com>
@@ -21,4 +21,4 @@
 ;;; along with Gash.  If not, see <http://www.gnu.org/licenses/>.
 
 (define (main args)
-  (apply (@@ (gash commands @builtin@) main) args))
+  (apply (@@ (gash commands @UTILITY@) main) args))

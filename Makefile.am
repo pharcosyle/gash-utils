@@ -35,6 +35,113 @@ SOURCES =                                       \
   gash/ustar.scm                                \
   gash/util.scm
 
+bin_SCRIPTS =                                   \
+  scripts/basename                              \
+  scripts/cat                                   \
+  scripts/chmod                                 \
+  scripts/compress                              \
+  scripts/cp                                    \
+  scripts/dirname                               \
+  scripts/find                                  \
+  scripts/grep                                  \
+  scripts/ls                                    \
+  scripts/mkdir                                 \
+  scripts/mv                                    \
+  scripts/reboot                                \
+  scripts/rm                                    \
+  scripts/rmdir                                 \
+  scripts/sed                                   \
+  scripts/tar                                   \
+  scripts/touch                                 \
+  scripts/tr                                    \
+  scripts/wc                                    \
+  scripts/which
+
+do_subst = sed                                  \
+  -e 's,[@]GUILE[@],$(GUILE),g'                 \
+  -e 's,[@]MODDIR[@],$(moddir),g'               \
+  -e 's,[@]CCACHEDIR[@],$(ccachedir),g'
+
+scripts/basename: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,basename,' < $< > $@
+	chmod a+x $@
+
+scripts/cat: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,cat,' < $< > $@
+	chmod a+x $@
+
+scripts/chmod: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,chmod,' < $< > $@
+	chmod a+x $@
+
+scripts/compress: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,compress,' < $< > $@
+	chmod a+x $@
+
+scripts/cp: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,cp,' < $< > $@
+	chmod a+x $@
+
+scripts/dirname: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,dirname,' < $< > $@
+	chmod a+x $@
+
+scripts/find: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,find,' < $< > $@
+	chmod a+x $@
+
+scripts/grep: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,grep,' < $< > $@
+	chmod a+x $@
+
+scripts/ls: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,ls,' < $< > $@
+	chmod a+x $@
+
+scripts/mkdir: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,mkdir,' < $< > $@
+	chmod a+x $@
+
+scripts/mv: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,mv,' < $< > $@
+	chmod a+x $@
+
+scripts/reboot: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,reboot,' < $< > $@
+	chmod a+x $@
+
+scripts/rm: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,rm,' < $< > $@
+	chmod a+x $@
+
+scripts/rmdir: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,rmdir,' < $< > $@
+	chmod a+x $@
+
+scripts/sed: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,sed,' < $< > $@
+	chmod a+x $@
+
+scripts/tar: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,tar,' < $< > $@
+	chmod a+x $@
+
+scripts/touch: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,touch,' < $< > $@
+	chmod a+x $@
+
+scripts/tr: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,tr,' < $< > $@
+	chmod a+x $@
+
+scripts/wc: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,wc,' < $< > $@
+	chmod a+x $@
+
+scripts/which: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,which,' < $< > $@
+	chmod a+x $@
+
 # Tests
 #######
 
