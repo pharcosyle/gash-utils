@@ -22,6 +22,7 @@ SOURCES =                                       \
   gash/commands/sed.scm                         \
   gash/commands/sed/reader.scm                  \
   gash/commands/tar.scm                         \
+  gash/commands/test.scm                        \
   gash/commands/touch.scm                       \
   gash/commands/tr.scm                          \
   gash/commands/wc.scm                          \
@@ -52,6 +53,7 @@ bin_SCRIPTS =                                   \
   scripts/rmdir                                 \
   scripts/sed                                   \
   scripts/tar                                   \
+  scripts/test                                  \
   scripts/touch                                 \
   scripts/tr                                    \
   scripts/wc                                    \
@@ -124,6 +126,10 @@ scripts/sed: $(srcdir)/scripts/template.in Makefile
 
 scripts/tar: $(srcdir)/scripts/template.in Makefile
 	$(do_subst) -e 's,@UTILITY@,tar,' < $< > $@
+	$(AM_V_at)chmod a+x $@
+
+scripts/test: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,test,' < $< > $@
 	$(AM_V_at)chmod a+x $@
 
 scripts/touch: $(srcdir)/scripts/template.in Makefile
