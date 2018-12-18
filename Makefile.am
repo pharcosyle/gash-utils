@@ -16,6 +16,7 @@ SOURCES =                                       \
   gash/commands/ls.scm                          \
   gash/commands/mkdir.scm                       \
   gash/commands/mv.scm                          \
+  gash/commands/printf.scm                      \
   gash/commands/reboot.scm                      \
   gash/commands/rm.scm                          \
   gash/commands/rmdir.scm                       \
@@ -48,6 +49,7 @@ bin_SCRIPTS =                                   \
   scripts/ls                                    \
   scripts/mkdir                                 \
   scripts/mv                                    \
+  scripts/printf                                \
   scripts/reboot                                \
   scripts/rm                                    \
   scripts/rmdir                                 \
@@ -106,6 +108,10 @@ scripts/mkdir: $(srcdir)/scripts/template.in Makefile
 
 scripts/mv: $(srcdir)/scripts/template.in Makefile
 	$(do_subst) -e 's,@UTILITY@,mv,' < $< > $@
+	$(AM_V_at)chmod a+x $@
+
+scripts/printf: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,printf,' < $< > $@
 	$(AM_V_at)chmod a+x $@
 
 scripts/reboot: $(srcdir)/scripts/template.in Makefile
