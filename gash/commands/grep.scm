@@ -1,5 +1,6 @@
 ;;; Gash --- Guile As SHell
 ;;; Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;; Copyright © 2018 Timothy Sample <samplet@gnu.org>
 ;;;
 ;;; This file is part of Gash.
 ;;;
@@ -22,7 +23,6 @@
 
 (define-module (gash commands grep)
   #:use-module (ice-9 ftw)
-  #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 match)
   #:use-module (ice-9 rdelim)
   #:use-module (ice-9 regex)
@@ -30,6 +30,7 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-26)
+  #:use-module (srfi srfi-37)
 
   #:use-module (gash guix-utils)
   #:use-module (gash compress)
@@ -43,20 +44,54 @@
             grep
             ))
 
+(define* (flag name #:optional single-char)
+  (option (if single-char
+              (list (symbol->string name) single-char)
+              (list (symbol->string name)))
+          #f #f
+          (lambda (opt name* arg result)
+            (alist-cons name #t result))))
+
+(define *options-spec*
+  (list (flag 'help)
+        (flag 'line-number #\n)
+        (flag 'files-with-matches #\l)
+        (flag 'files-without-match #\L)
+        (flag 'with-file-name #\H)
+        (flag 'no-file-name #\h)
+        (flag 'only-matching #\o)
+        (flag 'version #\V)))
+
+(define (get-options args spec)
+  (args-fold (cdr args) spec
+             (lambda (opt name arg result)
+               (format (current-error-port)
+                       "~a: no such option: -~a~%"
+                       (car args) (if (string? name)
+                                      (string-append "-" name)
+                                      name))
+               (exit EXIT_FAILURE))
+             (lambda (arg result)
+               (if (assq 'regexp result)
+                   (alist-cons 'input-file arg result)
+                   (alist-cons 'regexp arg result)))
+             '()))
+
+(define (option-ref options key dflt)
+  (or (and=> (assq key options) cdr) dflt))
+
+(define (option-ref/list options key)
+  (filter-map (match-lambda
+                (((? (cut eq? <> key)) . v) v)
+                (_ #f))
+              options))
+
 (define (grep . args)
-  (let* ((option-spec
-          '((help)
-            (line-number (single-char #\n))
-            (files-with-matches (single-char #\l))
-            (files-without-match (single-char #\L))
-            (with-file-name (single-char #\H))
-            (no-file-name (single-char #\h))
-            (only-matching (single-char #\o))
-            (version (single-char #\V))))
-         (options (getopt-long args option-spec))
+  (let* ((options (get-options args *options-spec*))
          (help? (option-ref options 'help #f))
          (version? (option-ref options 'version #f))
-         (files (option-ref options '() '())))
+         (regexp (option-ref options 'regexp #f))
+         (files (option-ref/list options 'input-file)))
     (cond (version? (format #t "grep (GASH) ~a\n" %version))
           (help? (display "Usage: grep [OPTION]... PATTERN [FILE]...
 
@@ -70,10 +105,10 @@ Options:
   -o, --only-matching        show only the part of a line matching PATTERN
   -V, --version              display version information and exit
 "))
-          ((null? files) #t)
+          ((not regexp) #t)
           (else
-           (let* ((pattern (car files))
-                  (files (if (pair? (cdr files)) (cdr files)
+           (let* ((pattern regexp)
+                  (files (if (pair? files) files
                              (list "-")))
                   (matches (append-map (cut grep+ pattern <>) files)))
              (define (display-match o)
