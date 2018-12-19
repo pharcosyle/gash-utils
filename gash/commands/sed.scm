@@ -145,6 +145,13 @@
        (= n address)))
     (_ (error "SED: unsupported address type" address))))
 
+(define (address-pred->pred apred)
+  (match apred
+    (('not apred*) (negate (address-pred->pred apred*)))
+    ('always (const #t))
+    (('at address) (address->pred address))
+    (_ (error "SED: unsupported address predicate" apred))))
+
 (define (execute-function function str lineno outq)
   (match function
     (('begin . commands)
@@ -160,13 +167,10 @@
 (define* (execute-commands commands str lineno #:optional (outq '()))
   (match commands
     (() (values str outq))
-    ((('always function) . rest)
-     (receive (str outq) (execute-function function str lineno outq)
-       (execute-commands rest str lineno outq)))
-    ((('at address function) . rest)
+    (((apred . function) . rest)
      ;; XXX: This should be "compiled" ahead of time so that it only
      ;; runs once intead of once per line.
-     (if ((address->pred address) str lineno)
+     (if ((address-pred->pred apred) str lineno)
          (receive (str outq) (execute-function function str lineno outq)
            (execute-commands rest str lineno outq))
          (execute-commands rest str lineno outq)))

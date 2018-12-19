@@ -283,6 +283,18 @@ comma (`,') and delimited by a function name."
                   `(,address1 ,address2)))
            (_ `(,address1)))))))
 
+(define (read-address-predicate port)
+  "Read an \"address predicate\" from PORT.  An address predicate is
+the first part of a command, which controls when a function a is run."
+  (let* ((apred (match (read-addresses port)
+                  (() `always)
+                  ((address) `(at ,address))
+                  ((address1 address2) `(in ,address1 ,address2)))))
+    (get-char-while char-set:whitespace port)
+    (match (lookahead-char port)
+      (#\! (get-char port) `(not ,apred))
+      (_ apred))))
+
 (define char-set:whitespace+semi (char-set-adjoin char-set:whitespace #\;))
 
 (define* (%read-sed port #:key (depth 0))
@@ -295,12 +307,9 @@ comma (`,') and delimited by a function name."
      (if (> depth 0)
          (eof-object)
          (error "Unmatched close brace")))
-    (_ (let* ((addresses (read-addresses port))
+    (_ (let* ((apred (read-address-predicate port))
               (function (read-function port #:depth depth)))
-         (match addresses
-           (() `(always ,function))
-           ((address) `(at ,address ,function))
-           ((address1 address2) `(in (,address1 . ,address2) ,function)))))))
+         `(,apred . ,function)))))
 
 (define* (%read-sed-all port #:key (depth 0))
   "Read a sequence of sed commands from PORT."
