@@ -224,12 +224,23 @@ transferred and the continuation of the transfer as a thunk."
   (column grep-match-column)
   (end-column grep-match-end-column))
 
+(define (list-matches* regexps str)
+  (let loop ((regexps regexps))
+    (match regexps
+      (() '())
+      ((regexp . rest)
+       (match (list-matches regexp str)
+         (() (loop rest))
+         (matches matches))))))
+
 (define* (grep* pattern #:key (port (current-input-port)) (file-name "<stdin>"))
   ;; FIXME: collect later?  for scripting usage implicit collect is
   ;; nice; for pipeline usage not so much
   (let loop ((line (read-line port)) (ln 1) (matches '()))
     (if (eof-object? line) (reverse matches)
-        (let* ((m (list-matches pattern line))
+        (let* ((m (match pattern
+                    ((patterns ...) (list-matches* patterns line))
+                    (_ (list-matches pattern line))))
                (m (and (pair? m) (car m))))
           (loop (read-line port) (1+ ln)
                 (if m (cons (make-grep-match file-name

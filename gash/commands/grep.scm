@@ -60,7 +60,10 @@
         (flag 'with-file-name #\H)
         (flag 'no-file-name #\h)
         (flag 'only-matching #\o)
-        (flag 'version #\V)))
+        (flag 'version #\V)
+        (option '("regexp" #\e) #t #f
+                (lambda (opt name arg result)
+                  (alist-cons 'regexp arg result)))))
 
 (define (get-options args spec)
   (args-fold (cdr args) spec
@@ -90,7 +93,7 @@
   (let* ((options (get-options args *options-spec*))
          (help? (option-ref options 'help #f))
          (version? (option-ref options 'version #f))
-         (regexp (option-ref options 'regexp #f))
+         (regexps (option-ref/list options 'regexp))
          (files (option-ref/list options 'input-file)))
     (cond (version? (format #t "grep (GASH) ~a\n" %version))
           (help? (display "Usage: grep [OPTION]... PATTERN [FILE]...
@@ -105,12 +108,12 @@ Options:
   -o, --only-matching        show only the part of a line matching PATTERN
   -V, --version              display version information and exit
 "))
-          ((not regexp) #t)
+          ((null? regexps) #t)
           (else
-           (let* ((pattern regexp)
+           (let* ((patterns regexps)
                   (files (if (pair? files) files
                              (list "-")))
-                  (matches (append-map (cut grep+ pattern <>) files)))
+                  (matches (append-map (cut grep+ patterns <>) files)))
              (define (display-match o)
                (let* ((s (grep-match-string o))
                       (s (if (option-ref options 'only-matching #f)
