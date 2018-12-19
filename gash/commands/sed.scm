@@ -123,6 +123,15 @@
       ((and m+ (_ _ ...)) (proc str m+))
       (_ str))))
 
+(define (translate str source dest)
+  (unless (= (string-length source) (string-length dest))
+    (error "SED: different length strings given to 'y' function"))
+  (string-map (lambda (chr)
+                (match (string-index source chr)
+                  (#f chr)
+                  (k (string-ref dest k))))
+              str))
+
 (define (address->pred address)
   (match address
     ((? string?)
@@ -144,6 +153,8 @@
     (('q) (abort-to-prompt quit-tag str outq))
     (('s pattern replacement flags)
      (values (substitute str pattern replacement flags) outq))
+    (('y source dest)
+     (values (translate str source dest) outq))
     (_ (error "SED: unsupported function" function))))
 
 (define* (execute-commands commands str lineno #:optional (outq '()))
