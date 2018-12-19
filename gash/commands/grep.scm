@@ -61,6 +61,7 @@
         (flag 'no-file-name #\h)
         (flag 'only-matching #\o)
         (flag 'version #\V)
+        (flag 'invert-match #\v)
         (option '("extended-regexp" #\E) #f #f
                 (lambda (opt name arg result)
                   (alist-cons 'matching 'extended result)))
@@ -103,6 +104,7 @@
          (help? (option-ref options 'help #f))
          (version? (option-ref options 'version #f))
          (matching (option-ref options 'matching 'basic))
+         (inverted? (option-ref options 'invert-match #f))
          (regexps (option-ref/list options 'regexp))
          (files (option-ref/list options 'input-file)))
     (cond (version? (format #t "grep (GASH) ~a\n" %version))
@@ -124,7 +126,8 @@ Options:
                   (files (if (pair? files) files
                              (list "-")))
                   (matches (append-map (cut grep+ patterns <>
-                                            #:matching matching)
+                                            #:matching matching
+                                            #:inverted? inverted?)
                                        files)))
              (define (display-match o)
                (let* ((s (grep-match-string o))

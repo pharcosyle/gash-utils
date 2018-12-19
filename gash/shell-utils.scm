@@ -233,7 +233,7 @@ transferred and the continuation of the transfer as a thunk."
          (() (loop rest))
          (matches matches))))))
 
-(define* (grep* pattern #:key (port (current-input-port)) (file-name "<stdin>") (matching 'basic))
+(define* (grep* pattern #:key (port (current-input-port)) (file-name "<stdin>") (matching 'basic) inverted?)
   ;; FIXME: collect later?  for scripting usage implicit collect is
   ;; nice; for pipeline usage not so much
 
@@ -254,19 +254,23 @@ transferred and the continuation of the transfer as a thunk."
         (let* ((m (list-matches* rxs line))
                (m (and (pair? m) (car m))))
           (loop (read-line port) (1+ ln)
-                (if m (cons (make-grep-match file-name
-                                             (match:string m)
-                                             ln
-                                             (match:start m)
-                                             (match:end m)) matches)
-                    matches))))))
+                (cond
+                 ((and m (not inverted?))
+                  (cons (make-grep-match file-name (match:string m) ln
+                                         (match:start m) (match:end m))
+                        matches))
+                 ((and (not m) inverted?)
+                  (cons (make-grep-match file-name line ln
+                                         0 (string-length line))
+                        matches))
+                 (else matches)))))))
 
-(define* (grep+ pattern file #:key (matching 'basic))
+(define* (grep+ pattern file #:key (matching 'basic) inverted?)
   (cond ((and (string? file)
               (not (equal? file "-"))) (call-with-input-file file
                                          (lambda (in)
-                                           (grep* pattern #:port in #:file-name file #:matching matching))))
-        (else (grep* pattern))))
+                                           (grep* pattern #:port in #:file-name file #:matching matching #:inverted? inverted?))))
+        (else (grep* pattern #:matching matching #:inverted? inverted?))))
 
 (define (mkdir-p dir)
   "Create directory DIR and all its ancestors."
