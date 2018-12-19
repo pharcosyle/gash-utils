@@ -50,17 +50,22 @@
 (define (ls . args)
   (let* ((option-spec
           '((all (single-char #\a))
+            (directory (single-char #\d))
             (help)
+            (inode (single-char #\i))
             (long (single-char #\l))
             (one-file-per-line (single-char #\1))
             (version)))
          (options (getopt-long args option-spec))
          (all? (option-ref options 'all #f))
+         (directory? (option-ref options 'directory #f))
          (help? (option-ref options 'help #f))
+         (inode? (option-ref options 'inode #f))
          (long? (option-ref options 'long #f))
          (one-file-per-line? (option-ref options 'one-file-per-line #f))
          (version? (option-ref options 'version #f))
-         (files (option-ref options '() '())))
+         (files (option-ref options '() '()))
+         (follow-links? (not directory?)))
     (cond (version? (format #t "ls (GASH) ~a\n" %version))
           (help? (display "Usage: ls [OPTION]... [FILE]...
 
@@ -72,35 +77,55 @@ Options:
   -1             list one file per line
 "))
           (else
-           (let* ((files (if (null? files) (scandir ".")
+           (let* ((stat* (if follow-links? stat lstat))
+                  (files (if (null? files)
+                             (if directory?
+                                 (list `("." . ,(stat* ".")))
+                                 (map (lambda (filename)
+                                        `(,filename . ,(stat* filename)))
+                                      (scandir ".")))
                              (append-map (lambda (file)
                                            (catch 'system-error
                                              (lambda ()
-                                               (match (stat:type (lstat file))
+                                               (match (stat:type (stat* file))
                                                  ('directory
-                                                  ;; Like GNU ls, list the contents of
-                                                  ;; FILE rather than FILE itself.
-                                                  (match (scandir file
-                                                                  (match-lambda
-                                                                    ((or "." "..") #f)
-                                                                    (_ #t)))
-                                                    (#f
-                                                     (list file))
-                                                    ((files ...)
-                                                     (map (cut string-append file "/" <>)
-                                                          files))))
-                                                 (_
-                                                  (list file))))
+                                                  (if directory?
+                                                      (list `(,file . ,(stat* file)))
+                                                      (match (scandir file)
+                                                        (#f (list `(,file . ,(stat* file))))
+                                                        (files (map (lambda (f)
+                                                                      `(,f . ,(stat* f)))
+                                                                    files)))))
+                                                 (_ (list `(,file . ,(stat* file))))))
                                              (lambda args
                                                (let ((errno (system-error-errno args)))
                                                  (format (current-error-port) "~a: ~a~%"
                                                          file (strerror errno))
                                                  '()))))
                                          files)))
-                  (files (if all? files
-                             (filter (negate (cut string-prefix? "." <>)) files))))
-             (cond (long? (for-each (lambda (f) (display-file f) (newline)) files))
-                   (one-file-per-line? (for-each stdout files))
-                   (else (display-tabulated files))))))))
+                  (files (if (or all? directory?) files
+                             (filter (compose not (cut string-prefix? "." <>) car) files))))
+             (cond (long?
+                    (for-each (match-lambda
+                                ((f . st)
+                                 (when inode?
+                                   (format #t "~a " (stat:ino st)))
+                                 (display-file f st)
+                                 (newline)))
+                              files))
+                   (one-file-per-line?
+                    (for-each (match-lambda
+                                ((f . st)
+                                 (when inode?
+                                   (format #t "~a " (stat:ino st)))
+                                 (stdout f)))
+                              files))
+                   (else
+                    (display-tabulated (map (match-lambda
+                                              ((f . st)
+                                               (if inode?
+                                                   (format #f "~a ~a" (stat:ino st) f)
+                                                   f)))
+                                            files)))))))))
 
 (define main ls)
