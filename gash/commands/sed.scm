@@ -246,8 +246,10 @@ Usage: sed [OPTION]... [SCRIPT] [FILE]...
                       (call-with-input-string script
                         (cut read-sed-all <> #:extended? (extended?)))))
                 (cond ((and in-place? (pair? files))
-                       (with-atomic-file-replacement
-                        (cut edit-stream commands <> <>)))
+                       (for-each (lambda (file)
+                                   (with-atomic-file-replacement file
+                                     (cut edit-stream commands <> <>)))
+                                 files))
                       ((pair? files)
                        (for-each (lambda (file)
                                    (call-with-input-file file
