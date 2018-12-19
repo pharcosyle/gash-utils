@@ -136,26 +136,29 @@
        (= n address)))
     (_ (error "SED: unsupported address type" address))))
 
-(define (execute-function function str lineno)
+(define (execute-function function str lineno outq)
   (match function
     (('begin . commands)
-     (execute-commands commands str lineno))
-    (('q) (abort-to-prompt quit-tag str))
+     (execute-commands commands str lineno outq))
+    (('a text) (values str (cons (string-append text "\n") outq)))
+    (('q) (abort-to-prompt quit-tag str outq))
     (('s pattern replacement flags)
-     (substitute str pattern replacement flags))
+     (values (substitute str pattern replacement flags) outq))
     (_ (error "SED: unsupported function" function))))
 
-(define (execute-commands commands str lineno)
+(define* (execute-commands commands str lineno #:optional (outq '()))
   (match commands
-    (() str)
+    (() (values str outq))
     ((('always function) . rest)
-     (execute-commands rest (execute-function function str lineno) lineno))
+     (receive (str outq) (execute-function function str lineno outq)
+       (execute-commands rest str lineno outq)))
     ((('at address function) . rest)
      ;; XXX: This should be "compiled" ahead of time so that it only
      ;; runs once intead of once per line.
      (if ((address->pred address) str lineno)
-         (execute-commands rest (execute-function function str lineno) lineno)
-         (execute-commands rest str lineno)))
+         (receive (str outq) (execute-function function str lineno outq)
+           (execute-commands rest str lineno outq))
+         (execute-commands rest str lineno outq)))
     ((cmd . rest) (error "SED: could not process command" cmd))))
 
 (define* (edit-stream commands #:optional
@@ -166,13 +169,16 @@
       (unless (eof-object? pattern-space)
         (call-with-prompt quit-tag
           (lambda ()
-            (let ((result (execute-commands commands pattern-space lineno)))
+            (receive (result outq)
+                (execute-commands commands pattern-space lineno)
               (display result out)
               (newline out)
+              (for-each (cut display <> out) (reverse outq))
               (loop (read-line in) (1+ lineno))))
-          (lambda (cont result)
+          (lambda (cont result outq)
             (display result out)
-            (newline out))))
+            (newline out)
+            (for-each (cut display <> out) (reverse outq)))))
       #t)))
 
 (define (sed . args)
