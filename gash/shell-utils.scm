@@ -233,14 +233,25 @@ transferred and the continuation of the transfer as a thunk."
          (() (loop rest))
          (matches matches))))))
 
-(define* (grep* pattern #:key (port (current-input-port)) (file-name "<stdin>"))
+(define* (grep* pattern #:key (port (current-input-port)) (file-name "<stdin>") (matching 'basic))
   ;; FIXME: collect later?  for scripting usage implicit collect is
   ;; nice; for pipeline usage not so much
+
+  (define (pattern->regexp pattern)
+    (match matching
+      ('basic (make-regexp pattern regexp/basic))
+      ('extended (make-regexp pattern regexp/extended))
+      ;; XXX: Just use regular string matching.
+      ('string (make-regexp (regexp-quote pattern)))))
+
+  (define rxs
+    (match pattern
+      ((patterns ...) (map pattern->regexp patterns))
+      (_ (list (pattern->regexp pattern)))))
+
   (let loop ((line (read-line port)) (ln 1) (matches '()))
     (if (eof-object? line) (reverse matches)
-        (let* ((m (match pattern
-                    ((patterns ...) (list-matches* patterns line))
-                    (_ (list-matches pattern line))))
+        (let* ((m (list-matches* rxs line))
                (m (and (pair? m) (car m))))
           (loop (read-line port) (1+ ln)
                 (if m (cons (make-grep-match file-name
@@ -250,11 +261,11 @@ transferred and the continuation of the transfer as a thunk."
                                              (match:end m)) matches)
                     matches))))))
 
-(define (grep+ pattern file)
+(define* (grep+ pattern file #:key (matching 'basic))
   (cond ((and (string? file)
               (not (equal? file "-"))) (call-with-input-file file
                                          (lambda (in)
-                                           (grep* pattern #:port in #:file-name file))))
+                                           (grep* pattern #:port in #:file-name file #:matching matching))))
         (else (grep* pattern))))
 
 (define (mkdir-p dir)

@@ -61,9 +61,18 @@
         (flag 'no-file-name #\h)
         (flag 'only-matching #\o)
         (flag 'version #\V)
+        (option '("extended-regexp" #\E) #f #f
+                (lambda (opt name arg result)
+                  (alist-cons 'matching 'extended result)))
         (option '("regexp" #\e) #t #f
                 (lambda (opt name arg result)
-                  (alist-cons 'regexp arg result)))))
+                  (alist-cons 'regexp arg result)))
+        (option '("fixed-strings" #\F) #f #f
+                (lambda (opt name arg result)
+                  (alist-cons 'matching 'string result)))
+        (option '("basic-regexp" #\G) #f #f
+                (lambda (opt name arg result)
+                  (alist-cons 'matching 'basic result)))))
 
 (define (get-options args spec)
   (args-fold (cdr args) spec
@@ -93,6 +102,7 @@
   (let* ((options (get-options args *options-spec*))
          (help? (option-ref options 'help #f))
          (version? (option-ref options 'version #f))
+         (matching (option-ref options 'matching 'basic))
          (regexps (option-ref/list options 'regexp))
          (files (option-ref/list options 'input-file)))
     (cond (version? (format #t "grep (GASH) ~a\n" %version))
@@ -113,7 +123,9 @@ Options:
            (let* ((patterns regexps)
                   (files (if (pair? files) files
                              (list "-")))
-                  (matches (append-map (cut grep+ patterns <>) files)))
+                  (matches (append-map (cut grep+ patterns <>
+                                            #:matching matching)
+                                       files)))
              (define (display-match o)
                (let* ((s (grep-match-string o))
                       (s (if (option-ref options 'only-matching #f)
