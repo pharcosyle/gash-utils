@@ -27,6 +27,7 @@
   #:use-module (ice-9 receive)
   #:use-module (ice-9 regex)
   #:use-module (rnrs io ports)
+  #:use-module (srfi srfi-9 gnu)
   #:use-module (srfi srfi-26)
 
   #:use-module (gash commands sed reader)
@@ -38,6 +39,16 @@
   #:export (
             sed
             ))
+
+(define-immutable-record-type <env>
+  (make-env in out line target hold queue)
+  env?
+  (in env-in)                         ; port - Input port.
+  (out env-out)                       ; port - Output port.
+  (line env-line set-env-line)        ; integer - Current line number.
+  (target env-target set-env-target)  ; string - Pattern space.
+  (hold env-hold set-env-hold)        ; string - Hold space.
+  (queue env-queue set-env-queue))    ; list - Output queue.
 
 (define (replace->lambda string global?)
   (define (replace->string m s)
@@ -152,28 +163,32 @@
     (('at address) (address->pred address))
     (_ (error "SED: unsupported address predicate" apred))))
 
-(define (execute-function function str lineno outq)
+(define (execute-function function env)
   (match function
     (('begin . commands)
-     (execute-commands commands str lineno outq))
-    (('a text) (values str (cons (string-append text "\n") outq)))
-    (('q) (abort-to-prompt quit-tag str outq))
+     (execute-commands commands env))
+    (('a text)
+     (set-env-queue env (cons (string-append text "\n") (env-queue env))))
+    (('q)
+     (abort-to-prompt quit-tag env))
     (('s pattern replacement flags)
-     (values (substitute str pattern replacement flags) outq))
+     (let* ((target (env-target env))
+            (target* (substitute target pattern replacement flags)))
+       (set-env-target env target*)))
     (('y source dest)
-     (values (translate str source dest) outq))
+     (set-env-target env (translate (env-target env) source dest)))
     (_ (error "SED: unsupported function" function))))
 
-(define* (execute-commands commands str lineno #:optional (outq '()))
+(define* (execute-commands commands env)
   (match commands
-    (() (values str outq))
+    (() env)
     (((apred . function) . rest)
      ;; XXX: This should be "compiled" ahead of time so that it only
      ;; runs once intead of once per line.
-     (if ((address-pred->pred apred) str lineno)
-         (receive (str outq) (execute-function function str lineno outq)
-           (execute-commands rest str lineno outq))
-         (execute-commands rest str lineno outq)))
+     (if ((address-pred->pred apred) (env-target env) (env-line env))
+         (let ((env* (execute-function function env)))
+           (execute-commands rest env*))
+         (execute-commands rest env)))
     ((cmd . rest) (error "SED: could not process command" cmd))))
 
 (define* (edit-stream commands #:optional
@@ -181,22 +196,24 @@
                       (out (current-output-port))
                       #:key quiet?)
   (parameterize ((regexp-factory (make-regexp-factory)))
-    (let loop ((pattern-space (read-line in)) (lineno 1))
-      (unless (eof-object? pattern-space)
+    (let loop ((env (make-env in out 1 (read-line in) "" '())))
+      (unless (eof-object? (env-target env))
         (call-with-prompt quit-tag
           (lambda ()
-            (receive (result outq)
-                (execute-commands commands pattern-space lineno)
+            (let ((env* (execute-commands commands env)))
               (unless quiet?
-                (display result out)
+                (display (env-target env*) out)
                 (newline out))
-              (for-each (cut display <> out) (reverse outq))
-              (loop (read-line in) (1+ lineno))))
-          (lambda (cont result outq)
+              (for-each (cut display <> out) (reverse (env-queue env*)))
+              (loop (set-fields env*
+                      ((env-target) (read-line in))
+                      ((env-line) (1+ (env-line env*)))
+                      ((env-queue) '())))))
+          (lambda (cont env*)
             (unless quiet?
-              (display result out)
+              (display (env-target env*) out)
               (newline out))
-            (for-each (cut display <> out) (reverse outq)))))
+            (for-each (cut display <> out) (env-queue env*)))))
       #t)))
 
 (define (sed . args)
