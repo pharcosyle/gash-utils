@@ -25,6 +25,7 @@ SOURCES =                                       \
   gash/commands/sed/reader.scm                  \
   gash/commands/tar.scm                         \
   gash/commands/test.scm                        \
+  gash/commands/testb.scm                       \
   gash/commands/touch.scm                       \
   gash/commands/tr.scm                          \
   gash/commands/wc.scm                          \
@@ -38,7 +39,14 @@ SOURCES =                                       \
   gash/ustar.scm                                \
   gash/util.scm
 
+gash/commands/testb.scm: $(srcdir)/gash/commands/test.scm Makefile
+	$(AM_V_GEN)sed \
+	    -e 's,gash commands test,gash commands testb,g' \
+	    -e 's,apply test (cdr,apply test/bracket (cdr,g' \
+	    < $< > $@
+
 bin_SCRIPTS =                                   \
+  scripts/[                                     \
   scripts/basename                              \
   scripts/cat                                   \
   scripts/chmod                                 \
@@ -67,6 +75,10 @@ do_subst = $(AM_V_GEN)sed                       \
   -e 's,[@]GUILE[@],$(GUILE),g'                 \
   -e 's,[@]MODDIR[@],$(moddir),g'               \
   -e 's,[@]CCACHEDIR[@],$(ccachedir),g'
+
+scripts/[: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,testb,' < $< > $@
+	$(AM_V_at)chmod a+x $@
 
 scripts/basename: $(srcdir)/scripts/template.in Makefile
 	$(do_subst) -e 's,@UTILITY@,basename,' < $< > $@

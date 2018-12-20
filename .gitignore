@@ -43,5 +43,6 @@ build-aux/*
 config.log
 config.status
 configure
+gash/commands/testb.scm
 pre-inst-env
 tests/*.trs
