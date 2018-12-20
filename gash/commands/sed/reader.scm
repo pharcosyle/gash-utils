@@ -206,7 +206,7 @@ file is encountered."
 
 (define (read-label port)
   "Read a label from PORT."
-  (get-char-while char-set:whitespace port)
+  (get-char-while char-set:blank port)
   (get-char-while char-set:label port))
 
 (define (read-flags port)
