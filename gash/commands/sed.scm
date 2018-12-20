@@ -182,6 +182,8 @@
      (execute-commands commands env))
     (('a text)
      (set-env-queue env (cons (string-append text "\n") (env-queue env))))
+    (('d)
+     (abort-to-prompt end-of-script-tag (set-env-target env #f)))
     (('g)
      (set-env-target env (env-hold env)))
     (('G)
@@ -255,7 +257,7 @@
                       #:key quiet?)
 
   (define (flush-then-loop loop env)
-    (unless quiet?
+    (when (and (env-target env) (not quiet?))
       (display (env-target env) out)
       (newline out))
     (for-each (cut display <> out) (reverse (env-queue env)))
