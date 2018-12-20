@@ -41,14 +41,16 @@
             ))
 
 (define-immutable-record-type <env>
-  (make-env in out line target hold queue)
+  (make-env in out line target hold queue sub? labels)
   env?
   (in env-in)                         ; port - Input port.
   (out env-out)                       ; port - Output port.
   (line env-line set-env-line)        ; integer - Current line number.
   (target env-target set-env-target)  ; string - Pattern space.
   (hold env-hold set-env-hold)        ; string - Hold space.
-  (queue env-queue set-env-queue))    ; list - Output queue.
+  (queue env-queue set-env-queue)     ; list - Output queue.
+  (sub? env-sub? set-env-sub?)        ; bool - Made a substitution?
+  (labels env-labels))                ; alist - Labels for branching
 
 (define (replace->lambda string global?)
   (define (replace->string m s)
@@ -163,6 +165,17 @@
     (('at address) (address->pred address))
     (_ (error "SED: unsupported address predicate" apred))))
 
+(define (find-labels commands)
+  (let loop ((commands commands) (acc '()))
+    (match commands
+      (() acc)
+      (((_ . (': label)) . rest)
+       (loop rest (acons label rest acc)))
+      (((_ . ('begin . sub-commands)) . rest)
+       (loop (append sub-commands rest) acc))
+      ((_ . rest)
+       (loop rest acc)))))
+
 (define (execute-function function env)
   (match function
     (('begin . commands)
@@ -174,7 +187,9 @@
     (('s pattern replacement flags)
      (let* ((target (env-target env))
             (target* (substitute target pattern replacement flags)))
-       (set-env-target env target*)))
+       (set-fields env
+         ((env-target) target*)
+         ((env-sub?) (not (eq? target target*))))))
     (('y source dest)
      (set-env-target env (translate (env-target env) source dest)))
     (_ (error "SED: unsupported function" function))))
@@ -186,8 +201,31 @@
      ;; XXX: This should be "compiled" ahead of time so that it only
      ;; runs once intead of once per line.
      (if ((address-pred->pred apred) (env-target env) (env-line env))
-         (let ((env* (execute-function function env)))
-           (execute-commands rest env*))
+         ;; Handle branching functions here, since they are the only
+         ;; ones that need to change what commands get executed next.
+         (match function
+           ((': label)
+            (execute-commands rest env))
+           (('b "")
+            (abort-to-prompt end-of-script-tag env))
+           (('b label)
+            (match (assoc-ref (env-labels env) label)
+              (#f (error "SED: no such label" label))
+              (commands* (execute-commands commands* env))))
+           (('t "")
+            (if (env-sub? env)
+                (abort-to-prompt end-of-script-tag env)
+                (execute-commands rest env)))
+           (('t label)
+            (match (assoc-ref (env-labels env) label)
+              (#f (error "SED: no such label" label))
+              (commands*
+               (if (env-sub? env)
+                   (execute-commands commands* (set-env-sub? env #f))
+                   (execute-commands rest env)))))
+           (_
+            (let ((env* (execute-function function env)))
+              (execute-commands rest env*))))
          (execute-commands rest env)))
     ((cmd . rest) (error "SED: could not process command" cmd))))
 
@@ -204,10 +242,12 @@
     (loop (set-fields env
             ((env-target) (read-line (env-in env)))
             ((env-line) (1+ (env-line env)))
-            ((env-queue) '()))))
+            ((env-queue) '())
+            ((env-sub?) #f))))
 
   (parameterize ((regexp-factory (make-regexp-factory)))
-    (let loop ((env (make-env in out 1 (read-line in) "" '())))
+    (let loop ((env (make-env in out 1 (read-line in) ""
+                              '() #f (find-labels commands))))
       (unless (eof-object? (env-target env))
         (call-with-prompt end-of-script-tag
           (lambda ()
