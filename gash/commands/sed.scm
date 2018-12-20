@@ -99,7 +99,7 @@
 
 (define extended? (make-parameter #f))
 
-(define quit-tag (make-prompt-tag))
+(define end-of-script-tag (make-prompt-tag))
 
 (define (make-regexp-factory)
   (let* ((previous-pattern #f)
@@ -170,7 +170,7 @@
     (('a text)
      (set-env-queue env (cons (string-append text "\n") (env-queue env))))
     (('q)
-     (abort-to-prompt quit-tag env))
+     (abort-to-prompt end-of-script-tag env #:cycle? #f))
     (('s pattern replacement flags)
      (let* ((target (env-target env))
             (target* (substitute target pattern replacement flags)))
@@ -195,25 +195,26 @@
                       (in (current-input-port))
                       (out (current-output-port))
                       #:key quiet?)
+
+  (define (flush-then-loop loop env)
+    (unless quiet?
+      (display (env-target env) out)
+      (newline out))
+    (for-each (cut display <> out) (reverse (env-queue env)))
+    (loop (set-fields env
+            ((env-target) (read-line (env-in env)))
+            ((env-line) (1+ (env-line env)))
+            ((env-queue) '()))))
+
   (parameterize ((regexp-factory (make-regexp-factory)))
     (let loop ((env (make-env in out 1 (read-line in) "" '())))
       (unless (eof-object? (env-target env))
-        (call-with-prompt quit-tag
+        (call-with-prompt end-of-script-tag
           (lambda ()
             (let ((env* (execute-commands commands env)))
-              (unless quiet?
-                (display (env-target env*) out)
-                (newline out))
-              (for-each (cut display <> out) (reverse (env-queue env*)))
-              (loop (set-fields env*
-                      ((env-target) (read-line in))
-                      ((env-line) (1+ (env-line env*)))
-                      ((env-queue) '())))))
-          (lambda (cont env*)
-            (unless quiet?
-              (display (env-target env*) out)
-              (newline out))
-            (for-each (cut display <> out) (env-queue env*)))))
+              (flush-then-loop loop env*)))
+          (lambda* (cont env* #:key (cycle? #t))
+            (flush-then-loop (if cycle? loop noop) env*))))
       #t)))
 
 (define (sed . args)
