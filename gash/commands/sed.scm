@@ -178,7 +178,8 @@
 
 (define* (edit-stream commands #:optional
                       (in (current-input-port))
-                      (out (current-output-port)))
+                      (out (current-output-port))
+                      #:key quiet?)
   (parameterize ((regexp-factory (make-regexp-factory)))
     (let loop ((pattern-space (read-line in)) (lineno 1))
       (unless (eof-object? pattern-space)
@@ -186,13 +187,15 @@
           (lambda ()
             (receive (result outq)
                 (execute-commands commands pattern-space lineno)
-              (display result out)
-              (newline out)
+              (unless quiet?
+                (display result out)
+                (newline out))
               (for-each (cut display <> out) (reverse outq))
               (loop (read-line in) (1+ lineno))))
           (lambda (cont result outq)
-            (display result out)
-            (newline out)
+            (unless quiet?
+              (display result out)
+              (newline out))
             (for-each (cut display <> out) (reverse outq)))))
       #t)))
 
@@ -204,11 +207,13 @@
             (file (single-char #\f) (value #t))
             (help (single-char #\h))
             (in-place (single-char #\i))
+            (quiet (single-char #\n))
             (version (single-char #\V))))
 	 (options (getopt-long args option-spec))
 	 (files (option-ref options '() '()))
 	 (help? (option-ref options 'help #f))
          (in-place? (option-ref options 'in-place #f))
+         (quiet? (option-ref options 'quiet #f))
 	 (usage? (and (not help?) (or (and (null? files) (isatty? (current-input-port))))))
          (version? (option-ref options 'version #f)))
     (when (or (option-ref options 'extended #f)
@@ -223,6 +228,7 @@ Usage: sed [OPTION]... [SCRIPT] [FILE]...
   -f, --file=SCRIPT          add contents of SCRIPT to the commands to be executed
   -h, --help                 display this help
   -i, --in-place             edit files in place
+  -n, --quiet                only write explicitly selected output
   -V, --version              display version
 ")
            (exit (if usage? 2 0)))
@@ -248,14 +254,16 @@ Usage: sed [OPTION]... [SCRIPT] [FILE]...
                 (cond ((and in-place? (pair? files))
                        (for-each (lambda (file)
                                    (with-atomic-file-replacement file
-                                     (cut edit-stream commands <> <>)))
+                                     (cut edit-stream commands <> <>
+                                          #:quiet? quiet?)))
                                  files))
                       ((pair? files)
                        (for-each (lambda (file)
                                    (call-with-input-file file
-                                     (cut edit-stream commands <>)))
+                                     (cut edit-stream commands <>
+                                          #:quiet? quiet?)))
                                  files))
-                      (else (edit-stream commands))))))))))
+                      (else (edit-stream commands #:quiet? quiet?))))))))))
 
 (use-modules (ice-9 rdelim))
 (define main sed)
