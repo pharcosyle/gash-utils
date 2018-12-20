@@ -229,7 +229,7 @@ file is encountered."
 (define (read-address port)
   "Read an address from PORT."
   (match (lookahead-char port)
-    (#\$ '$)
+    (#\$ (get-char port) '$)
     ((? (cut char-set-contains? char-set:digit <>)) (read-number port))
     (_ (read-re port))))
 
