@@ -151,11 +151,14 @@
      (let* ((flags `(,(if (extended?) regexp/extended regexp/basic)))
             (pattern (replace-escapes address))
             (regexp (apply (regexp-factory) pattern flags)))
-       (lambda (str _)
-         (regexp-exec regexp str))))
+       (lambda (env)
+         (regexp-exec regexp (env-target env)))))
     ((? number?)
-     (lambda (_ n)
-       (= n address)))
+     (lambda (env)
+       (= (env-line env) address)))
+    ('$
+     (lambda (env)
+       (eof-object? (lookahead-char (env-in env)))))
     (_ (error "SED: unsupported address type" address))))
 
 (define (address-pred->pred apred)
@@ -222,7 +225,7 @@
     (((apred . function) . rest)
      ;; XXX: This should be "compiled" ahead of time so that it only
      ;; runs once intead of once per line.
-     (if ((address-pred->pred apred) (env-target env) (env-line env))
+     (if ((address-pred->pred apred) env)
          ;; Handle branching functions here, since they are the only
          ;; ones that need to change what commands get executed next.
          (match function
