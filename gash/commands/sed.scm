@@ -205,6 +205,8 @@
      env)
     (('q)
      (abort-to-prompt end-of-script-tag env #:cycle? #f))
+    (('r path)
+     (set-env-queue env (cons `(file ,path) (env-queue env))))
     (('s pattern replacement flags)
      (let* ((target (env-target env))
             (target* (substitute target pattern replacement flags)))
@@ -263,7 +265,11 @@
     (when (and (env-target env) (not quiet?))
       (display (env-target env) out)
       (newline out))
-    (for-each (cut display <> out) (reverse (env-queue env)))
+    (for-each (match-lambda
+                (('file path) (call-with-input-file path
+                                (cut dump-port <> out)))
+                (str (display str out)))
+              (reverse (env-queue env)))
     (loop (set-fields env
             ((env-target) (read-line (env-in env)))
             ((env-line) (1+ (env-line env)))
