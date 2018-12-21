@@ -53,6 +53,7 @@ bin_SCRIPTS =                                   \
   scripts/compress                              \
   scripts/cp                                    \
   scripts/dirname                               \
+  scripts/egrep                                 \
   scripts/expr                                  \
   scripts/find                                  \
   scripts/grep                                  \

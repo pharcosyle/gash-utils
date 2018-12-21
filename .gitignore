@@ -28,6 +28,7 @@
 /gash/config.scm
 /pre-inst-env
 /scripts/*
+!/scripts/egrep
 !/scripts/template.in
 /tests/*.1
 /tests/*.2
