@@ -209,10 +209,14 @@
      (set-env-queue env (cons `(file ,path) (env-queue env))))
     (('s pattern replacement flags)
      (let* ((target (env-target env))
-            (target* (substitute target pattern replacement flags)))
+            (target* (substitute target pattern replacement flags))
+            (sub? (not (eq? target target*))))
+       (when (and sub? (member 'p flags))
+         (display target* (env-out env))
+         (newline (env-out env)))
        (set-fields env
          ((env-target) target*)
-         ((env-sub?) (not (eq? target target*))))))
+         ((env-sub?) sub?))))
     (('x)
      (set-fields env
        ((env-target) (env-hold env))
