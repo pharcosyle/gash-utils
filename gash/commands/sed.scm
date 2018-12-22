@@ -27,6 +27,7 @@
   #:use-module (ice-9 receive)
   #:use-module (ice-9 regex)
   #:use-module (rnrs io ports)
+  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (srfi srfi-26)
 
@@ -52,29 +53,21 @@
   (sub? env-sub? set-env-sub?)        ; bool - Made a substitution?
   (labels env-labels))                ; alist - Labels for branching
 
+(define (interpolate-match s m)
+  (let loop ((chrs (string->list s)) (acc '()))
+    (match chrs
+      (() (reverse-list->string acc))
+      ((#\\ (? char-numeric? chr) . rest)
+       (let* ((i (- (char->integer chr) (char->integer #\0)))
+              (ref (string->list (match:substring m i))))
+         (loop rest (append-reverse ref acc))))
+      ((#\\ #\\ . rest) (loop rest (cons #\\ acc)))
+      ((#\\ #\n . rest) (loop rest (cons #\newline acc)))
+      ((#\\ #\r . rest) (loop rest (cons #\return acc)))
+      ((#\\ #\t . rest) (loop rest (cons #\tab acc)))
+      ((chr . rest) (loop rest (cons chr acc))))))
+
 (define (replace->lambda string global?)
-  (define (replace->string m s)
-    (list->string
-     (let loop ((lst (string->list string)))
-       (cond ((null? lst) '())
-             ((null? (cdr lst)) lst)
-             ((and (eq? (car lst) #\\)
-                   (char-numeric? (cadr lst)))
-              (let ((i (- (char->integer (cadr lst)) (char->integer #\0))))
-                (append (string->list (match:substring m i)) (loop (cddr lst)))))
-             ((and (eq? (car lst) #\\)
-                   (eq? (cadr lst) #\n))
-              (append '(#\newline) (cddr lst)))
-             ((and (eq? (car lst) #\\)
-                   (eq? (cadr lst) #\t))
-              (append '(#\tab) (cddr lst)))
-             ((and (eq? (car lst) #\\)
-                   (eq? (cadr lst) #\r))
-              (append '(#\return) (cddr lst)))
-             ((and (eq? (car lst) #\\)
-                   (eq? (cadr lst) #\\))
-              (append '(#\\) (cddr lst)))
-             (else (cons (car lst) (loop (cdr lst))))))))
   (lambda (l m+)
     ;; Iterate over matches M+ and
     ;; return the modified line
@@ -88,7 +81,7 @@
            (string-concatenate-reverse r)))
         ((m . rest)
          (let* ((refs (- (vector-length m) 2))
-                (replace (replace->string m string))
+                (replace (interpolate-match string m))
                 (replace (cons* replace (substring l o (match:start m)) r)))
            (if global? (loop rest (match:end m) replace)
                (loop '() (match:end m) replace))))))))
