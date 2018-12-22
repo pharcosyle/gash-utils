@@ -73,7 +73,7 @@
               (append '(#\return) (cddr lst)))
              ((and (eq? (car lst) #\\)
                    (eq? (cadr lst) #\\))
-              (append '(#\\ #\\) (cddr lst)))
+              (append '(#\\) (cddr lst)))
              (else (cons (car lst) (loop (cdr lst))))))))
   (lambda (l m+)
     ;; Iterate over matches M+ and
