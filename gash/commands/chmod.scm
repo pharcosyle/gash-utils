@@ -1,5 +1,5 @@
 ;;; Gash -- Guile As SHell
-;;; Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;; Copyright © 2018,2019 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
 ;;;
 ;;; This file is part of Gash.
 ;;;
@@ -55,7 +55,7 @@
          (reference (option-ref options 'reference #f))
          (readable? (option-ref options 'readable #f))
          (writable? (option-ref options 'writable #f))
-         (executable? (option-ref options 'executable? #f))
+         (executable? (option-ref options 'executable #f))
          (xecutable? (option-ref options 'xecutable? #f))
          (usage? (and (not help?)
                       (< (length files) (if (or reference
