@@ -39,16 +39,16 @@
             ))
 
 (define (rmdir . args)
+  (format (current-error-port) "rmdir: args=~s\n" args)
   (let* ((option-spec
 	  '((help (single-char #\h))
             (parents (single-char #\p))
             (version (single-char #\V))))
 	 (options (getopt-long args option-spec))
-	 (files (option-ref options '() '()))
          (parents? (option-ref options 'parents #f))
 	 (help? (option-ref options 'help #f))
          (version? (option-ref options 'version #f))
-         (files (option-ref options '() '()))
+	 (files (option-ref options '() '()))
          (usage? (and (not help?) (null? files))))
     (cond (version? (format #t "rmdir (GASH) ~a\n" %version) (exit 0))
           ((or help? usage?) (format (if usage? (current-error-port) #t)
@@ -66,6 +66,6 @@ Options:
            (exit (if usage? 2 0)))
           (else
            (if parents? (for-each rmdir-p files)
-               (for-each rmdir files))))))
+               (for-each (@ (guile) rmdir) files))))))
 
 (define main rmdir)
