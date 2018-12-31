@@ -59,7 +59,7 @@
        (_ (invalid-options "test" "Unknown operator: ~s" op))))
     ((x op y)
      (match op
-       ("=" (string=? x y))
+       ((or "=" "==") (string=? x y))
        ("!=" (not (string=? x y)))
        ("-eq" (test-integer-strings = x y))
        ("-ne" (test-integer-strings (compose not =) x y))
