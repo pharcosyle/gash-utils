@@ -233,6 +233,7 @@ TESTS =                                         \
   tests/100-sed-branch-t.sh                     \
   tests/100-sed-insert-text.sh                  \
   tests/100-sed-range.sh                        \
+  tests/100-sed-skip.sh                         \
   tests/100-tar.sh                              \
   tests/100-tar-Z.sh                            \
   tests/100-tar-Z-old.sh                        \
