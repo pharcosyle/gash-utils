@@ -61,6 +61,7 @@
             (inode (single-char #\i))
             (long (single-char #\l))
             (one-file-per-line (single-char #\1))
+            (reverse (single-char #\r))
             (sort-by-modification-time (single-char #\t))
             (version)))
          (options (getopt-long args option-spec))
@@ -70,6 +71,7 @@
          (inode? (option-ref options 'inode #f))
          (long? (option-ref options 'long #f))
          (one-file-per-line? (option-ref options 'one-file-per-line #f))
+         (reverse? (option-ref options 'reverse #f))
          (sort-by-modification-time? (option-ref options 'sort-by-modification-time #f))
          (version? (option-ref options 'version #f))
          (files (option-ref options '() '()))
@@ -82,6 +84,7 @@ Options:
       --help     display this help and exit
   -l, --long     use a long listing format
       --version  display version information and exit
+  -r, --reverse  reverse order while sorting
   -t             sort by modification time, newest first
   -1             list one file per line
 "))
@@ -115,7 +118,9 @@ Options:
                   (files (if (or all? directory?) files
                              (filter (compose not (cut string-prefix? "." <>) car) files)))
                   (files (if (not sort-by-modification-time?) files
-                             (reverse (sort files file-modification-time<?)))))
+                             (reverse (sort files file-modification-time<?))))
+                  (files (if (not reverse?) files
+                             (reverse files))))
              (cond (long?
                     (for-each (match-lambda
                                 ((f . st)
