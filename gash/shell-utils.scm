@@ -46,6 +46,7 @@
             display-file
             dump-port
             executable-path
+            file-class
             file-name-predicate
             find-files
             file-exists?*
@@ -353,7 +354,15 @@ TERMINAL-WIDTH.  Use COLUMN-GAP spaces between two subsequent columns."
       (newline)
       (loop (map 1+ indexes)))))
 
-(define* (display-file file-name #:optional st)
+(define (file-class st)
+  (case (stat:type st)
+    ((regular)
+     (if (zero? (logand (stat:perms st) #o111)) "" "*"))
+    ((directory) "/")
+    ((symlink) "@")
+    (else "")))
+
+(define* (display-file file-name #:optional st #:key classify?)
   (define (display-rwx perm sticky)
     (display (if (zero? (logand perm 4)) "-" "r"))
     (display (if (zero? (logand perm 2)) "-" "w"))
@@ -394,9 +403,13 @@ TERMINAL-WIDTH.  Use COLUMN-GAP spaces between two subsequent columns."
     (display date)
     (display " ")
     (display file-name)
-    (when (eq? (stat:type st) 'symlink)
-      (display " -> ")
-      (display (readlink file-name)))))
+    (cond ((eq? (stat:type st) 'symlink)
+           (display " -> ")
+           (let ((target (readlink file-name)))
+             (display target)
+             (when (and classify? (file-exists? target))
+               (display (file-class (stat target))))))
+          (classify? (display (file-class st))))))
 
 (define (multi-opt options name)
   (let ((opt? (lambda (o) (and (eq? (car o) name) (cdr o)))))

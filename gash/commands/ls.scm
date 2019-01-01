@@ -56,6 +56,7 @@
 (define (ls . args)
   (let* ((option-spec
           '((all (single-char #\a))
+            (classify (single-char #\F))
             (directory (single-char #\d))
             (help)
             (inode (single-char #\i))
@@ -66,6 +67,7 @@
             (version)))
          (options (getopt-long args option-spec))
          (all? (option-ref options 'all #f))
+         (classify? (option-ref options 'classify #f))
          (directory? (option-ref options 'directory #f))
          (help? (option-ref options 'help #f))
          (inode? (option-ref options 'inode #f))
@@ -82,6 +84,7 @@
 Options:
   -a, --all      do not ignore entries starting with .
       --help     display this help and exit
+  -F, --classify append indicator (one of */=>@|) to entries
   -l, --long     use a long listing format
       --version  display version information and exit
   -r, --reverse  reverse order while sorting
@@ -126,7 +129,7 @@ Options:
                                 ((f . st)
                                  (when inode?
                                    (format #t "~a " (stat:ino st)))
-                                 (display-file f st)
+                                 (display-file f #:classify? classify?)
                                  (newline)))
                               files))
                    (one-file-per-line?
@@ -134,14 +137,19 @@ Options:
                                 ((f . st)
                                  (when inode?
                                    (format #t "~a " (stat:ino st)))
-                                 (stdout f)))
+                                 (display f)
+                                 (when classify?
+                                   (display (file-class st)))
+                                 (newline)))
                               files))
                    (else
                     (display-tabulated (map (match-lambda
                                               ((f . st)
-                                               (if inode?
-                                                   (format #f "~a ~a" (stat:ino st) f)
-                                                   f)))
+                                               (cond (inode?
+                                                      (format #f "~a ~a" (stat:ino st) f))
+                                                     (classify?
+                                                      (format #f "~a~a" f (file-class st)))
+                                                     (else f))))
                                             files)))))))))
 
 (define main ls)
