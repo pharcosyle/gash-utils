@@ -1,5 +1,5 @@
 ;;; Gash --- Guile As SHell
-;;; Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;; Copyright © 2018,2019 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
 ;;; Copyright © 2018 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Gash.
@@ -25,6 +25,7 @@
   #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
+  #:use-module (ice-9 rdelim)
   #:use-module (ice-9 regex)
   #:use-module (rnrs io ports)
   #:use-module (srfi srfi-1)
@@ -321,38 +322,30 @@ Usage: sed [OPTION]... [SCRIPT] [FILE]...
 ")
            (exit (if usage? 2 0)))
           (else
-           (let* ((script-files (multi-opt options 'file))
-                  (scripts (multi-opt options 'expression)))
+           (let ((mixed (mixed-multi-opt options '(expression file))))
+             (define (option->script o)
+               (match o
+                 (('expression . expression) expression)
+                 (('file . file) (with-input-from-file file read-string))))
              (receive (scripts files)
-                 (cond
-                  ((and (pair? script-files) (pair? scripts))
-                   ;; XXX: Until we respect the order in which scripts
-                   ;; are specified, we cannot do this properly.
-                   (error (format #f "SED: cannot mix argument scripts (~s) and file (~s) scripts [command line: ~s]\n"
-                                  scripts script-files (command-line))))
-                  ((pair? script-files)
-                   (values (map (cut call-with-input-file <> get-string-all)
-                                script-files)
-                           files))
-                  ((pair? scripts) (values scripts files))
-                  (else (values (list-head files 1) (cdr files))))
-              (let* ((script (string-join scripts "\n"))
-                     (commands
-                      (call-with-input-string script
-                        (cut read-sed-all <> #:extended? (extended?)))))
-                (cond ((and in-place? (pair? files))
-                       (for-each (lambda (file)
-                                   (with-atomic-file-replacement file
-                                     (cut edit-stream commands <> <>
-                                          #:quiet? quiet?)))
-                                 files))
-                      ((pair? files)
-                       (for-each (lambda (file)
-                                   (call-with-input-file file
-                                     (cut edit-stream commands <>
-                                          #:quiet? quiet?)))
-                                 files))
-                      (else (edit-stream commands #:quiet? quiet?))))))))))
+                 (if (pair? mixed) (values (map option->script mixed) files)
+                     (values (list-head files 1) (cdr files)))
+               (let* ((script (string-join scripts "\n"))
+                      (commands
+                       (call-with-input-string script
+                         (cut read-sed-all <> #:extended? (extended?)))))
+                 (cond ((and in-place? (pair? files))
+                        (for-each (lambda (file)
+                                    (with-atomic-file-replacement file
+                                      (cut edit-stream commands <> <>
+                                           #:quiet? quiet?)))
+                                  files))
+                       ((pair? files)
+                        (for-each (lambda (file)
+                                    (call-with-input-file file
+                                      (cut edit-stream commands <>
+                                           #:quiet? quiet?)))
+                                  files))
+                       (else (edit-stream commands #:quiet? quiet?))))))))))
 
-(use-modules (ice-9 rdelim))
 (define main sed)

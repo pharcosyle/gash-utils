@@ -72,6 +72,7 @@
             mkdir-p
             rmdir-p
             multi-opt
+            mixed-multi-opt
 
             directory-exists?
             executable-file?
@@ -399,6 +400,10 @@ TERMINAL-WIDTH.  Use COLUMN-GAP spaces between two subsequent columns."
 
 (define (multi-opt options name)
   (let ((opt? (lambda (o) (and (eq? (car o) name) (cdr o)))))
+    (filter-map opt? (reverse options))))
+
+(define (mixed-multi-opt options names)
+  (let ((opt? (lambda (o) (and (memq (car o) names) o))))
     (filter-map opt? (reverse options))))
 
 (define %not-colon (char-set-complement (char-set #\:)))
