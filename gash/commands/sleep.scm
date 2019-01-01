@@ -1,5 +1,5 @@
 ;;; Gash -- Guile As SHell
-;;; Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;; Copyright © 2019 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
 ;;;
 ;;; This file is part of Gash.
 ;;;
@@ -20,47 +20,36 @@
 
 ;;; Code:
 
-(define-module (gash commands mkdir)
+(define-module (gash commands sleep)
   #:use-module (ice-9 getopt-long)
 
   #:use-module (gash config)
-  #:use-module (gash shell-utils)
-
   #:export (
-            mkdir'
+            sleep
             ))
 
-(define (mkdir' . args)
+(define (sleep . args)
   (let* ((option-spec
 	  '((help (single-char #\h))
-            (mode (single-char #\m) (value #t))
-            (parents (single-char #\p))
             (version (single-char #\V))))
 	 (options (getopt-long args option-spec))
-	 (files (option-ref options '() '()))
-         (mode (option-ref options 'mode #f))
-         (parents? (option-ref options 'parents #f))
 	 (help? (option-ref options 'help #f))
          (version? (option-ref options 'version #f))
-         (files (option-ref options '() '()))
+	 (files (option-ref options '() '()))
          (usage? (and (not help?) (null? files))))
-    (cond (version? (format #t "mkdir (GASH) ~a\n" %version) (exit 0))
+    (cond (version? (format #t "sleep (GASH) ~a\n" %version) (exit 0))
           ((or help? usage?) (format (if usage? (current-error-port) #t)
                                      "\
-Usage: mkdir [OPTION]... DIRECTORY...
-Create the DIRECTORY(ies), if they do not already exist.
+Usage: sleep SECONDS
+  or:  sleep OPTION
 
 Options:
       --help              display this help and exit
-  -m, --mode=MODE         set file mode (as in chmod), not a=rwx - umask
-  -p, --parents           no error if existing, make parent directories as needed
       --version           output version information and exit
-
 ")
            (exit (if usage? 2 0)))
           (else
-           (let ((mode (if mode (umask (chmodifiers->mode (parse-chmodifiers mode)))
-                           #o755)))
-             (for-each (if parents? mkdir-p (@ (guile) mkdir)) files))))))
+           (let ((time (string->number (car files))))
+             ((@ (guile) sleep) time))))))
 
-(define main mkdir')
+(define main sleep)

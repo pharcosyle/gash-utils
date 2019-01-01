@@ -33,7 +33,6 @@
 
   #:use-module (gash commands sed reader)
   #:use-module (gash config)
-  #:use-module (gash guix-utils)
   #:use-module (gash shell-utils)
   #:use-module (gash util)
 

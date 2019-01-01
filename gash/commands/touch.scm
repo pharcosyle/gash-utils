@@ -22,16 +22,11 @@
 
 (define-module (gash commands touch)
   #:use-module (ice-9 getopt-long)
-  #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
-  #:use-module (ice-9 regex)
 
-  #:use-module (srfi srfi-1)
-  #:use-module (srfi srfi-9 gnu)
   #:use-module (srfi srfi-26)
 
   #:use-module (gash config)
-  #:use-module (gash guix-utils)
   #:use-module (gash shell-utils)
 
   #:export (
