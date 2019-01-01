@@ -47,6 +47,12 @@
   (module-define! (resolve-module '(ice-9 getopt-long)) 'short-opt-rx (make-regexp "^-([a-zA-Z0-9]+)(.*)")))
  (else))
 
+(define (file-modification-time<? a b)
+  (cond ((= (stat:mtime (cdr a)) (stat:mtime (cdr b)))
+         (< (stat:mtimensec (cdr a)) (stat:mtimensec (cdr b))))
+        (else
+         (< (stat:mtime (cdr a)) (stat:mtime (cdr b))))))
+
 (define (ls . args)
   (let* ((option-spec
           '((all (single-char #\a))
@@ -55,6 +61,7 @@
             (inode (single-char #\i))
             (long (single-char #\l))
             (one-file-per-line (single-char #\1))
+            (sort-by-modification-time (single-char #\t))
             (version)))
          (options (getopt-long args option-spec))
          (all? (option-ref options 'all #f))
@@ -63,6 +70,7 @@
          (inode? (option-ref options 'inode #f))
          (long? (option-ref options 'long #f))
          (one-file-per-line? (option-ref options 'one-file-per-line #f))
+         (sort-by-modification-time? (option-ref options 'sort-by-modification-time #f))
          (version? (option-ref options 'version #f))
          (files (option-ref options '() '()))
          (follow-links? (not directory?)))
@@ -74,6 +82,7 @@ Options:
       --help     display this help and exit
   -l, --long     use a long listing format
       --version  display version information and exit
+  -t             sort by modification time, newest first
   -1             list one file per line
 "))
           (else
@@ -104,7 +113,9 @@ Options:
                                                  '()))))
                                          files)))
                   (files (if (or all? directory?) files
-                             (filter (compose not (cut string-prefix? "." <>) car) files))))
+                             (filter (compose not (cut string-prefix? "." <>) car) files)))
+                  (files (if (not sort-by-modification-time?) files
+                             (reverse (sort files file-modification-time<?)))))
              (cond (long?
                     (for-each (match-lambda
                                 ((f . st)
