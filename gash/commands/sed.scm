@@ -152,6 +152,10 @@
     ((? number?)
      (lambda (env)
        (= (env-line env) address)))
+    (((and (? number?) from) . (and (? number?) to))
+     (lambda (env)
+       (and (>= (env-line env) from)
+            (<= (env-line env) to))))
     ('$
      (lambda (env)
        (eof-object? (lookahead-char (env-in env)))))
@@ -162,6 +166,7 @@
     (('not apred*) (negate (address-pred->pred apred*)))
     ('always (const #t))
     (('at address) (address->pred address))
+    (('in from to) (address->pred (cons from to)))
     (_ (error "SED: unsupported address predicate" apred))))
 
 (define (find-labels commands)
