@@ -118,8 +118,12 @@ Options:
                                                          file (strerror errno))
                                                  '()))))
                                          files)))
+                  (dot-file? (lambda (x) (let ((file (car x)))
+                                           (and (string-prefix? "." file)
+                                                (or (string=? file ".")
+                                                    (not (eq? (string-ref file 1) #\/)))))))
                   (files (if (or all? directory?) files
-                             (filter (compose not (cut string-prefix? "." <>) car) files)))
+                             (filter (negate dot-file?) files)))
                   (files (if (not sort-by-modification-time?) files
                              (reverse (sort files file-modification-time<?))))
                   (files (if (not reverse?) files
