@@ -328,7 +328,8 @@ Usage: sed [OPTION]... [SCRIPT] [FILE]...
                   ((and (pair? script-files) (pair? scripts))
                    ;; XXX: Until we respect the order in which scripts
                    ;; are specified, we cannot do this properly.
-                   (error "SED: cannot mix argument and file scripts"))
+                   (error (format #f "SED: cannot mix argument scripts (~s) and file (~s) scripts [command line: ~s]\n"
+                                  scripts script-files (command-line))))
                   ((pair? script-files)
                    (values (map (cut call-with-input-file <> get-string-all)
                                 script-files)
