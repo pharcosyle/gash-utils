@@ -32,6 +32,7 @@ SOURCES =                                       \
   gash/commands/testb.scm                       \
   gash/commands/touch.scm                       \
   gash/commands/tr.scm                          \
+  gash/commands/uname.scm                       \
   gash/commands/uniq.scm                        \
   gash/commands/wc.scm                          \
   gash/commands/which.scm                       \
@@ -79,6 +80,7 @@ bin_SCRIPTS =                                   \
   scripts/test                                  \
   scripts/touch                                 \
   scripts/tr                                    \
+  scripts/uname                                 \
   scripts/uniq                                  \
   scripts/wc                                    \
   scripts/which
@@ -190,6 +192,10 @@ scripts/touch: $(srcdir)/scripts/template.in Makefile
 
 scripts/tr: $(srcdir)/scripts/template.in Makefile
 	$(do_subst) -e 's,@UTILITY@,tr,' < $< > $@
+	$(AM_V_at)chmod a+x $@
+
+scripts/uname: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,uname,' < $< > $@
 	$(AM_V_at)chmod a+x $@
 
 scripts/uniq: $(srcdir)/scripts/template.in Makefile
