@@ -11,6 +11,7 @@ SOURCES =                                       \
   gash/commands/cmp.scm                         \
   gash/commands/compress.scm                    \
   gash/commands/cp.scm                          \
+  gash/commands/cut.scm                         \
   gash/commands/diff.scm                        \
   gash/commands/dirname.scm                     \
   gash/commands/expr.scm                        \
@@ -60,6 +61,7 @@ bin_SCRIPTS =                                   \
   scripts/cmp                                   \
   scripts/compress                              \
   scripts/cp                                    \
+  scripts/cut                                   \
   scripts/diff                                  \
   scripts/dirname                               \
   scripts/egrep                                 \
@@ -116,6 +118,10 @@ scripts/compress: $(srcdir)/scripts/template.in Makefile
 
 scripts/cp: $(srcdir)/scripts/template.in Makefile
 	$(do_subst) -e 's,@UTILITY@,cp,' < $< > $@
+	$(AM_V_at)chmod a+x $@
+
+scripts/cut: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,cut,' < $< > $@
 	$(AM_V_at)chmod a+x $@
 
 scripts/diff: $(srcdir)/scripts/template.in Makefile
