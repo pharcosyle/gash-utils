@@ -5,7 +5,6 @@ include $(top_srcdir)/build-aux/guile.am
 
 SOURCES =                                       \
   gash/bournish-commands.scm                    \
-  gash/builtins.scm                             \
   gash/commands/basename.scm                    \
   gash/commands/cat.scm                         \
   gash/commands/chmod.scm                       \
@@ -29,41 +28,12 @@ SOURCES =                                       \
   gash/commands/which.scm                       \
   gash/compress.scm                             \
   gash/config.scm                               \
-  gash/environment.scm                          \
-  gash/gash.scm                                 \
-  gash/geesh.scm                                \
-  gash/grammar.scm                              \
   gash/guix-utils.scm                           \
   gash/io.scm                                   \
-  gash/job.scm                                  \
   gash/lzw.scm                                  \
-  gash/peg.scm                                  \
-  gash/peg/cache.scm                            \
-  gash/peg/codegen.scm                          \
-  gash/peg/simplify-tree.scm                    \
-  gash/peg/string-peg.scm                       \
-  gash/peg/using-parsers.scm                    \
-  gash/pipe.scm                                 \
-  gash/readline.scm                             \
-  gash/script.scm                               \
   gash/shell-utils.scm                          \
   gash/ustar.scm                                \
   gash/util.scm
-
-bin_SCRIPTS =                                   \
-  scripts/gash
-
-do_subst = sed                                  \
-  -e 's,[@]GUILE[@],$(GUILE),g'                 \
-  -e 's,[@]MODDIR[@],$(moddir),g'               \
-  -e 's,[@]GODIR[@],$(ccachedir),g'
-
-scripts/gash: scripts/gash.in Makefile
-	$(do_subst) < $(srcdir)/scripts/gash.in > scripts/gash
-	chmod a+x scripts/gash
-
-CLEANFILES +=                                   \
-  $(bin_SCRIPTS)
 
 # Tests
 #######
@@ -74,10 +44,6 @@ SH_LOG_COMPILER = $(top_builddir)/pre-inst-env $(top_builddir)/test.sh
 .PHONY: check-bootstrap
 check-bootstrap:
 	guix build -f tests/bootstrap/bash-without-bash.scm
-
-.PHONY: check-gash
-check-gash:
-	SHELL=gash $(top_builddir)/pre-inst-env $(top_builddir)/check.sh
 
 TESTS =                                         \
   tests/00-exit.sh                              \

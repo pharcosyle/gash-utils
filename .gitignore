@@ -42,5 +42,4 @@ config.log
 config.status
 configure
 pre-inst-env
-scripts/gash
 tests/*.trs
