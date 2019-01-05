@@ -142,7 +142,7 @@
               str))
 
 (define (address->pred address)
-  (match address
+  (match address ;; (warn 'address address)
     ((? string?)
      (let* ((flags `(,(if (extended?) regexp/extended regexp/basic)))
             (pattern (replace-escapes address))
@@ -156,6 +156,27 @@
      (lambda (env)
        (and (>= (env-line env) from)
             (<= (env-line env) to))))
+    (((and (? number?) from) . (and (? string?) string))
+     (let ((seen? #f))
+       (lambda (env)
+         (let ((result (and (>= (env-line env) from)
+                            (not seen?))))
+           (set! seen? (or seen? ((address->pred string) env)))
+           result))))
+    (((and (? string?) string) . (and (? number?) to))
+     (let ((seen? #f))
+       (lambda (env)
+         (set! seen? (or seen? ((address->pred string) env)))
+         (and seen?
+              (<= (env-line env) to)))))
+    (((and (? number?) from) . '$)
+     (lambda (env)
+       (>= (env-line env) from)))
+    (((and (? string?) string) . '$)
+     (let ((seen? #f))
+       (lambda (env)
+         (set! seen? (or seen? ((address->pred string) env)))
+         seen?)))
     ('$
      (lambda (env)
        (eof-object? (lookahead-char (env-in env)))))
@@ -234,13 +255,22 @@
      (set-env-target env (translate (env-target env) source dest)))
     (_ (error "SED: unsupported function" function))))
 
+(define get-address-pred
+  (let ((address-pred-alist '()))
+    (lambda (apred)
+      (or (assoc-ref address-pred-alist apred)
+          (let ((pred (address-pred->pred apred)))
+            (set! address-pred-alist
+                  (acons apred pred address-pred-alist))
+            pred)))))
+
 (define* (execute-commands commands env)
   (match commands
     (() env)
     (((apred . function) . rest)
      ;; XXX: This should be "compiled" ahead of time so that it only
      ;; runs once intead of once per line.
-     (if ((address-pred->pred apred) env)
+     (if ((get-address-pred apred) env)
          ;; Handle branching functions here, since they are the only
          ;; ones that need to change what commands get executed next.
          (match function

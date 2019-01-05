@@ -258,6 +258,9 @@ TESTS =                                         \
   tests/100-sed-insert-text.sh                  \
   tests/100-sed-range.sh                        \
   tests/100-sed-skip.sh                         \
+  tests/100-sed-address-search.sh               \
+  tests/100-sed-search-dollar.sh                \
+  tests/100-sed-skip.sh                         \
   tests/100-tar.sh                              \
   tests/100-tar-Z.sh                            \
   tests/100-tar-Z-old.sh                        \
