@@ -5,6 +5,9 @@ include $(top_srcdir)/build-aux/guile.am
 
 SOURCES =                                       \
   gash/bournish-commands.scm                    \
+  gash/commands/awk.scm                         \
+  gash/commands/awk/lexer.scm                   \
+  gash/commands/awk/parser.scm                  \
   gash/commands/basename.scm                    \
   gash/commands/cat.scm                         \
   gash/commands/chmod.scm                       \
@@ -56,6 +59,7 @@ gash/commands/testb.scm: $(srcdir)/gash/commands/test.scm Makefile
 
 bin_SCRIPTS =                                   \
   scripts/[                                     \
+  scripts/awk                                   \
   scripts/basename                              \
   scripts/cat                                   \
   scripts/chmod                                 \
@@ -96,6 +100,10 @@ do_subst = $(AM_V_GEN)sed                       \
 
 scripts/[: $(srcdir)/scripts/template.in Makefile
 	$(do_subst) -e 's,@UTILITY@,testb,' < $< > $@
+	$(AM_V_at)chmod a+x $@
+
+scripts/awk: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,awk,' < $< > $@
 	$(AM_V_at)chmod a+x $@
 
 scripts/basename: $(srcdir)/scripts/template.in Makefile
