@@ -76,8 +76,8 @@ Options:
   -p, --processor          print the processor type (non-portable)
   -i, --hardware-platform  print the hardware platform (non-portable)
   -o, --operating-system   print the operating system
-      --help     display this help and exit
-      --version  output version information and exit
+      --help               display this help and exit
+      --version            output version information and exit
 ")
            (exit (if usage? 2 0)))
           (else

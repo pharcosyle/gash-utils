@@ -54,6 +54,10 @@
             file-exists?*
             copy-file*
             copy-files
+            link-file*
+            link-files
+            symlink-file*
+            symlink-files
 
             <chmodifier>
             make-chmodifier
@@ -350,6 +354,70 @@ transferred and the continuation of the transfer as a thunk."
        (error (format #f "cp: target `~a' is not a directory\n" dir)))
      (for-each
       (cut copy-file* <> <> #:force? force? #:verbose? verbose?)
+      sources
+      (map (compose (cute string-append dir "/" <>) basename)
+           sources)))))
+
+(define* (link-file* source dest #:key force? verbose?)
+  (when verbose?
+    (format (current-error-port) "'~a' => '~a'\n" dest source))
+  (if (not force?) (link source dest)
+      (catch 'system-error
+        (lambda _
+          (link source dest))
+        (lambda (key func fmt msg errno . rest)
+          (when (getenv "GASH_DEBUG")
+            (format (current-error-port) "errno:~s\n" (car errno)))
+          (match errno
+            (((or 13 17))
+             (delete-file dest)
+             (link source dest))
+            (_ (throw key func fmt msg errno)))))))
+
+(define* (link-files #:optional files #:key force? verbose?)
+  (match files
+    ((source (and (? directory-exists?) dir))
+     (link-file* source (string-append dir "/" (basename source))
+                 #:force? force #:verbose? verbose?))
+    ((source dest)
+     (link-file* source dest #:force? force #:verbose? verbose?))
+    ((sources ... dir)
+     (unless (directory-exists? dir)
+       (error (format #f "cp: target `~a' is not a directory\n" dir)))
+     (for-each
+      (cut link-file* <> <> #:force? force? #:verbose? verbose?)
+      sources
+      (map (compose (cute string-append dir "/" <>) basename)
+           sources)))))
+
+(define* (symlink-file* source dest #:key force? verbose?)
+  (when verbose?
+    (format (current-error-port) "'~a' -> '~a'\n" dest source))
+  (if (not force?) (symlink source dest)
+      (catch 'system-error
+        (lambda _
+          (symlink source dest))
+        (lambda (key func fmt msg errno . rest)
+          (when (getenv "GASH_DEBUG")
+            (format (current-error-port) "errno:~s\n" (car errno)))
+          (match errno
+            (((or 13 17))
+             (delete-file dest)
+             (symlink source dest))
+            (_ (throw key func fmt msg errno)))))))
+
+(define* (symlink-files #:optional files #:key force? verbose?)
+  (match files
+    ((source (and (? directory-exists?) dir))
+     (symlink-file* source (string-append dir "/" (basename source))
+                 #:force? force #:verbose? verbose?))
+    ((source dest)
+     (symlink-file* source dest #:force? force #:verbose? verbose?))
+    ((sources ... dir)
+     (unless (directory-exists? dir)
+       (error (format #f "cp: target `~a' is not a directory\n" dir)))
+     (for-each
+      (cut symlink-file* <> <> #:force? force? #:verbose? verbose?)
       sources
       (map (compose (cute string-append dir "/" <>) basename)
            sources)))))

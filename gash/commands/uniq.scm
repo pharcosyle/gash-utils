@@ -46,14 +46,16 @@
 
 (define (uniq . args)
   (let* ((option-spec
-	  '((help (single-char #\h))
-            (version (single-char #\V))
-            (count (single-char #\c))))
+	  '((count (single-char #\c))
+
+            (help (single-char #\h))
+            (version (single-char #\V))))
 	 (options (getopt-long args option-spec))
-	 (help? (option-ref options 'help #f))
-         (version? (option-ref options 'version #f))
          (count? (option-ref options 'count #f))
+	 (help? (option-ref options 'help #f))
+
 	 (files (option-ref options '() '()))
+         (version? (option-ref options 'version #f))
          (usage? (and (not help?) (not (<= (length files) 2)))))
     (cond (version? (format #t "uniq (GASH) ~a\n" %version) (exit 0))
           ((or help? usage?) (format (if usage? (current-error-port) #t)
@@ -65,8 +67,8 @@ writing to OUTPUT (or standard output).
 With no options, matching lines are merged to the first occurrence.
 
 Options:
-      --help              display this help and exit
   -c, --count             prefix lines by the number of occurrences
+      --help              display this help and exit
       --version           output version information and exit
 ")
            (exit (if usage? 2 0)))

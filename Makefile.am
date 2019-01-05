@@ -17,6 +17,7 @@ SOURCES =                                       \
   gash/commands/expr.scm                        \
   gash/commands/find.scm                        \
   gash/commands/grep.scm                        \
+  gash/commands/ln.scm                          \
   gash/commands/ls.scm                          \
   gash/commands/mkdir.scm                       \
   gash/commands/mv.scm                          \
@@ -68,6 +69,7 @@ bin_SCRIPTS =                                   \
   scripts/expr                                  \
   scripts/find                                  \
   scripts/grep                                  \
+  scripts/ln                                    \
   scripts/ls                                    \
   scripts/mkdir                                 \
   scripts/mv                                    \
@@ -142,6 +144,10 @@ scripts/find: $(srcdir)/scripts/template.in Makefile
 
 scripts/grep: $(srcdir)/scripts/template.in Makefile
 	$(do_subst) -e 's,@UTILITY@,grep,' < $< > $@
+	$(AM_V_at)chmod a+x $@
+
+scripts/ln: $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,ln,' < $< > $@
 	$(AM_V_at)chmod a+x $@
 
 scripts/ls: $(srcdir)/scripts/template.in Makefile
