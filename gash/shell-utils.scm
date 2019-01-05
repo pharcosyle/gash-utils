@@ -2,6 +2,8 @@
 ;;; Copyright © 2012, 2013, 2014, 2015, 2016, 2017, 2018 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2013 Andreas Enge <andreas@enge.fr>
 ;;; Copyright © 2013 Nikita Karetnikov <nikita@karetnikov.org>
+;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
+;;; Copyright © 2017 Ricardo Wurmus <rekado@elephly.net>
 ;;; Copyright © 2015, 2018 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
 ;;;
@@ -50,6 +52,8 @@
             file-name-predicate
             find-files
             file-exists?*
+            copy-file*
+            copy-files
 
             <chmodifier>
             make-chmodifier
@@ -317,6 +321,38 @@ transferred and the continuation of the transfer as a thunk."
         (format (current-error-port) "~a: ~a~%"
                 file (strerror errno))
         #f))))
+
+(define* (copy-file* source dest #:key force? verbose?)
+  (when verbose?
+    (format (current-error-port) "'~a' -> '~a'\n" source dest))
+  (if (not force?) (copy-file source dest)
+      (catch 'system-error
+        (lambda _
+          (copy-file source dest))
+        (lambda (key func fmt msg errno . rest)
+          (when (getenv "GASH_DEBUG")
+            (format (current-error-port) "errno:~s\n" (car errno)))
+          (match errno
+            (((or 13 17))
+             (delete-file dest)
+             (copy-file source dest))
+            (_ (throw key func fmt msg errno)))))))
+
+(define* (copy-files #:optional files #:key force? verbose?)
+  (match files
+    ((source (and (? directory-exists?) dir))
+     (copy-file* source (string-append dir "/" (basename source))
+                 #:force? force #:verbose? verbose?))
+    ((source dest)
+     (copy-file* source dest #:force? force #:verbose? verbose?))
+    ((sources ... dir)
+     (unless (directory-exists? dir)
+       (error (format #f "cp: target `~a' is not a directory\n" dir)))
+     (for-each
+      (cut copy-file* <> <> #:force? force? #:verbose? verbose?)
+      sources
+      (map (compose (cute string-append dir "/" <>) basename)
+           sources)))))
 
 (define* (display-tabulated lst
                             #:key

@@ -1,8 +1,5 @@
-;;; Gash --- Guile As SHell
-;;; Copyright © 2016, 2017 Ludovic Courtès <ludo@gnu.org>
-;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
-;;; Copyright © 2017 Ricardo Wurmus <rekado@elephly.net>
-;;; Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;; Gash -- Guile As SHell
+;;; Copyright © 2019 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
 ;;;
 ;;; This file is part of Gash.
 ;;;
@@ -21,64 +18,46 @@
 
 ;;; Commentary:
 
-;;; The initial bournish.scm was taken from Guix.
-
 ;;; Code:
 
 (define-module (gash commands cp)
-  #:use-module (ice-9 match)
-  #:use-module (srfi srfi-26)
+  #:use-module (ice-9 getopt-long)
+
   #:use-module (gash config)
   #:use-module (gash shell-utils)
+
   #:export (
             cp
             ))
 
-(define (copy-file-force? force?)
-  (lambda (src dest)
-    (if (not force?) (copy-file src dest)
-        (catch 'system-error
-          (lambda _
-            (copy-file src dest))
-          (lambda (key func fmt msg errno . rest)
-            (format #t "errno:~s\n" (car errno))
-            (match errno
-              ((13)
-               (delete-file dest)
-               (copy-file src dest))
-              (_ (throw key func fmt msg errno))))))))
+(define (cp . args)
+  (let* ((option-spec
+	  '((force (single-char #\f))
+            (verbose (single-char #\v))
 
-(define (cp name . args)
-  (define (usage port)
-    (display "Usage: cp [OPTION]... SOURCE... DEST
+            (help (single-char #\h))
+            (version (single-char #\V))))
+	 (options (getopt-long args option-spec))
+         (force? (option-ref options 'force #f))
+         (verbose? (option-ref options 'verbose #f))
+
+	 (help? (option-ref options 'help #f))
+         (version? (option-ref options 'version #f))
+	 (files (option-ref options '() '()))
+         (usage? (and (not help?) (< (length files) 2))))
+    (cond (version? (format #t "cp (GASH) ~a\n" %version) (exit 0))
+          ((or help? usage?) (format (if usage? (current-error-port) #t)
+                                     "\
+Usage: cp [OPTION]... SOURCE... DEST
 
 Options:
-  -f, --force     if an existing destination file cannot be opened,
-                    remove it and try again
+  -f, --force     remove existing destination files
+  -v, --verbose   display name of each copied file
   -h, --help      display this help and exit
   -V, --version   display version information and exit
-" port))
-  (match args
-    (((or "-f" "--force") args ...)
-     (apply cp (cons 'force args)))
-    (((or "-h" "--help") t ...)
-     (usage (current-output-port))
-     (exit 0))
-    (((or "-V" "--version") t ...)
-     (format #t "cp (GASH) ~a\n" %version) (exit 0))
-    ((source (and (? directory-exists?) dir))
-     ((copy-file-force? (eq? name 'force))
-      source (string-append dir "/" (basename source))))
-    ((source dest)
-     ((copy-file-force? (eq? name 'force)) source dest))
-    ((sources ... dir)
-     (unless (directory-exists? dir)
-       (error (format #f "mv: target `~a' is not a directory\n" dir)))
-     (for-each
-      (copy-file-force? (eq? name 'force))
-      sources
-      (map (compose (cute string-append dir "/" <>) basename)
-           sources)))
-    (_ (usage (current-error-port)) (exit 2))))
+")
+           (exit (if usage? 2 0)))
+          (else
+           (copy-files files #:force? force? #:verbose? verbose?)))))
 
 (define main cp)
