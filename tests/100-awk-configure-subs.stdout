@@ -1,0 +1,9 @@
+#! meek
+BASH=gash #foobar
+LIBS=
+CC_FOR_BUILD=@CC_FOR_BUILD@
+
+all:
+	mescc -o bar bar.c
+
+# end
