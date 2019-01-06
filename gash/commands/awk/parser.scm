@@ -345,7 +345,7 @@
    (lvalue
     (NAME) : `(<awk-name> ,$1)
     ;;(NAME LBRACKET expr-list RBRACKET) : ...
-    ($ expr) : `(<awk-dollar> ,$1))
+    ($ expr) : `(<awk-field> ,$2))
 
    (newline-opt
     () : '()
