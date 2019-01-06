@@ -101,9 +101,12 @@
   '(
     ("BEGIN" . Begin)
     ("END" . End)
+
     ("break" . Break)
     ("continue" . Continue)
     ("do" . Do)
+    ("delete" . Delete)
+    ("for" . For)
     ("else" . Else)
     ("exit" . Exit)
     ("function" . Function)

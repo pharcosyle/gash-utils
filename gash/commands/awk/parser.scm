@@ -44,22 +44,35 @@
 (define* (make-parser)
   "Make an LALR parser for the Awk language."
   (lalr-parser
-   (expect: 9)
+   (expect: 20)
    (
     ;; lowest precedence first
     $
     COMMA
     LBRACE
+    LBRACKET
     LPAREN
     NEWLINE
     NO_MATCH
     RBRACE
+    RBRACKET
     RPAREN
     SEMI
 
     Begin
+    Break
+    Continue
+    Delete
+    Do
+    For
+    Else
     End
+    Exit
+    If
+    Next
     Print
+    Return
+    While
 
     NAME
     NUMBER
@@ -145,8 +158,8 @@
 
    (action
     (LBRACE newline-opt RBRACE) : '(<awk-action>)
-    (LBRACE terminated-statement-list RBRACE) : `(<awk-action> ,@$2)
-    (LBRACE unterminated-statement-list RBRACE) : `(<awk-action> ,@$2))
+    (LBRACE newline-opt terminated-statement-list RBRACE) : `(<awk-action> ,@$3)
+    (LBRACE newline-opt unterminated-statement-list RBRACE) : `(<awk-action> ,@$3))
 
    (terminator
     (terminator SEMI) : '(<awk-terminator>)
@@ -164,30 +177,40 @@
 
    (terminated-statement
     (action newline-opt) : $1
-    ;;;
+    (If LPAREN expr RPAREN newline-opt terminated-statement) : `(<awk-if> ,$3 ,$6)
+    (If LPAREN expr RPAREN newline-opt terminated-statement Else newline-opt terminated-statement) : `(<awk-if> ,$3 ,$6 ,$9)
+    (While LPAREN expr RPAREN newline-opt terminated-statement) : `(<awk-while> ,$3 ,$5)
+    (For LPAREN simple-statement-opt SEMI expr-opt SEMI simple-statement-opt SEMI RPAREN newline-opt terminated-statement) : `(<awk-for> ,$3 ,$5 ,$7 ,$11)
+    (For LPAREN NAME In NAME RPAREN newline-opt terminated-statement) : `(<awk-for-in> ,$3 ,$5 ,$8)
     (SEMI newline-opt) : '()
     (terminatable-statement NEWLINE newline-opt) : $1
-    (terminatable-statement SEMI newline-opt) : $1
-    )
+    (terminatable-statement SEMI newline-opt) : $1)
 
    (unterminated-statement
     (terminatable-statement) : $1
-    ;;;
-    )
+    (If LPAREN expr RPAREN newline-opt unterminated-statement) : `(<awk-if> ,$3 ,$6)
+    (If LPAREN expr RPAREN newline-opt terminated-statement Else newline-opt unterminated-statement) : `(<awk-if> ,$3 ,$6 ,$9)
+    (While LPAREN expr RPAREN newline-opt unterminated-statement) : `(<awk-while> ,$3 ,$5)
+    (For LPAREN simple-statement-opt SEMI expr-opt SEMI simple-statement-opt SEMI RPAREN newline-opt unterminated-statement) : `(<awk-for> ,$3 ,$5 ,$7 ,$11)
+    (For LPAREN NAME In NAME RPAREN newline-opt unterminated-statement) : `(<awk-for-in> ,$3 ,$5 ,$8))
 
    (terminatable-statement
     (simple-statement) : $1
-    ;;;
-    )
+    (Break) : `(<awk-break>)
+    (Continue) : `(<awk-continue>)
+    (Next) : `(<awk-next>)
+    (Exit expr-opt) : `(<awk-exit> ,$2)
+    (Return expr-opt) : `(<awk-return> ,$2)
+    (Do newline-opt terminated-statement While LPAREN expr RPAREN) : `(<awk-do> ,$3 ,$6))
 
    (simple-statement-opt
     () : '()
     (simple-statement) : $1)
 
    (simple-statement
-    ;;(Delete NAME LBRACKET expr-list RBRACKET) : $1
+    (Delete NAME LBRACKET expr-list RBRACKET) : $1
     (expr) : `(<awk-expr> ,$1)
-    (print-statement) : `(<awk-print> ,@$1))
+    (print-statement) : $1)
 
    (print-statement
     (simple-print-statement) : $1
@@ -195,14 +218,27 @@
     )
 
    (simple-print-statement
-    (Print print-expr-list-opt) : $2
-    (Print LPAREN multiple-expr-list RPAREN) : $2)
+    (Print print-expr-list-opt) : `(<awk-print> ,@$2)
+    (Print LPAREN multiple-expr-list RPAREN) : `(<awk-print> ,@$3))
 
    ;; output-redirection
+
+   (expr-list-opt
+    () : '()
+    (expr-list) : $1)
+
+   (expr-list
+    (expr) : $1
+    (multiple-expr-list) : $1
+    )
 
    (multiple-expr-list
     (expr COMMA newline-opt expr) : `(,$1 ,$3)
     (multiple-expr-list COMMA newline-opt expr) : `(,@$1 ,$4))
+
+   (expr-opt
+    () : '()
+    (expr) : $1)
 
    ;; This is what the spec says...but it messes up the precedence
    ;; (1 * 2 + 3) == 0 { print } ==>
@@ -308,6 +344,7 @@
 
    (print-expr-list
     (print-expr) : `(,$1)
+    (print-expr-list print-expr) : `(,@$1 ,$2)
     (print-expr-list COMMA newline-opt print-expr) : `(,@$1 ,$4))
 
    ;; (print-expr
@@ -336,7 +373,7 @@
    (print-expr
     (LPAREN expr RPAREN) : $2
     (! print-expr) : `(! ,$2)
-    (print-expr print-expr) : `(,$1 ,$2)
+    ;;(print-expr print-expr) : `(,$1 ,@$2)
     (NUMBER) : $1
     (STRING) : $1
     (lvalue) : $1
@@ -344,7 +381,8 @@
 
    (lvalue
     (NAME) : `(<awk-name> ,$1)
-    ;;(NAME LBRACKET expr-list RBRACKET) : ...
+    ;;(NAME LBRACKET expr-list RBRACKET) : `(<awk-array-ref> ,$1 ,$3)
+    (NAME LBRACKET expr RBRACKET) : `(<awk-array-ref> ,$1 ,$3)
     ($ expr) : `(<awk-field> ,$2))
 
    (newline-opt

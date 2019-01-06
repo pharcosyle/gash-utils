@@ -41,8 +41,16 @@
 
 (use-modules )
 
+(define (delete-var name variables)
+  (filter (negate (compose (cut eq? <> name) car)) variables))
+
 (define (assign name value variables)
-  (acons name value (filter (negate (compose (cut eq? <> name) car)) variables)))
+  (acons name value (delete-var name variables)))
+
+(define (assign-array name index value variables)
+  (let* ((array (or (assoc-ref variables name) '()))
+         (array (assign index value array)))
+    (assign name array variables)))
 
 (define (get-var name variables)
   (or (assoc-ref variables name) ""))
@@ -67,6 +75,8 @@
 (define (awk-expression expression variables)
   (match expression
     (('<awk-name> name) (get-var name variables))
+    (('<awk-array-ref> name index) (get-var (awk-expression index variables) (get-var name variables)))
+    (('<awk-in> index name) (and (assoc-ref (get-var name variables) index)))
     (('<awk-field> ('<awk-name> "NF")) (last (get-var "*fields*" variables)))
     (('<awk-field> number) (let ((field (awk-expression number variables))
                                  (fields (get-var "*fields*" variables))
@@ -85,6 +95,7 @@
     (('== x y) (equal? (awk-expression x variables) (awk-expression y variables)))
     (('!= x y) (not (equal? (awk-expression x variables) (awk-expression y variables))))
     (('= ('<awk-name> x) y) (assign x (awk-expression y variables) variables))
+    (('= ('<awk-array-ref> name index) value) (assign-array name (awk-expression index variables) (awk-expression value variables) variables))
     (('! x) (awk-not (awk-expression x variables) variables))
     ((lst ...) (awk-expression->string (map (cut awk-expression <> variables) lst)))))
 
@@ -108,14 +119,30 @@
      (fold (cut run-commands inport outport fields <> <>) variables actions))
     (('<awk-expr> expr)
      (awk-expression expr variables))
-    (('<awk-print> expr)
-     (display (awk-expression expr variables)) (newline)
-     variables)
     (('<awk-print>)
      (let ((count  (min (get-var "NF" variables) (length fields))))
        (display (string-join (list-head fields count))))
      (newline)
      variables)
+    (('<awk-print> expr)
+     (display (awk-expression expr variables)) (newline)
+     variables)
+    (('<awk-print> expr ..1)
+     (display (awk-expression expr variables)) (newline)
+     variables)
+    (('<awk-for-in> key array action)
+     (format (current-error-port) "action=~s\n" action)
+     (let* ((save-key (assoc-ref variables key))
+            (keys (map car (get-var array variables)))
+            (variables (fold (lambda (value variables)
+                               (run-commands inport outport fields action `((,key . ,value) ,@variables)))
+                             variables
+                             keys)))
+       (if save-key (assign key save-key variables)
+           (delete-var key variables))))
+    (('<awk-if> expr then)
+     (if (not (awk-expression->boolean expr variables)) variables
+         (run-commands inport outport fields then variables)))
     ((lst ...) (fold (cut run-commands inport outport fields <> <>) variables lst))
     (_ (format (current-error-port) "skip: ~s\n" command)
        variables)))
