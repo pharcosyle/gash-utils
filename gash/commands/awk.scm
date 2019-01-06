@@ -31,6 +31,7 @@
   #:use-module (srfi srfi-26)
 
   #:use-module (gash config)
+  #:use-module (gash util)
   #:use-module (gash commands awk lexer)
   #:use-module (gash commands awk parser)
 
@@ -119,7 +120,7 @@
     (_ (format (current-error-port) "skip: ~s\n" command)
        variables)))
 
-(define* (run-awk-file parse-tree file-name variables #:key (outport (current-output-port)))
+(define* (run-awk-file program outport file-name variables)
   (let ((inport (if (equal? file-name "-") (current-input-port)
                     (open-input-file file-name))))
     (let loop ((line (read-line inport)) (variables `(("FILENAME" . ,file-name)
@@ -132,8 +133,18 @@
                (variables (assign "FNR" (1+ (get-var "FNR" variables)) variables))
                (variables (assign "*line*" line variables))
                (variables (assign "*fields*" fields variables)))
-          (let ((variables (run-commands inport outport fields parse-tree variables)))
+          (let ((variables (run-commands inport outport fields program variables)))
             (loop (read-line inport) variables)))))))
+
+(define (begin-block x)
+  (match x
+    (('<awk-item> ('<awk-begin>) action) action)
+    (_ #f)))
+
+(define (end-block x)
+  (match x
+    (('<awk-item> ('<awk-end>) action) action)
+    (_ #f)))
 
 (define (awk . args)
   (let* ((option-spec
@@ -165,8 +176,15 @@ Usage: awk [OPTION]...
                    (values (with-input-from-string (car files) read-awk) (cdr files)))
              (when (getenv "AWK_DEBUG")
                (pretty-print parse-tree (current-error-port)))
-             (let ((files (if (pair? files) files
-                              '("-"))))
-              (fold (cut run-awk-file parse-tree <> <>) `(("FS" . ,delimiter) ("NR" . 0)) files)))))))
+             (let* ((files (if (pair? files) files
+                               '("-")))
+                    (outport (current-output-port))
+                    (begin-blocks (filter-map begin-block parse-tree))
+                    (program (filter (negate (disjoin begin-block end-block)) parse-tree))
+                    (end-blocks (filter-map end-block parse-tree))
+                    (variables `(("FS" . ,delimiter) ("NR" . 0)))
+                    (variables (fold (cut run-commands #f outport '() <> <>) variables begin-blocks))
+                    (variables (fold (cut run-awk-file program outport <> <>) variables files)))
+               (fold (cut run-commands #f outport '() <> <>) variables end-blocks)))))))
 
 (define main awk)
