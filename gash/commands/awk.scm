@@ -113,8 +113,8 @@
 (define (run-commands inport outport fields command variables)
   (match command
     (('<awk-item> ('<awk-pattern> pattern) action)
-     (if (not (awk-expression->boolean pattern variables)) variables
-         (run-commands inport outport fields action variables)))
+     (if (awk-expression->boolean pattern variables) (run-commands inport outport fields action variables)
+         variables))
     (('<awk-action> actions ...)
      (fold (cut run-commands inport outport fields <> <>) variables actions))
     (('<awk-expr> expr)
@@ -141,8 +141,12 @@
        (if save-key (assign key save-key variables)
            (delete-var key variables))))
     (('<awk-if> expr then)
-     (if (not (awk-expression->boolean expr variables)) variables
-         (run-commands inport outport fields then variables)))
+     (if (awk-expression->boolean expr variables) (run-commands inport outport fields then variables)
+         variables))
+    (('<awk-if> expr then else)
+     (if (awk-expression->boolean expr variables)
+         (run-commands inport outport fields then variables)
+         (run-commands inport outport fields else variables)))
     ((lst ...) (fold (cut run-commands inport outport fields <> <>) variables lst))
     (_ (format (current-error-port) "skip: ~s\n" command)
        variables)))
