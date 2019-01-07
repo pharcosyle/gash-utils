@@ -188,7 +188,7 @@
 
    (simple-statement
     (Delete NAME LBRACKET expr-list RBRACKET) : $1
-    (expr) : `(<awk-expr> ,$1)
+    (expr) : $1
     (print-statement) : $1)
 
    (print-statement
@@ -208,11 +208,10 @@
 
    (expr-list
     (expr) : $1
-    (multiple-expr-list) : $1
-    )
+    (multiple-expr-list) : $1)
 
    (multiple-expr-list
-    (expr COMMA newline-opt expr) : `(,$1 ,$3)
+    (expr COMMA newline-opt expr) : `(,$1 ,$4)
     (multiple-expr-list COMMA newline-opt expr) : `(,@$1 ,$4))
 
    (expr-opt
