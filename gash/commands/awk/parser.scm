@@ -61,10 +61,13 @@
 
     Begin
     Break
+    Builtin
     Continue
     Delete
     Do
     For
+    Func
+    Function
     Else
     End
     Exit
@@ -78,7 +81,6 @@
     NUMBER
     STRING
 
-    ;; Must take lower precedence than arithmetic
     (left: ||)
     (left: &&)
     (nonassoc: <)
@@ -91,39 +93,17 @@
 
     (right: ^)
     (left: !)
-    (left: +)
-    (left: -)
-    (left: *)
-    (left: /)
-    (left: %)
-    ;; (left: ||)
-    ;; (left: &&)
-
-    ;; this is what the spec says, but weird: NR == 1 * 2 + 1 =>
-    ;; (+ (* (== (<awk-name> "NR") 1) 2) 1)
-    ;; (nonassoc: <)
-    ;; (nonassoc: <=)
-    ;; (nonassoc: !=)
-    ;; (nonassoc: ==)
-    ;; (nonassoc: >)
-    ;; (nonassoc: >=)
-    ;; (nonassoc: ~ !~)
+    (left: + -)
+    (left: * / %)
+    (left: ++ --)
 
     (left: In)
     (right: ? :)
-    (right: =)
-
-    )
+    (right: = ^= %= *= /= += -=))
 
    (program
     (item-list) : $1
     (actionless-item-list): $1)
-
-   ;; This works
-   (calc-expr
-    (calc-expr + calc-expr)           : `(+ ,$1 ,$3)
-    (calc-expr * calc-expr)           : `(* ,$1 ,$3)
-    (NUMBER) : $1)
 
    (item-list
     (newline-opt) : '()
@@ -132,14 +112,13 @@
     (item-list action terminator) : `(,@$1 ,$2))
 
    (actionless-item-list
-    (: calc-expr item-list) : `((<calc-expr> ,$2) ,$3)
     (item-list pattern terminator) : `(,$1 ,$2)
     (actionless-item-list pattern terminator) : `(,@$1 ,$2))
 
    (item
     (pattern action) : `(<awk-item> ,$1 ,$2)
-    ;;(Function NAME LPAREN param-list-opt RPAREN newline opt action) : '(<awk-function0>)
-    ;;(Function FUNC_NAME LPAREN param-list-opt RPAREN newline opt action) '(<awk-function1>)
+    (Function NAME LPAREN param-list-opt RPAREN newline-opt action) : '(<awk-function>)
+    ;;(Function FUNC_NAME LPAREN param-list-opt RPAREN newline-opt action) '(<awk-function>)
     )
 
    (param-list-opt
@@ -180,7 +159,7 @@
     (If LPAREN expr RPAREN newline-opt terminated-statement) : `(<awk-if> ,$3 ,$6)
     (If LPAREN expr RPAREN newline-opt terminated-statement Else newline-opt terminated-statement) : `(<awk-if> ,$3 ,$6 ,$9)
     (While LPAREN expr RPAREN newline-opt terminated-statement) : `(<awk-while> ,$3 ,$5)
-    (For LPAREN simple-statement-opt SEMI expr-opt SEMI simple-statement-opt SEMI RPAREN newline-opt terminated-statement) : `(<awk-for> ,$3 ,$5 ,$7 ,$11)
+    (For LPAREN simple-statement-opt SEMI expr-opt SEMI simple-statement-opt RPAREN newline-opt terminated-statement) : `(<awk-for> ,$3 ,$5 ,$7 ,$10)
     (For LPAREN NAME In NAME RPAREN newline-opt terminated-statement) : `(<awk-for-in> ,$3 ,$5 ,$8)
     (SEMI newline-opt) : '()
     (terminatable-statement NEWLINE newline-opt) : $1
@@ -191,7 +170,7 @@
     (If LPAREN expr RPAREN newline-opt unterminated-statement) : `(<awk-if> ,$3 ,$6)
     (If LPAREN expr RPAREN newline-opt terminated-statement Else newline-opt unterminated-statement) : `(<awk-if> ,$3 ,$6 ,$9)
     (While LPAREN expr RPAREN newline-opt unterminated-statement) : `(<awk-while> ,$3 ,$5)
-    (For LPAREN simple-statement-opt SEMI expr-opt SEMI simple-statement-opt SEMI RPAREN newline-opt unterminated-statement) : `(<awk-for> ,$3 ,$5 ,$7 ,$11)
+    (For LPAREN simple-statement-opt SEMI expr-opt SEMI simple-statement-opt RPAREN newline-opt unterminated-statement) : `(<awk-for> ,$3 ,$5 ,$7 ,$10)
     (For LPAREN NAME In NAME RPAREN newline-opt unterminated-statement) : `(<awk-for-in> ,$3 ,$5 ,$8))
 
    (terminatable-statement
@@ -240,71 +219,6 @@
     () : '()
     (expr) : $1)
 
-   ;; This is what the spec says...but it messes up the precedence
-   ;; (1 * 2 + 3) == 0 { print } ==>
-   ;; (<awk-item>
-   ;;   (<awk-pattern> (== (* 1 (+ 2 3)) 0))
-   ;;   (<awk-action> (<awk-print>)))
-   ;; (expr
-   ;;  (unary-expr) : $1
-   ;;  (non-unary-expr) : $1)
-
-   ;; (unary-expr
-   ;;  (+ expr) : `(+ ,$2)
-   ;;  (- expr) : `(- ,$2)
-   ;;  (unary-expr ^ expr) : `(^ ,$1 ,$3)
-   ;;  (unary-expr * expr) : `(* ,$1 ,$3)
-   ;;  (unary-expr / expr) : `(/ ,$1 ,$3)
-   ;;  (unary-expr % expr) : `(% ,$1 ,$3)
-   ;;  (unary-expr + expr) : `(+ ,$1 ,$3)
-   ;;  (unary-expr - expr) : `(- ,$1 ,$3)
-   ;;  (unary-expr non-unary-expr) : `(,@$1 ,$2)
-   ;;  (unary-expr < expr) : `(< ,$1 ,$3)
-   ;;  (unary-expr <= expr) : `(<= ,$1 ,$3)
-   ;;  (unary-expr != expr) : `(!= ,$1 ,$3)
-   ;;  (unary-expr == expr) : `(== ,$1 ,$3)
-   ;;  (unary-expr > expr) : `(> ,$1 ,$3)
-   ;;  (unary-expr >= expr) : `(>= ,$1 ,$3)
-   ;;  (unary-expr ~ expr) : `(~ ,$1 ,$3)
-   ;;  (unary-expr NO_MATCH expr) : `(<awk-no-match> ,$1 ,$3)
-   ;;  (unary-expr In NAME) : `(<awk-in> ,$1 ,$3)
-   ;;  (unary-expr && expr) : `(&& ,(warn 'UN-&& "1=" $1) ,(warn 'UN-&& "3= " $3))
-   ;;  (unary-expr || expr) : `(|| ,$1 ,$3)
-   ;;  (unary-expr ? expr : expr) : `(? ,$1 ,$3 ,$5))
-
-   ;; (non-unary-expr
-   ;;  (LPAREN expr RPAREN) : $2
-   ;;  (! expr) : `(! ,$2)
-   ;;  (non-unary-expr ^ expr) : `(^ ,$1 ,$3)
-   ;;  (non-unary-expr * expr) : `(* ,$1 ,$3)
-   ;;  (non-unary-expr / expr) : `(/ ,$1 ,$3)
-   ;;  (non-unary-expr % expr) : `(% ,$1 ,$3)
-   ;;  (non-unary-expr + expr) : `(+ ,$1 ,$3)
-   ;;  (non-unary-expr - expr) : `(- ,$1 ,$3)
-   ;;  (non-unary-expr non-unary-expr) : `(,@$1 ,$2)
-   ;;  (non-unary-expr < expr) : `(< ,$1 ,$3)
-   ;;  (non-unary-expr <= expr) : `(<= ,$1 ,$3)
-   ;;  (non-unary-expr != expr) : `(!= ,(warn 'ne "1=" $1) ,(warn 'ne "3= "$3))
-   ;;  (non-unary-expr == expr) : `(== ,$1 ,$3)
-   ;;  (non-unary-expr > expr) : `(> ,$1 ,$3)
-   ;;  (non-unary-expr >= expr) : `(>= ,$1 ,$3)
-   ;;  (non-unary-expr ~ expr) : `(~ ,$1 ,$3)
-   ;;  (non-unary-expr NO_MATCH expr) : `(<awk-no-match> ,$1 ,$3)
-   ;;  (non-unary-expr In NAME) : `(<awk-in> ,$1 ,$3)
-   ;;  ;; ( multiple...)
-   ;;  ;;(non-unary-expr && expr) : `(&& ,$1 ,$3)
-   ;;  (non-unary-expr && expr) : `(&& ,(warn 'NON-&& "1=" $1) ,(warn 'NON-&& "3= " $3))
-   ;;  (non-unary-expr || expr) : `(|| ,$1 ,$3)
-   ;;  (non-unary-expr ? expr : expr) : `(? ,$1 ,$3 ,$5)
-   ;;  (NUMBER) : $1
-   ;;  (STRING) : $1
-   ;;  (lvalue) : $1
-   ;;  ;; ERE
-   ;;  (lvalue = expr) : `(<awk-assign> ,$1 ,$3)
-   ;;  ;;
-   ;;  )
-
-   ;; This works
    (expr
     (+ expr) : `(+ ,$2)
     (- expr) : `(- ,$2)
@@ -326,17 +240,28 @@
     (expr ~ expr) : `(~ ,$1 ,$3)
     (expr NO_MATCH expr) : `(<awk-no-match> ,$1 ,$3)
     (expr In NAME) : `(<awk-in> ,$1 ,$3)
-    ;; ( multiple...)
+    (LPAREN multiple-expr-list RPAREN In NAME)
     (expr && expr) : `(&& ,$1 ,$3)
     (expr || expr) : `(|| ,$1 ,$3)
     (expr ? expr : expr) : `(? ,$1 ,$3 ,$5)
     (NUMBER) : $1
     (STRING) : $1
     (lvalue) : $1
-    ;; ERE
+    ;; (ERE)
+    (lvalue ++) : `(<awk-post-inc> ,$1)
+    (lvalue --) : `(<awk-post-dec> ,$1)
+    (++ lvalue) : `(<awk-pre-inc> ,$1)
+    (-- lvalue) : `(<awk-pre-dec> ,$1)
+    (lvalue ^= expr) : `(^= ,$1 ,$3)
+    (lvalue %= expr) : `(%= ,$1 ,$3)
+    (lvalue *= expr) : `(*= ,$1 ,$3)
+    (lvalue /= expr) : `(/= ,$1 ,$3)
+    (lvalue += expr) : `(+= ,$1 ,$3)
+    (lvalue -= expr) : `(-= ,$1 ,$3)
     (lvalue = expr) : `(= ,$1 ,$3)
-
-    )
+    (Func LPAREN expr-list-opt RPAREN) : `(<awk-call> ,$1 ,$3)
+    (Builtin LPAREN expr-list-opt RPAREN) : `(<awk-call> ,$1 ,$3)
+    (Builtin) : `(<awk-call> ,$1))
 
    (print-expr-list-opt
     () : '()
@@ -346,29 +271,6 @@
     (print-expr) : `(,$1)
     (print-expr-list print-expr) : `(,@$1 ,$2)
     (print-expr-list COMMA newline-opt print-expr) : `(,@$1 ,$4))
-
-   ;; (print-expr
-   ;;  (unary-print-expr) : $1
-   ;;  (non-unary-print-expr) : $1)
-
-   ;; (unary-print-expr
-   ;;  (+ print-expr) : `(+ ,$2)
-   ;;  (- print-expr) : `(- ,$2)
-   ;;  ;;;
-   ;;  (unary-print-expr non-unary-print-expr) : `(,$1 ,$2)
-   ;;  ;;;
-   ;;  )
-
-   ;; (non-unary-print-expr
-   ;;  (LPAREN expr RPAREN) : $2
-   ;;  (! print-expr) : `(! ,$2)
-   ;;  (non-unary-print-expr non-unary-print-expr) : `(,$1 ,$2)
-   ;;  (NUMBER) : $1
-   ;;  (STRING) : $1
-   ;;  (lvalue) : $1
-   ;;  ;;;
-   ;;  )
-   ;; ;;;
 
    (print-expr
     (LPAREN expr RPAREN) : $2

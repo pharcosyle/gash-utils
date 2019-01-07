@@ -97,7 +97,7 @@
     ("(" . LPAREN)
     (")" . RPAREN)))
 
-(define *key-words*
+(define *reserved-words*
   '(
     ("BEGIN" . Begin)
     ("END" . End)
@@ -119,7 +119,7 @@
 
 ;;    ("getline" . Getline) ;; DIFFE
 
-(define *builtin-func-names*
+(define *builtins*
   '(("close" . close)
     ("cos" . cos)
     ("exp" . exp)
@@ -136,9 +136,6 @@
     ("system" . system)
     ("tolower" . tolower)
     ("toupper" . toupper)))
-
-(define *reserved-words*
-  (append *key-words* *builtin-func-names*))
 
 (define (operator-prefix? str)
   (any (cut string-prefix? str <>) (map car *operators*)))
@@ -181,6 +178,9 @@
 
 (define (reserved-word? word)
   (assoc word *reserved-words*))
+
+(define (builtin? word)
+  (assoc word *builtins*))
 
 (define (join-contiguous-strings lst)
   "Join all contiguous strings in @var{lst}."
@@ -266,6 +266,7 @@ next character statisfies @var{pred} (or is a newline)."
     (match (join-contiguous-strings (reverse! acc))
       ((str) (match str
                ((? reserved-word?) `(,(assoc-ref *reserved-words* str) . ,str))
+               ((? builtin?) `(Builtin . ,str))
                ((? name?) `(NAME . ,str))
                (_ `(WORD . ,str))))
       (lst lst)))
