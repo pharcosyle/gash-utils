@@ -58,23 +58,26 @@
           '((all (single-char #\a))
             (classify (single-char #\F))
             (directory (single-char #\d))
-            (help)
+            (dereference (single-char #\L))
             (inode (single-char #\i))
             (long (single-char #\l))
             (one-file-per-line (single-char #\1))
             (reverse (single-char #\r))
             (sort-by-modification-time (single-char #\t))
+
+            (help)
             (version)))
          (options (getopt-long args option-spec))
          (all? (option-ref options 'all #f))
          (classify? (option-ref options 'classify #f))
          (directory? (option-ref options 'directory #f))
-         (help? (option-ref options 'help #f))
          (inode? (option-ref options 'inode #f))
          (long? (option-ref options 'long #f))
          (one-file-per-line? (option-ref options 'one-file-per-line #f))
          (reverse? (option-ref options 'reverse #f))
          (sort-by-modification-time? (option-ref options 'sort-by-modification-time #f))
+
+         (help? (option-ref options 'help #f))
          (version? (option-ref options 'version #f))
          (files (option-ref options '() '()))
          (follow-links? (not directory?)))
@@ -82,14 +85,15 @@
           (help? (display "Usage: ls [OPTION]... [FILE]...
 
 Options:
-  -a, --all      do not ignore entries starting with .
-      --help     display this help and exit
-  -F, --classify append indicator (one of */=>@|) to entries
-  -l, --long     use a long listing format
-      --version  display version information and exit
-  -r, --reverse  reverse order while sorting
-  -t             sort by modification time, newest first
-  -1             list one file per line
+  -a, --all          do not ignore entries starting with .
+      --help         display this help and exit
+  -F, --classify     append indicator (one of */=>@|) to entries
+  -l, --long         use a long listing format
+  -L, --dereference  ignored to support configure scripts
+      --version      display version information and exit
+  -r, --reverse      reverse order while sorting
+  -t                 sort by modification time, newest first
+  -1                 list one file per line
 "))
           (else
            (let* ((stat* (if follow-links? stat lstat))
