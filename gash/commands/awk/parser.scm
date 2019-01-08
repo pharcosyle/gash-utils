@@ -278,7 +278,9 @@
     (NUMBER) : $1
     (STRING) : $1
     (lvalue) : $1
-    )
+    (Func LPAREN expr-list-opt RPAREN) : `(<awk-call> ,$1 ,$3)
+    (Builtin LPAREN expr-list-opt RPAREN) : `(<awk-call> ,$1 ,$3)
+    (Builtin) : `(<awk-call> ,$1))
 
    (lvalue
     (NAME) : `(<awk-name> ,$1)
