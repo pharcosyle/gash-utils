@@ -41,7 +41,7 @@
 
 ;; Builtins
 
-(define (awk-split string array delimiter delimiters variables)
+(define (awk-split variables string array delimiter delimiters)
   (let* ((split (string-split string (car (string->list delimiter))))
          (count (length split))
          (variables (fold (cut assign-array array <> <> <>)
@@ -50,8 +50,12 @@
       (error (format #f "awk: split: delimiters not supported: ~s\n" delimiters)))
     (values count variables)))
 
-(define (awk-length expr variables)
+(define (awk-length variables expr)
   (string-length (awk-expression->string expr)))
+
+(define* (awk-substr variables string start #:optional length)
+  (let ((end (if length (+ (1- start) length) (string-length string))))
+    (substring string (1- start) end)))
 
 (define (delete-var name variables)
   (filter (negate (compose (cut eq? <> name) car)) variables))
@@ -127,12 +131,11 @@
        (let* ((array (awk-name array))
               (delimiter (if (pair? arguments) (car arguments) (get-var "FS" variables)))
               (delimiters (if (= (length arguments) 2) (awk-name (cadr arguments)) #f)))
-         ((get-var name variables) string array delimiter delimiters variables))))
-    (('<awk-call> name argument) ((get-var name variables) (awk-expression argument variables) variables))
+         ((get-var name variables) variables string array delimiter delimiters))))
+    (('<awk-call> name (argument)) ((get-var name variables) variables (awk-expression argument variables)))
     (('<awk-call> name (arguments ..1)) (apply (get-var name variables)
-                                               (append
-                                                (map (cut awk-expression <> variables) arguments)
-                                                (list variables))))
+                                               (cons variables
+                                                     (map (cut awk-expression <> variables) arguments))))
     (('<awk-post-inc> x) (receive (v variables) (awk-expression->number x variables)
                            (values v (assign (awk-name x) (1+ v) variables))))
     (('<awk-post-dec> x) (receive (v variables) (awk-expression->number x variables)
@@ -314,8 +317,9 @@ Usage: awk [OPTION]...
                     (end-blocks (filter-map end-block parse-tree))
                     (variables `(("FS" . ,delimiter)
                                  ("NR" . 0)
+                                 ("length" . ,awk-length)
                                  ("split" . ,awk-split)
-                                 ("length" . ,awk-length)))
+                                 ("substr" . ,awk-substr)))
                     (variables (fold (cut run-commands #f outport '() <> <>) variables begin-blocks))
                     (variables (fold (cut run-awk-file program outport <> <>) variables files)))
                (fold (cut run-commands #f outport '() <> <>) variables end-blocks)))))))

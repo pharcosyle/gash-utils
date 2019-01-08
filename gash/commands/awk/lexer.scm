@@ -133,6 +133,7 @@
     ("sqrt" . sqrt)
     ("srand" . srand)
     ("sub" . sub)
+    ("substr" . substr)
     ("system" . system)
     ("tolower" . tolower)
     ("toupper" . toupper)))

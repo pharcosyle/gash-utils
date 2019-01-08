@@ -207,7 +207,7 @@
     (expr-list) : $1)
 
    (expr-list
-    (expr) : $1
+    (expr) : `(,$1)
     (multiple-expr-list) : $1)
 
    (multiple-expr-list
