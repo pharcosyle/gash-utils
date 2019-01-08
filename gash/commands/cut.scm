@@ -111,7 +111,7 @@ Options:
                             that contains no delimiter character
   -n                      (ignored)
       --help              display this help and exit
-      --version            output version information and exit
+      --version           output version information and exit
 ")
            (exit (if usage? 2 0)))
           (else

@@ -56,6 +56,9 @@
             copy-files
             link-file*
             link-files
+            read-lines
+            read-lines/reversed
+            string-numeric<?
             symlink-file*
             symlink-files
 
@@ -225,6 +228,17 @@ transferred and the continuation of the transfer as a thunk."
             (lambda ()
               (loop 0 (get-bytevector-n! in buffer 0 buffer-size)))))
 
+(define* (read-lines #:optional (port (current-input-port)))
+  (let loop ((line (read-line port)))
+    (if (eof-object? line) '()
+        (cons line (loop (read-line port))))))
+
+(define* (read-lines/reversed #:optional (port (current-input-port)))
+  (let loop ((line (read-line port)) (acc '()))
+    (match line
+      ((? eof-object?) acc)
+      (_ (loop (read-line port) (cons line acc))))))
+
 (define-immutable-record-type <grep-match>
   (make-grep-match file-name string line column end-column)
   grep-match?
@@ -242,6 +256,10 @@ transferred and the continuation of the transfer as a thunk."
        (match (list-matches regexp str)
          (() (loop rest))
          (matches matches))))))
+
+(define (string-numeric<? a b)
+  (< (or (string->number a) 0)
+     (or (string->number b) 0)))
 
 (define* (grep* pattern #:key (port (current-input-port)) (file-name "<stdin>") (matching 'basic) inverted?)
   ;; FIXME: collect later?  for scripting usage implicit collect is
@@ -687,3 +705,4 @@ end of a line; by itself it won't match the terminating newline of a line."
                  ((g) (ash base 3))
                  ((u) (ash base 6))))
              (loop (cdr permissions)))))))
+
