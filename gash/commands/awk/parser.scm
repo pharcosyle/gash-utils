@@ -44,7 +44,6 @@
 (define* (make-parser)
   "Make an LALR parser for the Awk language."
   (lalr-parser
-   (expect: 20)
    (
     ;; lowest precedence first
     $
@@ -56,7 +55,7 @@
     NO_MATCH
     RBRACE
     RBRACKET
-    RPAREN
+    (left: RPAREN)
     SEMI
 
     Begin
@@ -68,7 +67,7 @@
     For
     Func
     Function
-    Else
+    (left: Else)
     End
     Exit
     If
@@ -83,14 +82,7 @@
 
     (left: ||)
     (left: &&)
-    (nonassoc: <)
-    (nonassoc: <=)
-    (nonassoc: !=)
-    (nonassoc: ==)
-    (nonassoc: >)
-    (nonassoc: >=)
-    (nonassoc: ~ !~)
-
+    (left: < <= != == > >= ~ !~)
     (right: ^)
     (left: !)
     (left: + -)
@@ -197,8 +189,8 @@
     )
 
    (simple-print-statement
-    (Print print-expr-list-opt) : `(<awk-print> ,@$2)
-    (Print LPAREN multiple-expr-list RPAREN) : `(<awk-print> ,@$3))
+    (Print expr-list-opt) : `(<awk-print> ,@$2)
+    (Print LPAREN expr-list RPAREN) : `(<awk-print> ,@$3))
 
    ;; output-redirection
 
@@ -229,7 +221,6 @@
     (expr % expr) : `(% ,$1 ,$3)
     (expr + expr) : `(+ ,$1 ,$3)
     (expr - expr) : `(- ,$1 ,$3)
-    ;;(expr expr) : `(,@$1 ,$2)
     (expr < expr) : `(< ,$1 ,$3)
     (expr <= expr) : `(<= ,$1 ,$3)
     (expr != expr) : `(!= ,$1 ,$3)
@@ -237,15 +228,13 @@
     (expr > expr) : `(> ,$1 ,$3)
     (expr >= expr) : `(>= ,$1 ,$3)
     (expr ~ expr) : `(~ ,$1 ,$3)
-    (expr NO_MATCH expr) : `(<awk-no-match> ,$1 ,$3)
+    (expr !~ expr) : `(<awk-no-match> ,$1 ,$3)
     (expr In NAME) : `(<awk-in> ,$1 ,$3)
     (LPAREN multiple-expr-list RPAREN In NAME)
     (expr && expr) : `(&& ,$1 ,$3)
     (expr || expr) : `(|| ,$1 ,$3)
     (expr ? expr : expr) : `(? ,$1 ,$3 ,$5)
-    (NUMBER) : $1
-    (STRING) : $1
-    (lvalue) : $1
+    (concat-expr) : $1
     ;; (ERE)
     (lvalue ++) : `(<awk-post-inc> ,$1)
     (lvalue --) : `(<awk-post-dec> ,$1)
@@ -257,42 +246,30 @@
     (lvalue /= expr) : `(/= ,$1 ,$3)
     (lvalue += expr) : `(+= ,$1 ,$3)
     (lvalue -= expr) : `(-= ,$1 ,$3)
-    (lvalue = expr) : `(= ,$1 ,$3)
-    (Func LPAREN expr-list-opt RPAREN) : `(<awk-call> ,$1 ,$3)
-    (Builtin LPAREN expr-list-opt RPAREN) : `(<awk-call> ,$1 ,$3)
-    (Builtin) : `(<awk-call> ,$1))
+    (lvalue = expr) : `(= ,$1 ,$3))
 
-   (print-expr-list-opt
-    () : '()
-    (print-expr-list) : $1)
-
-   (print-expr-list
-    (print-expr) : `(,$1)
-    (print-expr-list print-expr) : `(,@$1 ,$2)
-    (print-expr-list COMMA newline-opt print-expr) : `(,@$1 ,$4))
-
-   (print-expr
-    (LPAREN expr RPAREN) : $2
-    (! print-expr) : `(! ,$2)
-    ;;(print-expr print-expr) : `(,$1 ,@$2)
-    (NUMBER) : $1
+   (concat-expr
     (STRING) : $1
+    (STRING concat-expr) : `(<awk-concat> ,$1 ,$2)
     (lvalue) : $1
-    (Func LPAREN expr-list-opt RPAREN) : `(<awk-call> ,$1 ,$3)
+    (lvalue concat-expr) : `(<awk-concat> ,$1 ,$2)
     (Builtin LPAREN expr-list-opt RPAREN) : `(<awk-call> ,$1 ,$3)
-    (Builtin) : `(<awk-call> ,$1))
+    (Builtin LPAREN expr-list-opt RPAREN concat-expr) : `(<awk-concat> (<awk-call> ,$1 ,$3) ,$5)
+    (Func LPAREN expr-list-opt RPAREN) : `(<awk-call> ,$1 ,$3)
+    (Func LPAREN expr-list-opt RPAREN concat-expr) : `(<awk-concat> (<awk-call> ,$1 ,$3) ,$5)
+    (NUMBER) : $1
+    (NUMBER concat-expr) : `(<awk-concat> ,$1 ,$2)
+    (Builtin) : `(<awk-call> ,$1)
+    (Builtin concat-expr) : `(<awk-concat> (<awk-call> ,$1) ,$2))
 
    (lvalue
     (NAME) : `(<awk-name> ,$1)
-    ;;(NAME LBRACKET expr-list RBRACKET) : `(<awk-array-ref> ,$1 ,$3)
     (NAME LBRACKET expr RBRACKET) : `(<awk-array-ref> ,$1 ,$3)
     ($ expr) : `(<awk-field> ,$2))
 
    (newline-opt
     () : '()
-    (newline-opt NEWLINE) : `(,$1 ,$2))
-
-   ))
+    (newline-opt NEWLINE) : `(,$1 ,$2))))
 
 (define* (syntax-error message #:optional token)
   "Handle a parser error"
