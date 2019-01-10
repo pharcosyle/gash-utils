@@ -78,6 +78,7 @@
 
     NAME
     NUMBER
+    REGEX
     STRING
 
     (left: ||)
@@ -235,7 +236,7 @@
     (expr || expr) : `(|| ,$1 ,$3)
     (expr ? expr : expr) : `(? ,$1 ,$3 ,$5)
     (concat-expr) : $1
-    ;; (ERE)
+    (regex) : $1
     (lvalue ++) : `(<awk-post-inc> ,$1)
     (lvalue --) : `(<awk-post-dec> ,$1)
     (++ lvalue) : `(<awk-pre-inc> ,$1)
@@ -247,6 +248,12 @@
     (lvalue += expr) : `(+= ,$1 ,$3)
     (lvalue -= expr) : `(-= ,$1 ,$3)
     (lvalue = expr) : `(= ,$1 ,$3))
+
+   (regex
+    (regex-start REGEX /) : (begin (set! %regex #f) `(<awk-regex> ,$2)))
+
+   (regex-start
+    (/) : (set! %regex #t))
 
    (concat-expr
     (STRING) : $1

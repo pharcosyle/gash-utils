@@ -26,6 +26,7 @@
   #:use-module (ice-9 pretty-print)
   #:use-module (ice-9 rdelim)
   #:use-module (ice-9 receive)
+  #:use-module (ice-9 regex)
 
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
@@ -200,7 +201,8 @@
               (values (awk-not x variables) variables)))
     (('<awk-concat> x y) (receive (x variables) (awk-expression x variables)
                            (receive (y variables) (awk-expression y variables)
-                             (values (string-append (awk-expression->string x) (awk-expression->string y)) variables))))))
+                             (values (string-append (awk-expression->string x) (awk-expression->string y)) variables))))
+    (('<awk-regex> regex) (values (and (string-match regex (get-var "*line*" variables)) 1) variables))))
 
 (define (run-commands inport outport fields command variables)
   (match command

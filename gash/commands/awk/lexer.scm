@@ -26,13 +26,16 @@
   #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-26)
   #:use-module (system base lalr)
-  #:export (get-token))
+  #:export (get-token
+            %regex))
 
 ;;; Commentary:
 
 ;; This module contains the lexer for the Awk language.
 
 ;;; Code:
+
+(define %regex #f)
 
 (define-record-type <port-location>
   (make-port-location filename line column offset)
@@ -218,35 +221,44 @@ next character statisfies @var{pred} (or is a newline)."
          ((and (? char?) (? pred)) (begin (get-char port) (string-append "\\" (string chr))))
          (_ `(,(string #\\))))))))
 
+(define (get-regex port)
+  "Get a regex from @var{port}."
+
+  (let* ((begin-location (port->port-location port))
+         (chars (let loop ((chr (lookahead-char port)))
+                  (match chr
+                    ((? eof-object?) (throw 'lex-error))
+                    (#\/ '())
+                    (#\\ (let ((escape (get-escape port
+                                                   (cut member <> '(#\" #\\)))))
+                           (cons escape (loop (lookahead-char port)))))
+                    (_ (cons (get-char port) (loop (lookahead-char port)))))))
+         (end-location (port->port-location port))
+         (string (apply string chars)))
+    (make-lexical-token
+     'REGEX
+     (complete-source-location begin-location (string-length string))
+     string)))
+
 (define (get-string port)
   "Get a double quoted string from @var{port}."
 
-  (define (get-double-quotation-string port)
-    (let loop ((chr (lookahead-char port)) (acc '()))
-      (match chr
-        ((? eof-object?) (throw 'lex-error))
-        ((or #\" #\\) (list->string (reverse! acc)))
-        (_ (loop (next-char port) (cons chr acc))))))
-
-  (let ((begin-location (port->port-location port)))
-    (match (get-char port)
-      (#\"
-       (let loop ((chr (lookahead-char port)) (acc '()))
-         (match chr
-           (#\" (let ((end-location (port->port-location port))
-                      (string (string-join (join-contiguous-strings (reverse! acc)) "")))
-                  (get-char port)
-                  (make-lexical-token
-                   'STRING
-                   (complete-source-location begin-location (string-length string))
-                   string)))
-           (#\\ (let ((escape (get-escape port
-                                          (cut member <> '(#\" #\\)))))
-                  (loop (lookahead-char port) (append escape acc))))
-           (_ (let ((str (get-double-quotation-string port)))
-                (loop (lookahead-char port) (if (not (string-null? str))
-                                                (cons str acc)
-                                                acc))))))))))
+  (let* ((begin-location (port->port-location port))
+         (foo (get-char port))
+         (chars (let loop ((chr (lookahead-char port)))
+                  (match chr
+                    ((? eof-object?) (throw 'lex-error))
+                    (#\" (begin (get-char port) '()))
+                    (#\\ (let ((escape (get-escape port
+                                                   (cut member <> '(#\" #\\)))))
+                           (cons escape (loop (lookahead-char port)))))
+                    (_ (cons (get-char port) (loop (lookahead-char port)))))))
+         (end-location (port->port-location port))
+         (string (apply string chars)))
+    (make-lexical-token
+     'STRING
+     (complete-source-location begin-location (string-length string))
+     string)))
 
 (define (get-operator port)
   "Get an operator from @var{port}."
@@ -390,4 +402,5 @@ is a newline (or EOF)."
       ((? char-numeric?)
        (get-numeric-lexical-token port))
       (#\" (get-string port))
+      ((? (const %regex)) (get-regex port))
       (_ (get-word-lexical-token port)))))
