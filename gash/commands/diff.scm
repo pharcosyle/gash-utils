@@ -33,9 +33,10 @@
 
 (define (diff . args)
   (let* ((option-spec
-	  '((help (single-char #\h))
-            (version (single-char #\V))
-            (unified (single-char #\u))))
+	  '((unified (single-char #\u))
+
+            (help (single-char #\h))
+            (version (single-char #\V))))
 	 (options (getopt-long args option-spec))
 	 (help? (option-ref options 'help #f))
          (version? (option-ref options 'version #f))

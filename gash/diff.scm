@@ -28,6 +28,8 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
   #:use-module (ice-9 rdelim)
+
+  #:use-module (gash shell-utils)
   #:export (diff-files
             hunk->lines))
 
@@ -58,9 +60,9 @@
 (define (line-equal? a b)
   (equal? (string-trim-right a) (string-trim-right b)))
 
-(define (diff-files a b)
-  (let ((a-lines (string-split (with-input-from-file a read-string) #\newline))
-        (b-lines (string-split (with-input-from-file b read-string) #\newline)))
+(define (diff-ports a b)
+  (let ((a-lines (string-split (read-string a) #\newline))
+        (b-lines (string-split (read-string b) #\newline)))
     (let loop ((context '(1 1 #f #f #f)) (a-lines a-lines) (b-lines b-lines))
       ;;(format (current-error-port) "loop context=~s\n" context)
       (cond ((and (null? a-lines) (null? b-lines)) '())
@@ -96,3 +98,6 @@
                                        ,@(cdddr context)
                                        ,(car a-lines))
                                      (cdr a-lines) (cdr b-lines))))))))))
+
+(define (diff-files a b)
+  (diff-ports (open-input-file* a) (open-input-file* b)))

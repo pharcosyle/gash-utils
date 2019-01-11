@@ -56,6 +56,7 @@
             copy-files
             link-file*
             link-files
+            open-input-file*
             read-lines
             read-lines/reversed
             string-numeric<?
@@ -202,6 +203,10 @@ errors."
 
                       ;; Don't follow symlinks.
                       lstat)))
+
+(define (open-input-file* file-name)
+  (if (equal? file-name "-") (current-input-port)
+      (open-input-file file-name)))
 
 (define* (dump-port in out
                     #:key (buffer-size 16384)
