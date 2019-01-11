@@ -90,6 +90,9 @@
     ("==" . ==)
     ("!=" . !=)
 
+    ("~" . ~)
+    ("!~" . !~)
+
     ("?" . ?)
     (":" . :)
 
@@ -235,6 +238,7 @@ next character statisfies @var{pred} (or is a newline)."
                     (_ (cons (get-char port) (loop (lookahead-char port)))))))
          (end-location (port->port-location port))
          (string (apply string chars)))
+    (set! %regex #f)
     (make-lexical-token
      'REGEX
      (complete-source-location begin-location (string-length string))
@@ -389,7 +393,6 @@ is a newline (or EOF)."
   (let loop ((chr (lookahead-char port)))
     (match chr
       ((? eof-object?) '*eoi*)
-      ((? operator-prefix-char?) (get-operator-lexical-token port))
       ((? blank?) (loop (next-char port)))
       (#\# (begin
              (skip-to-end-of-line port)
@@ -399,8 +402,9 @@ is a newline (or EOF)."
              (#\newline (loop (next-char port)))
              (_ (unget-char port #\\)
                 (get-word-lexical-token port))))
+      ((? (const %regex)) (get-regex port))
+      ((? operator-prefix-char?) (get-operator-lexical-token port))
       ((? char-numeric?)
        (get-numeric-lexical-token port))
       (#\" (get-string port))
-      ((? (const %regex)) (get-regex port))
       (_ (get-word-lexical-token port)))))

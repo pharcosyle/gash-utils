@@ -46,7 +46,6 @@
   (lalr-parser
    (
     ;; lowest precedence first
-    $
     COMMA
     LBRACE
     LBRACKET
@@ -92,7 +91,8 @@
 
     (left: In)
     (right: ? :)
-    (right: = ^= %= *= /= += -=))
+    (right: = ^= %= *= /= += -=)
+    (left: $))
 
    (program
     (item-list) : $1
@@ -229,7 +229,7 @@
     (expr > expr) : `(> ,$1 ,$3)
     (expr >= expr) : `(>= ,$1 ,$3)
     (expr ~ expr) : `(~ ,$1 ,$3)
-    (expr !~ expr) : `(<awk-no-match> ,$1 ,$3)
+    (expr !~ expr) : `(!~ ,$1 ,$3)
     (expr In NAME) : `(<awk-in> ,$1 ,$3)
     (LPAREN multiple-expr-list RPAREN In NAME)
     (expr && expr) : `(&& ,$1 ,$3)
