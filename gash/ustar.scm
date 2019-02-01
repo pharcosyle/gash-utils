@@ -195,7 +195,7 @@
   (string-trim-right (bv->ustar-0string bv name) (compose zero? char->integer)))
 
 (define (bv->ustar-number bv name)
-  (let ((string (bv->ustar-string bv name)))
+  (let ((string (string-trim-both (bv->ustar-string bv name))))
     (or (string->number string 8) 0)))
 
 (define (bv->ustar-0string bv name)
