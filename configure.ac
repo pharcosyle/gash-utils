@@ -59,7 +59,8 @@ fi
 
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([gash/commands/config.scm])
-AC_CONFIG_FILES([pre-inst-env], [chmod +x pre-inst-env])
+AC_CONFIG_FILES([pre-inst-env:build-aux/pre-inst-env.in],
+                [chmod +x pre-inst-env])
 AC_CONFIG_FILES([tests/run-test-suite], [chmod +x tests/run-test-suite])
 
 AC_OUTPUT

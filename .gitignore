@@ -39,6 +39,7 @@ build-aux/*
 !build-aux/git-version-gen
 !build-aux/gitlab-ci.yml
 !build-aux/guile.am
+!build-aux/pre-inst-env.in
 config.log
 config.status
 configure
