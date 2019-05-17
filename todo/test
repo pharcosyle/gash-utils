@@ -1,1 +1,0 @@
-if [ -e foo ] && [ -e bar ]; then echo exists; fi

@@ -1,4 +1,0 @@
-case "$1" in
-    1) echo foo;;
-    *) echo bar;;
-esac
