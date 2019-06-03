@@ -1,36 +1,7 @@
 include $(top_srcdir)/build-aux/guile.am
 
-TEST_EXTENSIONS = .scm .sh
-SCM_LOG_COMPILER = $(top_builddir)/pre-inst-env $(GUILE)
-AM_SCM_LOG_FLAGS = --no-auto-compile
-SH_LOG_COMPILER = $(top_builddir)/pre-inst-env $(top_builddir)/test.sh
-
-if HAVE_GENHTML
-
-lcov.info: all
-	$(top_builddir)/pre-inst-env $(top_builddir)/tools/coverage
-
-coverage: lcov.info
-	$(GENHTML) -o $(top_builddir)/coverage lcov.info
-
-endif # HAVE_GENHTML
-
-test-list: ; @echo $(TESTS)
-
-.PHONY: check-spec
-check-spec:
-	$(MAKE) $(AM_MAKEFLAGS) -L -C tests/spec check
-
-.PHONY: check-bootstrap
-check-bootstrap:
-	guix build -f tests/bootstrap/bash-without-bash.scm
-
-.PHONY: check-gash
-check-gash:
-	SHELL=gash $(top_builddir)/pre-inst-env $(top_builddir)/check.sh
-
-dist-hook:
-	echo $(VERSION) > $(distdir)/.tarball-version
+# Modules and scripts
+#####################
 
 SOURCES =                                       \
   gash/bournish-commands.scm                    \
@@ -126,6 +97,32 @@ scripts/gash: scripts/gash.in Makefile
 scripts/geesh: scripts/geesh.in Makefile
 	$(do_subst) < $(srcdir)/scripts/geesh.in > scripts/geesh
 	chmod a+x scripts/geesh
+
+EXTRA_DIST +=                                   \
+  scripts/geesh.in
+
+CLEANFILES +=                                   \
+  $(bin_SCRIPTS)
+
+# Tests
+#######
+
+TEST_EXTENSIONS = .scm .sh
+SCM_LOG_COMPILER = $(top_builddir)/pre-inst-env $(GUILE)
+AM_SCM_LOG_FLAGS = --no-auto-compile
+SH_LOG_COMPILER = $(top_builddir)/pre-inst-env $(top_builddir)/test.sh
+
+.PHONY: check-spec
+check-spec:
+	$(MAKE) $(AM_MAKEFLAGS) -L -C tests/spec check
+
+.PHONY: check-bootstrap
+check-bootstrap:
+	guix build -f tests/bootstrap/bash-without-bash.scm
+
+.PHONY: check-gash
+check-gash:
+	SHELL=gash $(top_builddir)/pre-inst-env $(top_builddir)/check.sh
 
 UNIT_TESTS =                                    \
   tests/unit/lexer.scm                          \
@@ -295,13 +292,30 @@ BROKEN_TESTS =                                  \
   tests/50-redirect-space.sh                    \
   tests/100-cd.sh
 
-EXTRA_DIST +=                                   \
-  scripts/geesh.in
+test-list: ; @echo $(TESTS)
 
 CLEANFILES +=                                   \
-  $(bin_SCRIPTS)                                \
   $(TESTS:tests/unit/%.scm=%.log)               \
   $(TESTS:tests/unit/%.scm=%.trs)
 
 clean-local:
 	$(MAKE) $(AM_MAKEFLAGS) -L -C tests/spec clean
+
+# Coverage
+##########
+
+if HAVE_GENHTML
+
+lcov.info: all
+	$(top_builddir)/pre-inst-env $(top_builddir)/tools/coverage
+
+coverage: lcov.info
+	$(GENHTML) -o $(top_builddir)/coverage lcov.info
+
+endif # HAVE_GENHTML
+
+# Distribution
+##############
+
+dist-hook:
+	echo $(VERSION) > $(distdir)/.tarball-version
