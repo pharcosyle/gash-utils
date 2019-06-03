@@ -41,8 +41,6 @@ build-aux/*
 config.log
 config.status
 configure
-coverage/*
-lcov.info
 pre-inst-env
 scripts/gash
 scripts/geesh
@@ -51,4 +49,3 @@ tests/spec/oil
 tests/spec/oil-link
 tests/unit/*.trs
 tests/unit/config.scm
-tools/coverage

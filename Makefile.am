@@ -292,27 +292,12 @@ BROKEN_TESTS =                                  \
   tests/50-redirect-space.sh                    \
   tests/100-cd.sh
 
-test-list: ; @echo $(TESTS)
-
 CLEANFILES +=                                   \
   $(TESTS:tests/unit/%.scm=%.log)               \
   $(TESTS:tests/unit/%.scm=%.trs)
 
 clean-local:
 	$(MAKE) $(AM_MAKEFLAGS) -L -C tests/spec clean
-
-# Coverage
-##########
-
-if HAVE_GENHTML
-
-lcov.info: all
-	$(top_builddir)/pre-inst-env $(top_builddir)/tools/coverage
-
-coverage: lcov.info
-	$(GENHTML) -o $(top_builddir)/coverage lcov.info
-
-endif # HAVE_GENHTML
 
 # Distribution
 ##############
