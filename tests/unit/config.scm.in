@@ -1,4 +1,0 @@
-(define-module (tests unit config)
-  #:export (*guile-path*))
-
-(define *guile-path* "@GUILE@")

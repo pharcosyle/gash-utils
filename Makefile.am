@@ -107,9 +107,7 @@ CLEANFILES +=                                   \
 # Tests
 #######
 
-TEST_EXTENSIONS = .scm .sh
-SCM_LOG_COMPILER = $(top_builddir)/pre-inst-env $(GUILE)
-AM_SCM_LOG_FLAGS = --no-auto-compile
+TEST_EXTENSIONS = .sh
 SH_LOG_COMPILER = $(top_builddir)/pre-inst-env $(top_builddir)/test.sh
 
 .PHONY: check-bootstrap
@@ -120,14 +118,7 @@ check-bootstrap:
 check-gash:
 	SHELL=gash $(top_builddir)/pre-inst-env $(top_builddir)/check.sh
 
-UNIT_TESTS =                                    \
-  tests/unit/lexer.scm                          \
-  tests/unit/parser.scm                         \
-  tests/unit/pattern.scm                        \
-  tests/unit/shell.scm                          \
-  tests/unit/word.scm
-
-FULL_TESTS =                                    \
+TESTS =                                         \
   tests/00-exit.sh                              \
   tests/00-exit-0.sh                            \
   tests/00-exit-1.sh                            \
@@ -253,8 +244,6 @@ FULL_TESTS =                                    \
   tests/100-tar-ro.sh                           \
   tests/100-tr.sh
 
-TESTS = $(UNIT_TESTS) $(FULL_TESTS)
-
 XFAIL_TESTS =                                   \
   tests/00-exit-var.sh                          \
   tests/03-echo-brace.sh                        \
@@ -287,10 +276,6 @@ BROKEN_TESTS =                                  \
   tests/50-redirect-sed.sh                      \
   tests/50-redirect-space.sh                    \
   tests/100-cd.sh
-
-CLEANFILES +=                                   \
-  $(TESTS:tests/unit/%.scm=%.log)               \
-  $(TESTS:tests/unit/%.scm=%.trs)
 
 # Distribution
 ##############

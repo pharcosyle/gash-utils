@@ -45,5 +45,3 @@ pre-inst-env
 scripts/gash
 scripts/geesh
 tests/*.trs
-tests/unit/*.trs
-tests/unit/config.scm
