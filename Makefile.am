@@ -1,24 +1,4 @@
-moddir=$(datadir)/guile/site/$(GUILE_EFFECTIVE_VERSION)
-godir=$(libdir)/guile/$(GUILE_EFFECTIVE_VERSION)/ccache
-
-GOBJECTS = $(MODULES:%.scm=%.go)
-
-nobase_mod_DATA = $(MODULES) $(NOCOMP_SOURCES)
-nobase_go_DATA = $(GOBJECTS)
-
-# Make sure source files are installed first, so that the mtime of
-# installed compiled files is greater than that of installed source
-# files.  See
-# <http://lists.gnu.org/archive/html/guile-devel/2010-07/msg00125.html>
-# for details.
-guile_install_go_files = install-nobase_nodist_guileobjectDATA
-$(guile_install_go_files): install-nobase_dist_guilemoduleDATA
-
-GUILE_WARNINGS = -Wunbound-variable -Warity-mismatch -Wformat
-SUFFIXES = .scm .go
-.scm.go:
-	$(AM_V_GEN)$(top_builddir)/pre-inst-env \
-	    $(GUILE_TOOLS) compile $(GUILE_WARNINGS) -o "$@" "$<"
+include $(top_srcdir)/build-aux/guile.am
 
 TEST_EXTENSIONS = .scm .sh
 SCM_LOG_COMPILER = $(top_builddir)/pre-inst-env $(GUILE)
@@ -52,7 +32,7 @@ check-gash:
 dist-hook:
 	echo $(VERSION) > $(distdir)/.tarball-version
 
-MODULES =                                       \
+SOURCES =                                       \
   gash/bournish-commands.scm                    \
   gash/builtins.scm                             \
   gash/commands/basename.scm                    \
@@ -137,7 +117,7 @@ bin_SCRIPTS =                                   \
 do_subst = sed                                  \
   -e 's,[@]GUILE[@],$(GUILE),g'                 \
   -e 's,[@]MODDIR[@],$(moddir),g'               \
-  -e 's,[@]GODIR[@],$(godir),g'
+  -e 's,[@]GODIR[@],$(ccachedir),g'
 
 scripts/gash: scripts/gash.in Makefile
 	$(do_subst) < $(srcdir)/scripts/gash.in > scripts/gash
@@ -315,11 +295,10 @@ BROKEN_TESTS =                                  \
   tests/50-redirect-space.sh                    \
   tests/100-cd.sh
 
-EXTRA_DIST =                                    \
+EXTRA_DIST +=                                   \
   scripts/geesh.in
 
-CLEANFILES =                                    \
-  $(GOBJECTS)                                   \
+CLEANFILES +=                                   \
   $(bin_SCRIPTS)                                \
   $(TESTS:tests/unit/%.scm=%.log)               \
   $(TESTS:tests/unit/%.scm=%.trs)

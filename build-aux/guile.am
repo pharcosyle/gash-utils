@@ -1,0 +1,59 @@
+# Gash-Utils
+# Copyright © 2019 Timothy Sample <samplet@ngyro.com>
+#
+# This file was adapted from the 'am/guilec' file shipped with GNU
+# Guile version 2.2.4.  Unfortunately that file does not contain a
+# copyright notice.  Looking at Guile's Git commit history, it looks
+# like the notice should read:
+#
+# Copyright 2008-2012, 2016 Free Software Foundation, Inc.
+#
+# This file is part of Gash-Utils.
+#
+# Gash-Utils is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# Gash-Utils is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Gash-Utils.  If not, see <http://www.gnu.org/licenses/>.
+
+GOBJECTS = $(SOURCES:%.scm=%.go)
+
+GUILE_WARNINGS =                                                \
+  -Wunbound-variable                                            \
+  -Warity-mismatch                                              \
+  -Wformat
+
+moddir = $(datadir)/guile/$(GUILE_EFFECTIVE_VERSION)/$(modpath)
+nobase_mod_DATA = $(SOURCES) $(NOCOMP_SOURCES)
+ccachedir = $(libdir)/guile/$(GUILE_EFFECTIVE_VERSION)/ccache/$(modpath)
+nobase_ccache_DATA = $(GOBJECTS)
+EXTRA_DIST = $(SOURCES) $(NOCOMP_SOURCES)
+
+CLEANFILES = $(GOBJECTS)
+
+# Make sure source files are installed first, so that the mtime of
+# installed compiled files is greater than that of installed source
+# files.  See
+# <http://lists.gnu.org/archive/html/guile-devel/2010-07/msg00125.html>
+# for details.
+guile_install_go_files = install-nobase_ccacheDATA
+$(guile_install_go_files): install-nobase_modDATA
+
+AM_V_GUILEC = $(AM_V_GUILEC_@AM_V@)
+AM_V_GUILEC_ = $(AM_V_GUILEC_@AM_DEFAULT_V@)
+AM_V_GUILEC_0 = @echo "  GUILEC" $@;
+
+SUFFIXES = .scm .go
+
+.scm.go:
+	$(AM_V_GUILEC)GUILE_AUTO_COMPILE=0      \
+	$(top_builddir)/pre-inst-env            \
+	$(GUILD) compile $(GUILE_WARNINGS)      \
+	         -o "$@" "$<"

@@ -37,6 +37,7 @@ autom4te.cache/*
 build-aux/*
 !build-aux/git-version-gen
 !build-aux/gitlab-ci.yml
+!build-aux/guile.am
 config.log
 config.status
 configure
