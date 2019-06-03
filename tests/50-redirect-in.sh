@@ -1,1 +1,0 @@
-\cat < tests/data/foo

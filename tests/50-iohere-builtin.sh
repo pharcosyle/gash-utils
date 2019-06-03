@@ -1,3 +1,0 @@
-\cat <<EOF
-foobar
-EOF
