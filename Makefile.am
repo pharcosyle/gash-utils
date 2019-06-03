@@ -181,8 +181,6 @@ TESTS =                                         \
   tests/100-tr.sh
 
 XFAIL_TESTS =                                   \
-  tests/100-basename-autoconf.sh                \
-  tests/100-dirname-autoconf.sh                 \
   tests/100-tar-Z-pipe.sh
 
 # Distribution
