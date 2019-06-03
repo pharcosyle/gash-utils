@@ -1,6 +1,6 @@
 AC_INIT([Geesh],
         m4_esyscmd([build-aux/git-version-gen .tarball-version]))
-AC_CONFIG_SRCDIR([geesh])
+AC_CONFIG_SRCDIR([gash])
 AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([color-tests silent-rules -Wall -Werror foreign])
 AM_SILENT_RULES([yes])

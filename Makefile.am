@@ -48,42 +48,10 @@ SOURCES =                                       \
   gash/script.scm                               \
   gash/shell-utils.scm                          \
   gash/ustar.scm                                \
-  gash/util.scm                                 \
-  geesh/built-ins/break.scm                     \
-  geesh/built-ins/cd.scm                        \
-  geesh/built-ins/colon.scm                     \
-  geesh/built-ins/continue.scm                  \
-  geesh/built-ins/dot.scm                       \
-  geesh/built-ins/echo.scm                      \
-  geesh/built-ins/eval.scm                      \
-  geesh/built-ins/exec.scm                      \
-  geesh/built-ins/exit.scm                      \
-  geesh/built-ins/export.scm                    \
-  geesh/built-ins/false.scm                     \
-  geesh/built-ins/pwd.scm                       \
-  geesh/built-ins/read.scm                      \
-  geesh/built-ins/readonly.scm                  \
-  geesh/built-ins/return.scm                    \
-  geesh/built-ins/set.scm                       \
-  geesh/built-ins/shift.scm                     \
-  geesh/built-ins/trap.scm                      \
-  geesh/built-ins/true.scm                      \
-  geesh/built-ins/umask.scm                     \
-  geesh/built-ins/unset.scm                     \
-  geesh/built-ins/utils.scm                     \
-  geesh/built-ins.scm                           \
-  geesh/environment.scm                         \
-  geesh/eval.scm                                \
-  geesh/lexer.scm                               \
-  geesh/parser.scm                              \
-  geesh/pattern.scm                             \
-  geesh/repl.scm                                \
-  geesh/shell.scm                               \
-  geesh/word.scm
+  gash/util.scm
 
 bin_SCRIPTS =                                   \
-  scripts/gash                                  \
-  scripts/geesh
+  scripts/gash
 
 do_subst = sed                                  \
   -e 's,[@]GUILE[@],$(GUILE),g'                 \
@@ -93,13 +61,6 @@ do_subst = sed                                  \
 scripts/gash: scripts/gash.in Makefile
 	$(do_subst) < $(srcdir)/scripts/gash.in > scripts/gash
 	chmod a+x scripts/gash
-
-scripts/geesh: scripts/geesh.in Makefile
-	$(do_subst) < $(srcdir)/scripts/geesh.in > scripts/geesh
-	chmod a+x scripts/geesh
-
-EXTRA_DIST +=                                   \
-  scripts/geesh.in
 
 CLEANFILES +=                                   \
   $(bin_SCRIPTS)
