@@ -45,7 +45,5 @@ pre-inst-env
 scripts/gash
 scripts/geesh
 tests/*.trs
-tests/spec/oil
-tests/spec/oil-link
 tests/unit/*.trs
 tests/unit/config.scm

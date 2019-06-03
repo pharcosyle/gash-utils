@@ -112,10 +112,6 @@ SCM_LOG_COMPILER = $(top_builddir)/pre-inst-env $(GUILE)
 AM_SCM_LOG_FLAGS = --no-auto-compile
 SH_LOG_COMPILER = $(top_builddir)/pre-inst-env $(top_builddir)/test.sh
 
-.PHONY: check-spec
-check-spec:
-	$(MAKE) $(AM_MAKEFLAGS) -L -C tests/spec check
-
 .PHONY: check-bootstrap
 check-bootstrap:
 	guix build -f tests/bootstrap/bash-without-bash.scm
@@ -295,9 +291,6 @@ BROKEN_TESTS =                                  \
 CLEANFILES +=                                   \
   $(TESTS:tests/unit/%.scm=%.log)               \
   $(TESTS:tests/unit/%.scm=%.trs)
-
-clean-local:
-	$(MAKE) $(AM_MAKEFLAGS) -L -C tests/spec clean
 
 # Distribution
 ##############
