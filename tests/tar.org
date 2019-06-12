@@ -1,0 +1,91 @@
+;;; Gash-Utils
+;;; Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;; Copyright © 2020 Timothy Sample <samplet@ngyro.com>
+;;;
+;;; This file is part of Gash-Utils.
+;;;
+;;; Gash-Utils is free software: you can redistribute it and/or modify
+;;; it under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation, either version 3 of the License, or
+;;; (at your option) any later version.
+;;;
+;;; Gash-Utils is distributed in the hope that it will be useful,
+;;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;;; GNU General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with Gash-Utils.  If not, see <http://www.gnu.org/licenses/>.
+
+* tar
+:script:
+#+begin_src sh
+  \tar -cf- --sort=name tests/data/star | \tar -tf-
+#+end_src
+:stdout:
+#+begin_example
+  tests/data/star/
+  tests/data/star/0
+  tests/data/star/1
+  tests/data/star/2
+  tests/data/star/3
+#+end_example
+
+* tar-ro
+:script:
+#+begin_src sh
+  \tar -xvf tests/data/ro.tar
+  \chmod -R +w foo
+  \rm -r foo
+#+end_src
+:stdout:
+#+begin_example
+  foo/
+  foo/bar/
+  foo/bar/baz
+#+end_example
+
+* tar-Z
+:script:
+#+begin_src sh
+  \tar -cZf tmp.tar --sort=name tests/data/star
+  \tar -tZf tmp.tar
+#+end_src
+:stdout:
+#+begin_example
+  tests/data/star/
+  tests/data/star/0
+  tests/data/star/1
+  tests/data/star/2
+  tests/data/star/3
+#+end_example
+
+* tar-Z-old
+:script:
+#+begin_src sh
+  \tar cZf tmp.tar --sort=name tests/data/star
+  \tar tZf tmp.tar
+#+end_src
+:stdout:
+#+begin_example
+  tests/data/star/
+  tests/data/star/0
+  tests/data/star/1
+  tests/data/star/2
+  tests/data/star/3
+#+end_example
+
+* tar-Z-pipe
+:xfail?: #t
+:script:
+#+begin_src sh
+  \tar -cZf- --sort=name tests/data/star | \tar -tZf-
+#+end_src
+:stdout:
+#+begin_example
+  tests/data/star/
+  tests/data/star/0
+  tests/data/star/1
+  tests/data/star/2
+  tests/data/star/3
+#+end_example

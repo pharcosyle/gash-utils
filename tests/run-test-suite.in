@@ -1,0 +1,279 @@
+#! @GUILE@ \
+--no-auto-compile -e main -s
+!#
+
+;;; Gash-Utils
+;;; Copyright © 2019, 2020 Timothy Sample <samplet@ngyro.com>
+;;; Copyright © 2019 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;;
+;;; This file is part of Gash-Utils.
+;;;
+;;; Gash-Utils is free software: you can redistribute it and/or modify
+;;; it under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation, either version 3 of the License, or
+;;; (at your option) any later version.
+;;;
+;;; Gash-Utils is distributed in the hope that it will be useful,
+;;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;;; GNU General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with Gash-Utils.  If not, see <http://www.gnu.org/licenses/>.
+
+(use-modules (ice-9 match)
+             (ice-9 popen)
+             (ice-9 rdelim)
+             (ice-9 receive)
+             (srfi srfi-9))
+
+
+;;; Test record
+
+(define *interpreters*
+  `(("sh" . ,(lambda (script args)
+               `("sh" "sh" "-e" "-c" ,script "test" ,@args)))
+    ("awk" . ,(lambda (script args)
+                `("awk" "awk" "--" ,script ,@args)))
+    ("sed" . ,(lambda (script args)
+                `("sed" "sed" "-e" ,script ,@args)))))
+
+(define-record-type <test>
+  (%make-test name interpreter script args stdin
+              status stdout stderr xfail?)
+  test?
+  (name test-name)
+  (interpreter test-interpreter)
+  (script test-script)
+  (args test-args)
+  (stdin test-stdin)
+  (status test-status)
+  (stdout test-stdout)
+  (stderr test-stderr)
+  (xfail? test-xfail?))
+
+(define* (make-test name interpreter script #:key (args '()) stdin
+                    (status 0) stdout stderr xfail?)
+  (unless (string? name)
+    (error (format #f "invalid test name: ~s" name)))
+  (unless (assoc interpreter *interpreters*)
+    (error (format #f "invalid test interpreter: ~s" interpreter)))
+  (unless (string? script)
+    (error (format #f "invalid test script: ~s" script)))
+  (match args
+    ((or () ((? string?) ...)) #t)
+    (_ (error (format #f "invalid test args: ~s" args))))
+  (%make-test name interpreter script args stdin status stdout stderr xfail?))
+
+
+;;; Org-style input
+
+(define (read-org-block ex-chr port)
+  (define block-name
+    (let ((name (read-delimited " \t\n" port 'peek)))
+      ;; Consume the rest of the line.
+      (read-line port)
+      (unless (string-prefix-ci? "begin_" name)
+        (error "Org blocks must start with \"begin_\""))
+      (substring name 6)))
+
+  (define delim
+    (string-append "#+end_" block-name "\n"))
+
+  (let loop ((line (read-line port 'concat)) (acc '()))
+    (cond
+     ((eof-object? line) (error "end of file in Org block"))
+     ((string-ci=? line delim) (string-concatenate-reverse acc))
+     (else
+      (unless (string-prefix? "  " line)
+        (error "All Org block lines must indented with two spaces"))
+      (loop (read-line port 'concat) (cons (substring line 2) acc))))))
+
+(read-hash-extend #\+ read-org-block)
+
+(define (read-tests port)
+  (let loop ((token (read port)) (test '()) (tests '()))
+    (match token
+      ((? eof-object?)
+       (reverse! (match test
+                   (() tests)
+                   (_ (cons test tests)))))
+      ('*
+       (let ((name (read-line port)))
+         (when (eof-object? name)
+           (error "end of file while expecting a value"))
+         (loop (read port) `((:name: . ,(string-trim name)))
+               (match test
+                 (() tests)
+                 (_ (cons test tests))))))
+      (key
+       (let ((value (read port)))
+         (when (eof-object? value)
+           (error "end of file while expecting a value"))
+         (loop (read port) (acons key value test) tests))))))
+
+(define (test-alist->test alist)
+  (make-test (assq-ref alist ':name:)
+             (or (assq-ref alist ':interpreter:) "sh")
+             (assq-ref alist ':script:)
+             #:args (or (assq-ref alist ':args:) '())
+             #:status (or (assq-ref alist ':status:) 0)
+             #:stdin (assq-ref alist ':stdin:)
+             #:stdout (assq-ref alist ':stdout:)
+             #:stderr (assq-ref alist ':stderr:)
+             #:xfail? (assq-ref alist ':xfail?:)))
+
+
+;;; Invocation helpers
+
+;; XXX: This is probably the slowest way possible to do this.  I hope
+;; it is correct, at least.
+(define (get-strings-all . ports)
+  (define accs (make-hash-table (length ports)))
+
+  (define (accs-cons! x port)
+    (hashq-set! accs port (cons x (hashq-ref accs port '()))))
+
+  (let loop ((ps ports))
+    (match ps
+      (() (map (lambda (port)
+                 (reverse-list->string (hashq-ref accs port '())))
+               ports))
+      (_ (match (select ps '() '())
+           (((ready-port . _) _ _)
+            (match (read-char ready-port)
+              ((? eof-object?)
+               (loop (filter (lambda (port)
+                               (not (eq? port ready-port)))
+                             ps)))
+              (chr (accs-cons! chr ready-port)
+                   (loop ps)))))))))
+
+(define (observe interpreter script args input)
+  "Use INTERPRETER to interpret SCRIPT on INPUT, returning the exit
+status, standard output, and standard error as three values."
+  (match-let (((stdin-input . stdin-output) (pipe))
+              ((stdout-input . stdout-output) (pipe))
+              ((stderr-input . stderr-output) (pipe))
+              ((ex-input . ex-output) (pipe)))
+    (match (primitive-fork)
+      (0 (catch #t
+           (lambda ()
+             (close-port stdin-output)
+             (close-port stdout-input)
+             (close-port stderr-input)
+             (close-port ex-input)
+             (dup stdin-input 0)
+             (dup stdout-output 1)
+             (dup stderr-output 2)
+             (setenv "TEST_TMP" (getcwd))
+             (chdir "@abs_top_srcdir@")
+             (let ((make-invocation (assoc-ref *interpreters* interpreter)))
+               (apply execlp (make-invocation script args))))
+           (lambda args
+             (write args ex-output)
+             (force-output ex-output)
+             (primitive-_exit EXIT_FAILURE))))
+      (pid (close-port stdin-input)
+           (close-port stdout-output)
+           (close-port stderr-output)
+           (close-port ex-output)
+           (when input
+             (display input stdin-output))
+           (close stdin-output)
+           (match (get-strings-all stdout-input stderr-input ex-input)
+             ((stdout stderr "")
+              (match-let (((pid . status) (waitpid pid)))
+                (values (status:exit-val status) stdout stderr)))
+             ((_ _ ex)
+              (apply throw (call-with-input-string ex read))))))))
+
+
+;;; Runner
+
+(define (display-output output)
+  (format #t "---~%~a~a---~%"
+          output (if (string-suffix? "\n" output) "" "\n")))
+
+(define (run-test test)
+  (match-let ((($ <test> name interpreter script args stdin
+                  xstatus xstdout xstderr xfail?) test))
+    (format #t "Start test: ~a~%" name)
+    (format #t "Interpreter: ~a~%" interpreter)
+    (display "Script: ")
+    (display-output script)
+    (format #t "Arguments: ~s~%" args)
+    (when stdin
+      (display "Stdin: ")
+      (display-output stdin))
+    (catch #t
+      (lambda ()
+        (receive (status stdout stderr) (observe interpreter script args stdin)
+          (let* ((status-ok? (= status xstatus))
+                 (stdout-ok? (or (not xstdout) (string=? stdout xstdout)))
+                 (stderr-ok? (or (not xstderr) (string=? stderr xstderr)))
+                 (ok? (and status-ok? stdout-ok? stderr-ok?))
+                 (result (if ok?
+                             (if xfail? 'xpass 'pass)
+                             (if xfail? 'xfail 'fail))))
+            (unless status-ok?
+              (format #t "Expected status: ~a~%" xstatus)
+              (format #t "Actual status: ~a~%" status))
+            (unless stdout-ok?
+              (display "Expected stdout: ")
+              (display-output xstdout)
+              (display "Actual stdout: " )
+              (display-output stdout))
+            (unless stderr-ok?
+              (display "Expected stderr: ")
+              (display-output xstderr)
+              (display "Actual stderr: " )
+              (display-output stderr))
+            (format #t "Result: ~a~%" result)
+            (format #t "End test: ~a~%" name)
+            result)))
+      (lambda args
+        (format #t "Test error: ~s~%" args)
+        (format #t "End test: ~a~%" name)
+        'error))))
+
+(define (run-tests tests)
+  (let loop ((tests tests) (pass 0) (fail 0) (xpass 0) (xfail 0) (error 0))
+    (match tests
+      (()
+       (format #t "== Summary ==~%")
+       (for-each (match-lambda
+                   ((label . count)
+                    (when (> count 0)
+                      (format #t "~a~a~%" label count))))
+                 `(("Expected passes: " . ,pass)
+                   ("Expected failures: " . ,xfail)
+                   ("Unexpected passes: " . ,xpass)
+                   ("Unexpected failures: " . ,fail)
+                   ("Errors: " . ,error)))
+       (let ((pass? (and (= xpass 0) (= fail 0) (= error 0))))
+         (format #t "Result: ~a~%" (if pass? "pass" "fail"))
+         pass?))
+      ((test . rest)
+       (match (let ((result (run-test test)))
+                (newline)
+                result)
+         ('pass (loop rest (1+ pass) fail xpass xfail error))
+         ('fail (loop rest pass (1+ fail) xpass xfail error))
+         ('xpass (loop rest pass fail (1+ xpass) xfail error))
+         ('xfail (loop rest pass fail xpass (1+ xfail) error))
+         ('error (loop rest pass fail xpass xfail (1+ error))))))))
+
+
+;;; Main
+
+(define (main args)
+  (match args
+    ((_ filename)
+     (exit (run-tests (map test-alist->test
+                           (call-with-input-file filename read-tests)))))
+    (_ (error "invalid arguments"))))
+
+;;; Local Variables:
+;;; mode: scheme
+;;; End:

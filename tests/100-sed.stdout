@@ -1,8 +1,0 @@
-Usage: sed [OPTION]... [SCRIPT] [FILE]...
-  -e, --expression=SCRIPT    add SCRIPT to the commands to be executed
-  -E, -r, --regexp-extended  use extended regular expressions in the script
-  -f, --file=SCRIPT          add contents of SCRIPT to the commands to be executed
-  -h, --help                 display this help
-  -i, --in-place             edit files in place
-  -n, --quiet                only write explicitly selected output
-  -V, --version              display version

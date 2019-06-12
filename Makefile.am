@@ -233,51 +233,19 @@ scripts/which: $(srcdir)/scripts/template.in Makefile
 # Tests
 #######
 
-TEST_EXTENSIONS = .sh
-SH_LOG_COMPILER = $(top_builddir)/pre-inst-env $(top_builddir)/test.sh
+TEST_EXTENSIONS = .org
+ORG_LOG_COMPILER = $(top_builddir)/pre-inst-env \
+                       $(top_builddir)/tests/run-test-suite
 
 .PHONY: check-bootstrap
 check-bootstrap:
 	guix build -f tests/bootstrap/bash-without-bash.scm
 
 TESTS =                                         \
-  tests/100-test.sh                             \
-  tests/100-test-file.sh                        \
-  tests/100-bracket-file.sh                     \
-  tests/100-basename-root.sh                    \
-  tests/100-dirname-root.sh                     \
-  tests/100-basename-autoconf.sh                \
-  tests/100-dirname-autoconf.sh                 \
-  tests/100-sed.sh                              \
-  tests/100-sed-once.sh                         \
-  tests/100-sed-global.sh                       \
-  tests/100-sed-case.sh                         \
-  tests/100-sed-group.sh                        \
-  tests/100-sed-group-extended.sh               \
-  tests/100-sed-twice.sh                        \
-  tests/100-sed-undo.sh                         \
-  tests/100-sed-file.sh                         \
-  tests/100-sed-fooRbar.sh                      \
-  tests/100-sed-pattern-address.sh              \
-  tests/100-sed-quit.sh                         \
-  tests/100-sed-autoconf-basename.sh            \
-  tests/100-sed-branch-b.sh                     \
-  tests/100-sed-branch-t.sh                     \
-  tests/100-sed-insert-text.sh                  \
-  tests/100-sed-range.sh                        \
-  tests/100-sed-skip.sh                         \
-  tests/100-sed-address-search.sh               \
-  tests/100-sed-search-dollar.sh                \
-  tests/100-sed-skip.sh                         \
-  tests/100-tar.sh                              \
-  tests/100-tar-Z.sh                            \
-  tests/100-tar-Z-old.sh                        \
-  tests/100-tar-Z-pipe.sh                       \
-  tests/100-tar-ro.sh                           \
-  tests/100-tr.sh
-
-XFAIL_TESTS =                                   \
-  tests/100-tar-Z-pipe.sh
+  tests/awk.org                                 \
+  tests/core-utils.org                          \
+  tests/sed.org                                 \
+  tests/tar.org
 
 # Distribution
 ##############

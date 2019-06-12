@@ -1,9 +1,0 @@
-#! @MAKE@
-BASH=@BASH@ #foobar
-LIBS=@LIBS@
-CC_FOR_BUILD=@CC_FOR_BUILD@
-
-all:
-	@CC@ -o bar bar.c
-
-# end

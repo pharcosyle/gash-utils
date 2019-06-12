@@ -1,0 +1,358 @@
+;;; Gash-Utils
+;;; Copyright © 2019 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;; Copyright © 2020 Timothy Sample <samplet@ngyro.com>
+;;;
+;;; This file is part of Gash-Utils.
+;;;
+;;; Gash-Utils is free software: you can redistribute it and/or modify
+;;; it under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation, either version 3 of the License, or
+;;; (at your option) any later version.
+;;;
+;;; Gash-Utils is distributed in the hope that it will be useful,
+;;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;;; GNU General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with Gash-Utils.  If not, see <http://www.gnu.org/licenses/>.
+
+* awk-array
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      array["foo"]="0"
+      array["bar"]="1"
+      array["baz"]=""
+  
+      if ("foo" in array)
+          print "have foo"
+  
+      for (key in array)
+          print key " => " array[key]
+  }
+#+end_src
+:stdin:
+#+begin_example
+  foo
+  bar
+#+end_example
+:stdout:
+#+begin_example
+  have foo
+  baz => 
+  bar => 1
+  foo => 0
+#+end_example
+
+* awk-begin-end
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  { print foo }
+  BEGIN { print "begin"; foo = "bar" }
+  END { print "end" }
+  BEGIN { print "again"; foo = "baz" }
+#+end_src
+:stdin:
+#+begin_example
+  foo
+  bar
+#+end_example
+:stdout:
+#+begin_example
+  begin
+  again
+  baz
+  baz
+  end
+#+end_example
+
+* awk-bool
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  !a { print "unset:" a; a = !a; print a ":is" "FALSE" }
+  a { a = !a; print a ";TRUE"; print }
+#+end_src
+:stdin:
+#+begin_example
+  one
+  two
+#+end_example
+:stdout:
+#+begin_example
+  unset:
+  1:isFALSE
+  0;TRUE
+  one
+  unset:0
+  1:isFALSE
+  0;TRUE
+  two
+#+end_example
+
+* awk-builtin-length
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  {print length ($0); print length (length ($0)) }
+#+end_src
+:stdin:
+#+begin_example
+  foo bar baz
+#+end_example
+:stdout:
+#+begin_example
+  11
+  2
+#+end_example
+
+* awk-builtin-split
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      line = "foo @bar@ baz"
+      nfields = split(line, field, "@")
+      for (i = 1; i < nfields; i++)
+          print i ":" field[i]
+  }
+#+end_src
+:stdin:
+#+begin_example
+  #
+#+end_example
+:stdout:
+#+begin_example
+  1:foo 
+  2:bar
+#+end_example
+
+* awk-builtin-substr
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  { print substr ($0, 2, 3) }
+  { print (substr ($0, 4)) }
+#+end_src
+:stdin:
+#+begin_example
+  foo bar baz
+#+end_example
+:stdout:
+#+begin_example
+  oo 
+   bar baz
+#+end_example
+
+* awk-concat
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      line = "foo"
+      value = "bar"
+      #line = substr(line, 1, len) "" value "" substr(line, len + keylen + 3)
+      line = substr(line, 1, len) "" value "" substr(line, len + keylen + 3)
+      print line
+  }
+#+end_src
+:stdin:
+#+begin_example
+  foo
+  bar
+#+end_example
+:stdout:
+#+begin_example
+  baro
+#+end_example
+
+* awk-configure-subs
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+  S["BASH"]="gash"
+  S["MAKE"]="meek"
+  S["CC"]="mescc"
+  S["LIBS"]=""
+    for (key in S) S_is_set[key] = 1
+    FS = ""
+  
+  }
+  {
+    line = $ 0
+    nfields = split(line, field, "@")
+    substed = 0
+    len = length(field[1])
+    for (i = 2; i < nfields; i++) {
+      key = field[i]
+      keylen = length(key)
+      if (S_is_set[key]) {
+        value = S[key]
+        line = substr(line, 1, len) "" value "" substr(line, len + keylen + 3)
+        len += length(value) + length(field[++i])
+        substed = 1
+      } else
+        len += 1 + keylen
+    }
+  
+    print line
+  }
+#+end_src
+:stdin:
+#+begin_example
+  #! @MAKE@
+  BASH=@BASH@ #foobar
+  LIBS=@LIBS@
+  CC_FOR_BUILD=@CC_FOR_BUILD@
+  
+  all:
+  	@CC@ -o bar bar.c
+  
+  # end
+#+end_example
+:stdout:
+#+begin_example
+  #! meek
+  BASH=gash #foobar
+  LIBS=
+  CC_FOR_BUILD=@CC_FOR_BUILD@
+  
+  all:
+  	mescc -o bar bar.c
+  
+  # end
+#+end_example
+
+* awk-expr
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  NR == 1 { print "one" }
+  NR == 2 { print "two" }
+  NR != 1 && NR != 1 * 2 + 3 * 0 { print "other" }
+#+end_src
+:stdin:
+#+begin_example
+  1 2
+  1 2 3 4
+  1 2 3 4 5
+  1 2 3 4 5 6 7 8
+  1
+#+end_example
+:stdout:
+#+begin_example
+  one
+  two
+  other
+  other
+  other
+#+end_example
+
+* awk-fields
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  {print $0}
+  {print $1}
+  {print $10}
+  {print $NF}
+#+end_src
+:stdin:
+#+begin_example
+  foo bar baz
+#+end_example
+:stdout:
+#+begin_example
+  foo bar baz
+  foo
+  
+  baz
+#+end_example
+
+* awk-if
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  { if (1) print "1:" $0 }
+  { if (0) { print "0:" $0 } else print "false" }
+#+end_src
+:stdin:
+#+begin_example
+  foo
+  bar
+#+end_example
+:stdout:
+#+begin_example
+  1:foo
+  false
+  1:bar
+  false
+#+end_example
+
+* awk-match
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  $0 ~ /^#!/ && NR == 1 { print "#! be bang" }
+  $0 !~ /^#/ && NF == 3 { print "!#" }
+  /^[^#]/ { print }
+  
+#+end_src
+:stdin:
+#+begin_example
+  #!foo
+  #foo foo foo
+  bar bar bar
+#+end_example
+:stdout:
+#+begin_example
+  #! be bang
+  !#
+  bar bar bar
+#+end_example
+
+* awk-nfset
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  { NF = 5 ; print }
+#+end_src
+:stdin:
+#+begin_example
+  1 2
+  1 2 3 4
+  1 2 3 4 5
+  1 2 3 4 5 6 7 8
+  1
+#+end_example
+:stdout:
+#+begin_example
+  1 2
+  1 2 3 4
+  1 2 3 4 5
+  1 2 3 4 5
+  1
+#+end_example
+
+* awk-re
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  /foo/ { print }
+  /bar/ { print "bla" }
+#+end_src
+:stdin:
+#+begin_example
+  foo
+  bar
+  baz
+#+end_example
+:stdout:
+#+begin_example
+  foo
+  bla
+#+end_example

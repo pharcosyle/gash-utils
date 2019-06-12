@@ -1,0 +1,109 @@
+;;; Gash-Utils
+;;; Copyright © 2016, 2017, 2018 R.E.W. van Beusekom <rutger.van.beusekom@gmail.com>
+;;; Copyright © 2018, 2019 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;; Copyright © 2019 Timothy Sample <samplet@ngyro.com>
+;;;
+;;; This file is part of Gash-Utils.
+;;;
+;;; Gash-Utils is free software: you can redistribute it and/or modify
+;;; it under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation, either version 3 of the License, or
+;;; (at your option) any later version.
+;;;
+;;; Gash-Utils is distributed in the hope that it will be useful,
+;;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;;; GNU General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with Gash-Utils.  If not, see <http://www.gnu.org/licenses/>.
+
+* basename-autoconf
+:script:
+#+begin_src sh
+  if (\basename -- /) >/dev/null 2>&1 && \test "X`\basename -- / 2>&1`" = "X/"; then
+    as_basename=basename
+  else
+    as_basename=false
+  fi
+  echo as_basename:$as_basename
+#+end_src
+:stdout:
+#+begin_example
+  as_basename:basename
+#+end_example
+
+* basename-root
+:script:
+#+begin_src sh
+  \basename /root
+  \basename /
+#+end_src
+:stdout:
+#+begin_example
+  root
+  /
+#+end_example
+
+* bracket-file
+:script:
+#+begin_src sh
+  if \[ -f foo-bar ]; then
+     exit 1
+  fi
+#+end_src
+
+* dirname-autoconf
+:script:
+#+begin_src sh
+  if (as_dir=`\dirname -- /` && \test "X$as_dir" = X/) >/dev/null 2>&1; then
+    as_dirname=dirname
+  else
+    as_dirname=false
+  fi
+  echo as_dirname:$as_dirname
+#+end_src
+:stdout:
+#+begin_example
+  as_dirname:dirname
+#+end_example
+
+* dirname-root
+:script:
+#+begin_src sh
+  \dirname /root
+  \dirname /
+#+end_src
+:stdout:
+#+begin_example
+  /
+  /
+#+end_example
+
+* test-file
+:script:
+#+begin_src sh
+  if test -f foo-bar; then
+     exit 1
+  fi
+#+end_src
+
+* test
+:script:
+#+begin_src sh
+  if test a = b; then
+     exit 1;
+  fi
+#+end_src
+
+* tr
+:script:
+#+begin_src sh
+  \tr -d o < tests/data/foo
+#+end_src
+:stdout:
+#+begin_example
+  f
+  bar
+  baz
+#+end_example
