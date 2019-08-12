@@ -27,6 +27,7 @@ SOURCES =                                       \
   gash/commands/mkdir.scm                       \
   gash/commands/mv.scm                          \
   gash/commands/printf.scm                      \
+  gash/commands/pwd.scm                         \
   gash/commands/reboot.scm                      \
   gash/commands/rm.scm                          \
   gash/commands/rmdir.scm                       \
@@ -79,6 +80,7 @@ WRAPPERS =                                      \
   scripts/mkdir                                 \
   scripts/mv                                    \
   scripts/printf                                \
+  scripts/pwd                                   \
   scripts/reboot                                \
   scripts/rm                                    \
   scripts/rmdir                                 \
