@@ -57,8 +57,7 @@ gash/commands/testb.scm: $(srcdir)/gash/commands/test.scm Makefile
 	    -e 's,apply test (cdr,apply test/bracket (cdr,g' \
 	    < $< > $@
 
-bin_SCRIPTS =                                   \
-  scripts/[                                     \
+WRAPPERS =                                      \
   scripts/awk                                   \
   scripts/basename                              \
   scripts/cat                                   \
@@ -69,7 +68,6 @@ bin_SCRIPTS =                                   \
   scripts/cut                                   \
   scripts/diff                                  \
   scripts/dirname                               \
-  scripts/egrep                                 \
   scripts/expr                                  \
   scripts/find                                  \
   scripts/grep                                  \
@@ -93,141 +91,22 @@ bin_SCRIPTS =                                   \
   scripts/wc                                    \
   scripts/which
 
+bin_SCRIPTS =                                   \
+  $(WRAPPERS)                                   \
+  scripts/[                                     \
+  scripts/egrep
+
 do_subst = $(AM_V_GEN)sed                       \
   -e 's,[@]GUILE[@],$(GUILE),g'                 \
   -e 's,[@]MODDIR[@],$(moddir),g'               \
   -e 's,[@]CCACHEDIR[@],$(ccachedir),g'
 
+$(WRAPPERS): $(srcdir)/scripts/template.in Makefile
+	$(do_subst) -e 's,@UTILITY@,'"$$(basename '$@')"',' < $< > $@
+	$(AM_V_at)chmod a+x $@
+
 scripts/[: $(srcdir)/scripts/template.in Makefile
 	$(do_subst) -e 's,@UTILITY@,testb,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/awk: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,awk,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/basename: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,basename,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/cat: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,cat,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/chmod: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,chmod,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/cmp: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,cmp,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/compress: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,compress,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/cp: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,cp,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/cut: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,cut,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/diff: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,diff,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/dirname: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,dirname,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/expr: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,expr,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/find: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,find,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/grep: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,grep,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/ln: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,ln,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/ls: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,ls,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/mkdir: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,mkdir,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/mv: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,mv,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/printf: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,printf,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/reboot: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,reboot,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/rm: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,rm,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/rmdir: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,rmdir,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/sed: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,sed,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/sleep: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,sleep,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/sort: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,sort,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/tar: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,tar,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/test: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,test,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/touch: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,touch,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/tr: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,tr,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/uname: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,uname,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/uniq: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,uniq,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/wc: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,wc,' < $< > $@
-	$(AM_V_at)chmod a+x $@
-
-scripts/which: $(srcdir)/scripts/template.in Makefile
-	$(do_subst) -e 's,@UTILITY@,which,' < $< > $@
 	$(AM_V_at)chmod a+x $@
 
 # Tests
