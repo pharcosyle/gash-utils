@@ -19,6 +19,7 @@ SOURCES =                                       \
   gash/commands/diff.scm                        \
   gash/commands/dirname.scm                     \
   gash/commands/expr.scm                        \
+  gash/commands/false.scm                       \
   gash/commands/find.scm                        \
   gash/commands/grep.scm                        \
   gash/commands/ln.scm                          \
@@ -38,6 +39,7 @@ SOURCES =                                       \
   gash/commands/testb.scm                       \
   gash/commands/touch.scm                       \
   gash/commands/tr.scm                          \
+  gash/commands/true.scm                        \
   gash/commands/uname.scm                       \
   gash/commands/uniq.scm                        \
   gash/commands/wc.scm                          \
@@ -69,6 +71,7 @@ WRAPPERS =                                      \
   scripts/diff                                  \
   scripts/dirname                               \
   scripts/expr                                  \
+  scripts/false                                 \
   scripts/find                                  \
   scripts/grep                                  \
   scripts/ln                                    \
@@ -86,6 +89,7 @@ WRAPPERS =                                      \
   scripts/test                                  \
   scripts/touch                                 \
   scripts/tr                                    \
+  scripts/true                                  \
   scripts/uname                                 \
   scripts/uniq                                  \
   scripts/wc                                    \
