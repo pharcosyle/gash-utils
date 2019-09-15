@@ -19,8 +19,8 @@
 
 (define-module (gash commands awk parser)
   #:use-module (gash commands awk lexer)
+  #:use-module (gash compat textual-ports)
   #:use-module (ice-9 match)
-  #:use-module (ice-9 textual-ports)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-41)

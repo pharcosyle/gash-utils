@@ -18,10 +18,10 @@
 ;;; along with Gash.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (gash commands awk lexer)
+  #:use-module (gash compat textual-ports)
   #:use-module (ice-9 match)
   #:use-module (ice-9 rdelim)
   #:use-module (ice-9 receive)
-  #:use-module (ice-9 textual-ports)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-26)
