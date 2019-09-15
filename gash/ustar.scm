@@ -29,6 +29,7 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (srfi srfi-26)
+  #:use-module ((ice-9 iconv) #:prefix iconv:)
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
   #:use-module (rnrs bytevectors)
@@ -86,7 +87,7 @@
                name
                (string-filter (negate valid-ustar-char?) str)
                str))
-  (bytevector-pad (string->bytevector str (make-transcoder (latin-1-codec))) n))
+  (bytevector-pad (iconv:string->bytevector str "ISO-8859-1") n))
 
 (define (ustar-0string n str name)
   (bytevector-pad (ustar-string (- n 1) str name)
@@ -99,10 +100,10 @@
     (fmt-error "~a is not a non-negative exact integer: ~a" name num))
   (unless (< num (expt 8 (- n 1)))
     (fmt-error "~a is too large (max ~a): ~a" name (expt 8 (- n 1)) num))
-  (bytevector-pad (string->bytevector (string-pad (number->string num 8)
-                                            (- n 1)
-                                            #\0)
-                                      (make-transcoder (latin-1-codec)))
+  (bytevector-pad (iconv:string->bytevector (string-pad (number->string num 8)
+                                                        (- n 1)
+                                                        #\0)
+                                            "ISO-8859-1")
                   n))
 
 (define (checksum-bv bv)
@@ -199,7 +200,7 @@
     (or (string->number string 8) 0)))
 
 (define (bv->ustar-0string bv name)
-  (bytevector->string bv (make-transcoder (latin-1-codec))))
+  (iconv:bytevector->string bv "ISO-8859-1"))
 
 (define-immutable-record-type <ustar-header>
   (make-ustar-header name
