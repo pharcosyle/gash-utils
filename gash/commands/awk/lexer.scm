@@ -221,7 +221,10 @@ next character statisfies @var{pred} (or is a newline)."
      (let ((chr (lookahead-char port)))
        (match chr
          (#\newline (begin (get-char port) '()))
-         ((and (? char?) (? pred)) (begin (get-char port) (string-append "\\" (string chr))))
+         ((and (? char?) (? pred)) (begin
+                                     (get-char port)
+                                     (string->list
+                                      (string-append "\\" (string chr)))))
          (_ `(,(string #\\))))))))
 
 (define (get-regex port)
@@ -234,7 +237,7 @@ next character statisfies @var{pred} (or is a newline)."
                     (#\/ '())
                     (#\\ (let ((escape (get-escape port
                                                    (cut member <> '(#\" #\\)))))
-                           (cons escape (loop (lookahead-char port)))))
+                           (append escape (loop (lookahead-char port)))))
                     (_ (cons (get-char port) (loop (lookahead-char port)))))))
          (end-location (port->port-location port))
          (string (apply string chars)))
@@ -255,7 +258,7 @@ next character statisfies @var{pred} (or is a newline)."
                     (#\" (begin (get-char port) '()))
                     (#\\ (let ((escape (get-escape port
                                                    (cut member <> '(#\" #\\)))))
-                           (cons escape (loop (lookahead-char port)))))
+                           (append (loop (lookahead-char port)))))
                     (_ (cons (get-char port) (loop (lookahead-char port)))))))
          (end-location (port->port-location port))
          (string (apply string chars)))
