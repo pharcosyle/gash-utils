@@ -22,6 +22,7 @@ SOURCES =                                       \
   gash/commands/false.scm                       \
   gash/commands/find.scm                        \
   gash/commands/grep.scm                        \
+  gash/commands/head.scm                        \
   gash/commands/ln.scm                          \
   gash/commands/ls.scm                          \
   gash/commands/mkdir.scm                       \
@@ -75,6 +76,7 @@ WRAPPERS =                                      \
   scripts/false                                 \
   scripts/find                                  \
   scripts/grep                                  \
+  scripts/head                                  \
   scripts/ln                                    \
   scripts/ls                                    \
   scripts/mkdir                                 \
