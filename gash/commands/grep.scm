@@ -57,6 +57,8 @@
         (flag 'with-file-name #\H)
         (flag 'no-file-name #\h)
         (flag 'only-matching #\o)
+        (flag 'quiet #\q)
+        (flag 'silent)
         (flag 'version #\V)
         (flag 'invert-match #\v)
         (option '("extended-regexp" #\E) #f #f
@@ -98,23 +100,27 @@
 
 (define (grep . args)
   (let* ((options (get-options args *options-spec*))
-         (help? (option-ref options 'help #f))
-         (version? (option-ref options 'version #f))
          (matching (option-ref options 'matching 'basic))
          (inverted? (option-ref options 'invert-match #f))
          (regexps (option-ref/list options 'regexp))
+         (quiet? (option-ref options 'quiet #f))
+         (silent? (option-ref options 'silent #f))
+
+         (help? (option-ref options 'help #f))
+         (version? (option-ref options 'version #f))
          (files (option-ref/list options 'input-file)))
     (cond (version? (format #t "grep (GASH) ~a\n" %version))
           (help? (display "Usage: grep [OPTION]... PATTERN [FILE]...
 
 Options:
-  --help                     display this help and exit
   -h, --no-filename          suppress the file name prefix on output
   -H, --with-filename        print file name with output lines
   -l, --files-with-matches   print only names of FILEs with selected lines
   -L, --files-without-match  print only names of FILEs with no selected lines
   -n, --line-number          print line number with output lines
   -o, --only-matching        show only the part of a line matching PATTERN
+  -q, --quiet, --silent      suppress all normal output
+  --help                     display this help and exit
   -V, --version              display version information and exit
 "))
           ((null? regexps) #t)
@@ -141,7 +147,8 @@ Options:
              (define (files-with-matches)
                (delete-duplicates (map grep-match-file-name matches)))
              (cond ((option-ref options 'count #f)
-                    (format #t "~a~%" (length matches))
+                    (unless (or quiet? silent?)
+                      (format #t "~a~%" (length matches)))
                     0)
                    ((option-ref options 'files-with-matches #f)
                     (let ((result (files-with-matches)))
@@ -156,7 +163,8 @@ Options:
                            0)))
                    (else
                     (and (pair? matches)
-                         (for-each display-match matches)
+                         (unless (or quiet? silent?)
+                           (for-each display-match matches))
                          0))))))))
 
 (define main grep)
