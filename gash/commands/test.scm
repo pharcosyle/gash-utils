@@ -57,7 +57,7 @@
        ("-w" (access? x W_OK))
        ("-x" (access? x X_OK))
        ("-z" (string-null? x))
-       (_ (invalid-options "test" "Unknown operator: ~s" op))))
+       (_ (invalid-options "test" "Unknown unary operator: ~s" op))))
     ((x op y)
      (match op
        ((or "=" "==") (string=? x y))
@@ -72,7 +72,7 @@
        ("-o" (and test x) (test y))
        (_ (if (string=? x "!")
               (not (test op y))
-              (invalid-options "test" "Unknown operator: ~s" op)))))
+              (invalid-options "test" "Unknown binary operator: ~s" op)))))
     (("!" x op y) (not (test x op y)))
     ((lst ..1)
      (cond ((member "-a" lst)
