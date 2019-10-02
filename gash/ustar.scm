@@ -241,13 +241,12 @@
 
 (define (ustar-header-type header)
   (let ((file-types #(regular - symlink char-special block-special directory fifo))
-        (type (string->number (ustar-header-type-flag header))))
-    (when (or (not type)
-              (< type 0)
+        (type (or (string->number (ustar-header-type-flag header))
+                  0)))
+    (when (or (< type 0)
               (>= type (vector-length file-types)))
-      (fmt-error "~a: unsupported file type ~a"
-                 (ustar-header-file-name header) type))
-    (vector-ref file-types (string->number (ustar-header-type-flag header)))))
+      (fmt-error "~a: unsupported file type ~a" type))
+    (vector-ref file-types type)))
 
 (define ustar-header-field-size-alist
   '((name           . 100)
