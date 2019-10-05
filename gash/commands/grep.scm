@@ -113,6 +113,7 @@
           (help? (display "Usage: grep [OPTION]... PATTERN [FILE]...
 
 Options:
+  -c, --count                print only a count of selected lines per FILE
   -h, --no-filename          suppress the file name prefix on output
   -H, --with-filename        print file name with output lines
   -l, --files-with-matches   print only names of FILEs with selected lines
