@@ -25,6 +25,7 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 rdelim)
   #:use-module (ice-9 receive)
+  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
   #:use-module (gash commands config)
   #:use-module (gash util)
@@ -107,7 +108,24 @@
              (match chr
                (#f (error "TR: Bad backslash escape"))
                (_ (loop (+ index 1 count) (cons chr acc))))))
-      ;; TODO: Other constructs (e.g., character classes).
+      (#\[
+       (let* ((chr (string-ref s (1+ index)))
+              (acc (if (eq? chr #\-) (cons chr acc) acc))
+              (index (if (eq? chr #\-) (1+ index) index)))
+         (let loop2 ((index (1+ index)) (acc acc))
+           (if (or (>= index end)
+                   (eq? (string-ref s index) #\]))
+               (loop (1+ index) acc)
+               (let* ((chr (string-ref s index)))
+                 (if (eq? chr #\-)
+                     (let* ((index (1+ index))
+                            (start (1+ (char->integer (last acc))))
+                            (end (char->integer (string-ref s index)))
+                            (count (1+ (- end start))))
+                       (loop2 (1+ index) (append
+                                          (map integer->char
+                                               (iota count end -1)) acc)))
+                     (loop2 (1+ index) (cons chr acc))))))))
       (chr (loop (1+ index) (cons chr acc))))))
 
 (define (tr . args)

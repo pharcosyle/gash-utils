@@ -107,3 +107,39 @@
   bar
   baz
 #+end_example
+
+* tr-d
+:script:
+#+begin_src sh
+  tr -d ao
+#+end_src
+:stdin:
+#+begin_example
+  foo
+  bar
+  baz
+#+end_example
+:stdout:
+#+begin_example
+  f
+  br
+  bz
+#+end_example
+
+* tr-set
+:script:
+#+begin_src sh
+  tr [b-y] [B-Y]
+#+end_src
+:stdin:
+#+begin_example
+  foo
+  bar
+  baz
+#+end_example
+:stdout:
+#+begin_example
+  FOO
+  BaR
+  Baz
+#+end_example
