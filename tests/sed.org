@@ -341,3 +341,48 @@
     -n, --quiet                only write explicitly selected output
     -V, --version              display version
 #+end_example
+
+* sed-pattern-escapes
+:script:
+#+begin_src sh
+  sed 's,\@program_transform_name\@,s@x@boo-x@,'
+#+end_src
+:stdin:
+#+begin_example
+  transform = @program_transform_name@
+#+end_example
+:stdout:
+#+begin_example
+  transform = s@x@boo-x@
+#+end_example
+
+* sed-replace-escapes
+:script:
+#+begin_src sh
+  sed 's,@program_transform_name\@,s\,x\,x\d\n\d\,,'
+#+end_src
+:stdin:
+#+begin_example
+  transform = @program_transform_name@
+#+end_example
+:stdout:
+#+begin_example
+  transform = s,x,xd
+  d,
+#+end_example
+
+* sed-replace-escapes-2
+:script:
+#+begin_src sh
+  sed 's/,@/@@/; s/@,/@@/; s/,;t t$/@;t t/; /@;t t$/s/[\\&,]/\\&/g; s/@@/,@/; s/@@/@,/; s/@;t t$/,;t t/'
+#+end_src
+:stdin:
+#+begin_example
+  s,@program_transform_name@,s,x,x,,;t t
+  s,@AMDEPBACKSLASH@,\,;t t
+#+end_example
+:stdout:
+#+begin_example
+  s,@program_transform_name@,s\,x\,x\,,;t t
+  s,@AMDEPBACKSLASH@,\\,;t t
+#+end_example

@@ -68,6 +68,7 @@
       ((#\\ #\n . rest) (loop rest (cons #\newline acc)))
       ((#\\ #\r . rest) (loop rest (cons #\return acc)))
       ((#\\ #\t . rest) (loop rest (cons #\tab acc)))
+      ((#\\ 2nd . rest) (loop rest (cons 2nd acc)))
       ((chr . rest) (loop rest (cons chr acc))))))
 
 (define (replace->lambda string global?)
