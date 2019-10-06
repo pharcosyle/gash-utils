@@ -43,6 +43,7 @@
             (bzip2 (single-char #\j))
             (xz (single-char #\J))
             (group (value #t))
+            (exclude (value #t))
             (extract (single-char #\x))
             (file (single-char #\f) (value #t))
             (help (single-char #\h))
@@ -50,6 +51,9 @@
             (list (single-char #\t))
             (numeric-owner?)
             (owner (value #t))
+            (preserve-permissions (single-char #\p))
+            (read-full-records (single-char #\B))
+            (same-permissions)
             (sort (value #t))
             (strip (value #t))
             (strip-components (value #t))
@@ -121,6 +125,11 @@ Usage: tar [OPTION]... [FILE]...
   -x, --extract              extract files from an archive
   -z, --gzip                 filter the archive through gzip
   -Z, --compress             filter the archive through compress
+
+Ignored for compatibility:
+  -B, --read-full-records
+      --exclude=PATTERN
+  -p, --preserve-permissions, --same-permissions
 ")
            (exit (if usage? 2 0)))
           (create?
