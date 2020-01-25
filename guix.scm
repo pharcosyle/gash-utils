@@ -1,3 +1,14 @@
+;;; Guix Package File for Gash-Utils
+;;; Copyright © 2017, 2018, 2019, 2020 Timothy Sample <samplet@ngyro.com>
+;;;
+;;; This file is free software; as a special exception the author gives
+;;; unlimited permission to copy and/or distribute it, with or without
+;;; modifications, as long as this notice is preserved.
+;;;
+;;; This program is distributed in the hope that it will be useful, but
+;;; WITHOUT ANY WARRANTY, to the extent permitted by law; without even the
+;;; implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
 (use-modules (git)
              (gnu packages)
              (gnu packages autotools)
@@ -6,6 +17,7 @@
              (gnu packages pkg-config)
              (guix build utils)
              (guix build-system gnu)
+             (guix download)
              (guix gexp)
              ((guix licenses) #:prefix license:)
              (guix packages)
@@ -24,36 +36,57 @@
       version)))
 
 (define (make-select)
-  (let* ((directory (repository-discover *srcdir*))
-         (repository (repository-open directory))
-         (oid (reference-target (repository-head repository)))
-         (commit (commit-lookup repository oid))
-         (tree (commit-tree commit))
-         (paths (tree-list tree)))
-    (lambda (file stat)
-      (let ((relative (substring file (1+ (string-length *srcdir*)))))
-        (member relative paths)))))
+  (define paths
+    (or (false-if-exception
+         (let* ((directory (repository-discover *srcdir*))
+                (repository (repository-open directory))
+                (oid (reference-target (repository-head repository)))
+                (commit (commit-lookup repository oid))
+                (tree (commit-tree commit)))
+           (tree-list tree)))
+        (false-if-exception
+         (with-directory-excursion *srcdir*
+           (call-with-input-file ".tarball-manifest"
+             (lambda (port)
+               (let loop ((line (get-line port)) (acc '()))
+                 (if (eof-object? line)
+                     acc
+                     (loop (get-line port) (cons line acc))))))))
+        (error "Cannot make file selector")))
+  (lambda (file stat)
+    (let ((relative (substring file (1+ (string-length *srcdir*)))))
+      (or (eq? (stat:type stat) 'directory)
+           (member relative paths)))))
+
+(define guile-2.0.9
+  (package
+    (inherit guile-2.0)
+    (version "2.0.9")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "mirror://gnu/guile/guile-" version ".tar.xz"))
+       (sha256
+        (base32
+         "0nw9y8vjyz4r61v06p9msks5lm58pd91irmzg4k487vmv743h2pp"))))
+    (arguments
+     (substitute-keyword-arguments (package-arguments guile-2.0)
+       ;; XXX: There are some encoding and network test failures.
+       ((#:tests? _ #f) #f)))))
 
 (package
-  (name "geesh")
+  (name "gash-utils")
   (version *version*)
   (source (local-file *srcdir* #:recursive? #t #:select? (make-select)))
   (build-system gnu-build-system)
   (native-inputs
    `(("autoconf" ,autoconf)
      ("automake" ,automake)
-     ("lcov" ,lcov)                ; For generating test coverage data
      ("pkg-config" ,pkg-config)))
   (inputs
    `(("guile" ,guile-2.2)))
-  (arguments
-   '(#:phases
-     (modify-phases %standard-phases
-       (add-before 'configure 'bootstrap
-         (lambda _
-           (zero? (system* "sh" "bootstrap")))))))
-  (home-page "https://gitlab.com/samplet/geesh")
-  (synopsis "POSIX-compatible shell written in Guile Scheme")
-  (description "Geesh is a POSIX-compatible shell written in Guile
-Scheme.  It is designed to be capable of bootstrapping Bash.")
+  (home-page "https://savannah.nongnu.org/projects/gash/")
+  (synopsis "Select GNU utilities reimplemented in Guile Scheme")
+  (description "Gash-Utils provides a number of GNU utilities (e.g.,
+Sed, Awk, and Grep) implemented in Guile Scheme.")
   (license license:gpl3+))
