@@ -233,7 +233,9 @@ scripts/which: $(srcdir)/scripts/template.in Makefile
 # Tests
 #######
 
-TEST_EXTENSIONS = .org
+TEST_EXTENSIONS = .scm .org
+SCM_LOG_COMPILER = $(top_builddir)/pre-inst-env $(GUILE)
+AM_SCM_LOG_FLAGS = --no-auto-compile
 ORG_LOG_COMPILER = $(top_builddir)/pre-inst-env \
                        $(top_builddir)/tests/run-test-suite
 
@@ -241,11 +243,16 @@ ORG_LOG_COMPILER = $(top_builddir)/pre-inst-env \
 check-bootstrap:
 	guix build -f tests/bootstrap/bash-without-bash.scm
 
-TESTS =                                         \
+UNIT_TESTS =                                    \
+  tests/unit/shell-utils.scm
+
+FULL_TESTS =                                    \
   tests/awk.org                                 \
   tests/core-utils.org                          \
   tests/sed.org                                 \
   tests/tar.org
+
+TESTS = $(UNIT_TESTS) $(FULL_TESTS)
 
 # Distribution
 ##############
