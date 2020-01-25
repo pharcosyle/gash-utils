@@ -25,7 +25,7 @@
 /bin/wc
 /bin/which
 /doc/version.texi
-/gash/config.scm
+/gash/commands/config.scm
 /pre-inst-env
 /scripts/*
 !/scripts/egrep

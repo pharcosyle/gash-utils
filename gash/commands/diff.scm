@@ -25,7 +25,7 @@
 
   #:use-module (srfi srfi-1)
 
-  #:use-module (gash config)
+  #:use-module (gash commands config)
   #:use-module (gash diff)
   #:export (
             diff

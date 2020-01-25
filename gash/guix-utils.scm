@@ -38,7 +38,7 @@
   #:autoload   (ice-9 popen)  (open-pipe*)
   #:use-module ((gash shell-utils) #:select (dump-port))
   #:use-module (ice-9 match)
-  #:use-module (gash config)
+  #:use-module (gash commands config)
   #:export (filtered-port
             compressed-port
             decompressed-port

@@ -24,7 +24,7 @@
   #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 receive)
 
-  #:use-module (gash config)
+  #:use-module (gash commands config)
 
   #:export (
             basename

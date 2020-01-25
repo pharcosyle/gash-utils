@@ -26,7 +26,7 @@
   #:use-module (ice-9 rdelim)
   #:use-module (ice-9 receive)
   #:use-module (srfi srfi-26)
-  #:use-module (gash config)
+  #:use-module (gash commands config)
   #:use-module (gash util)
   #:export (
             tr

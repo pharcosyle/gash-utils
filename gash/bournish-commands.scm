@@ -28,7 +28,7 @@
 (define-module (gash bournish-commands)
   #:use-module (srfi srfi-26)
   #:use-module (gash io)
-  #:use-module (gash config)
+  #:use-module (gash commands config)
   #:use-module (gash shell-utils)
 
   #:use-module ((gash commands basename) #:prefix gash:)

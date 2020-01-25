@@ -13,6 +13,7 @@ SOURCES =                                       \
   gash/commands/chmod.scm                       \
   gash/commands/cmp.scm                         \
   gash/commands/compress.scm                    \
+  gash/commands/config.scm                      \
   gash/commands/cp.scm                          \
   gash/commands/cut.scm                         \
   gash/commands/diff.scm                        \
@@ -42,7 +43,6 @@ SOURCES =                                       \
   gash/commands/wc.scm                          \
   gash/commands/which.scm                       \
   gash/compress.scm                             \
-  gash/config.scm                               \
   gash/diff.scm                                 \
   gash/guix-utils.scm                           \
   gash/io.scm                                   \

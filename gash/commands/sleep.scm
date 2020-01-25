@@ -23,7 +23,7 @@
 (define-module (gash commands sleep)
   #:use-module (ice-9 getopt-long)
 
-  #:use-module (gash config)
+  #:use-module (gash commands config)
   #:export (
             sleep
             ))
