@@ -15,6 +15,7 @@
              (gnu packages code)
              (gnu packages guile)
              (gnu packages pkg-config)
+             (gnu packages shells)
              (guix build utils)
              (guix build-system gnu)
              (guix download)
@@ -74,6 +75,16 @@
        ;; XXX: There are some encoding and network test failures.
        ((#:tests? _ #f) #f)))))
 
+(define guile-2.0.9-gash
+  (package
+    (inherit gash)
+    (arguments
+     ;; The unit tests fail because SRFI 64 is missing.
+     (substitute-keyword-arguments (package-arguments gash)
+       ((#:tests? tests? #f) #f)))
+    (inputs
+     `(("guile" ,guile-2.0.9)))))
+
 (package
   (name "gash-utils")
   (version *version*)
@@ -84,7 +95,8 @@
      ("automake" ,automake)
      ("pkg-config" ,pkg-config)))
   (inputs
-   `(("guile" ,guile-2.2)))
+   `(("gash" ,gash)
+     ("guile" ,guile-2.2)))
   (home-page "https://savannah.nongnu.org/projects/gash/")
   (synopsis "Select GNU utilities reimplemented in Guile Scheme")
   (description "Gash-Utils provides a number of GNU utilities (e.g.,

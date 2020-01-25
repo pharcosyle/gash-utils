@@ -35,6 +35,11 @@ AS_IF([test "x$GUILD" = "x"],
     [AC_MSG_ERROR(m4_normalize([
       'guild' binary not found; please check your Guile installation.]))])])
 
+GUILE_MODULE_AVAILABLE([have_gash], [(gash config)])
+if test "x$have_gash" != "xyes"; then
+  AC_MSG_ERROR([Gash is missing; please install it.])
+fi
+
 AC_PATH_PROG([COMPRESS], [compress])
 
 AC_PATH_PROG([GZIP], [gzip])
