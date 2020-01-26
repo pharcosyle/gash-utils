@@ -1,5 +1,5 @@
 ;;; Gash -- Guile As SHell
-;;; Copyright © 2018 Timothy Sample <samplet@ngyro.com>
+;;; Copyright © 2018, 2020 Timothy Sample <samplet@ngyro.com>
 ;;; Copyright © 2019 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
 ;;;
 ;;; This file is part of Gash.
@@ -256,18 +256,24 @@
     (/) : (set! %regex #t))
 
    (concat-expr
+    (concatable-exprs) : (match $1
+                           ((head . tail)
+                            (fold (lambda (x acc)
+                                    `(<awk-concat> ,x ,acc))
+                                  head
+                                  tail))))
+
+   (concatable-exprs
+    (concatable-exprs concatable-expr) : (cons $2 $1)
+    (concatable-expr) : (list $1))
+
+   (concatable-expr
     (STRING) : $1
-    (STRING concat-expr) : `(<awk-concat> ,$1 ,$2)
     (lvalue) : $1
-    (lvalue concat-expr) : `(<awk-concat> ,$1 ,$2)
     (Builtin LPAREN expr-list-opt RPAREN) : `(<awk-call> ,$1 ,$3)
-    (Builtin LPAREN expr-list-opt RPAREN concat-expr) : `(<awk-concat> (<awk-call> ,$1 ,$3) ,$5)
     (Func LPAREN expr-list-opt RPAREN) : `(<awk-call> ,$1 ,$3)
-    (Func LPAREN expr-list-opt RPAREN concat-expr) : `(<awk-concat> (<awk-call> ,$1 ,$3) ,$5)
     (NUMBER) : $1
-    (NUMBER concat-expr) : `(<awk-concat> ,$1 ,$2)
-    (Builtin) : `(<awk-call> ,$1)
-    (Builtin concat-expr) : `(<awk-concat> (<awk-call> ,$1) ,$2))
+    (Builtin) : `(<awk-call> ,$1))
 
    (lvalue
     (NAME) : `(<awk-name> ,$1)
