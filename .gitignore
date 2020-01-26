@@ -29,6 +29,7 @@
 /pre-inst-env
 /scripts/*
 !/scripts/egrep
+!/scripts/fgrep
 !/scripts/template.in
 Makefile
 Makefile.in

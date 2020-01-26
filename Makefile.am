@@ -102,7 +102,8 @@ WRAPPERS =                                      \
 bin_SCRIPTS =                                   \
   $(WRAPPERS)                                   \
   scripts/[                                     \
-  scripts/egrep
+  scripts/egrep                                 \
+  scripts/fgrep
 
 do_subst = $(AM_V_GEN)sed                       \
   -e 's,[@]GUILE[@],$(GUILE),g'                 \
