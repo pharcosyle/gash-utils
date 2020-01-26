@@ -31,6 +31,7 @@
   #:use-module (srfi srfi-37)
 
   #:use-module (gash commands config)
+  #:use-module (gash compat)
   #:use-module (gash io)
   #:use-module (gash util)
   #:use-module (gash shell-utils)

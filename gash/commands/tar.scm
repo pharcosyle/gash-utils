@@ -24,6 +24,7 @@
   #:use-module (ice-9 getopt-long)
   #:use-module (srfi srfi-26)
   #:use-module (gash commands config)
+  #:use-module (gash compat)
   #:use-module (gash compress)
   #:use-module (gash ustar)
   #:use-module (gash guix-utils)

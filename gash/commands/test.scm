@@ -18,6 +18,7 @@
 ;;; along with Gash.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (gash commands test)
+  #:use-module (gash compat)
   #:use-module (gash shell-utils)
   #:use-module ((ice-9 i18n) #:select (locale-string->integer))
   #:use-module (ice-9 match)

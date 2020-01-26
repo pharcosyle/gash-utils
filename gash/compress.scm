@@ -26,6 +26,7 @@
 ;;; Code:
 
 (define-module (gash compress)
+  #:use-module (gash compat)
   #:use-module (gash lzw)
   #:use-module (ice-9 control)
   #:use-module (ice-9 format)

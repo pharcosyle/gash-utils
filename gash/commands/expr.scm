@@ -17,6 +17,7 @@
 ;;; along with Gash.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (gash commands expr)
+  #:use-module (gash compat)
   #:use-module (ice-9 i18n)
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)

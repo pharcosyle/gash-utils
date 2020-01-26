@@ -25,6 +25,7 @@
   #:use-module (srfi srfi-1)
 
   #:use-module (gash commands config)
+  #:use-module (gash compat)
   #:use-module (gash compress)
   #:use-module (gash guix-utils)
   #:export (

@@ -17,6 +17,7 @@
 ;;; along with Gash.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (gash commands printf)
+  #:use-module (gash compat)
   #:use-module (ice-9 match))
 
 (define-syntax-rule (invalid-options proc msg args ...)
