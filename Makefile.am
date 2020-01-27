@@ -4,7 +4,6 @@ include $(top_srcdir)/build-aux/guile.am
 #####################
 
 SOURCES =                                       \
-  gash/bournish-commands.scm                    \
   gash/commands/awk.scm                         \
   gash/commands/awk/lexer.scm                   \
   gash/commands/awk/parser.scm                  \
