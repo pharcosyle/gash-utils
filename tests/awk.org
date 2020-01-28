@@ -17,6 +17,43 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Gash-Utils.  If not, see <http://www.gnu.org/licenses/>.
 
+* awk
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  { print "hello, world" }
+#+end_src
+:stdin:
+#+begin_example
+  1
+  2
+  3
+#+end_example
+:stdout:
+#+begin_example
+  hello, world
+  hello, world
+  hello, world
+#+end_example
+
+* awk-2
+:script:
+#+begin_src sh
+  awk -- '{ print "hello, world" };'
+#+end_src
+:stdin:
+#+begin_example
+  1
+  2
+  3
+#+end_example
+:stdout:
+#+begin_example
+  hello, world
+  hello, world
+  hello, world
+#+end_example
+
 * awk-array
 :interpreter: "awk"
 :script:
