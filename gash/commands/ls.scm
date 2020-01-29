@@ -113,7 +113,7 @@ Options:
                                                       (match (scandir file)
                                                         (#f (list `(,file . ,(stat* file))))
                                                         (files (map (lambda (f)
-                                                                      `(,f . ,(stat* f)))
+                                                                      `(,f . ,(stat* (string-append file "/" f))))
                                                                     files)))))
                                                  (_ (list `(,file . ,(stat* file))))))
                                              (lambda args
