@@ -119,6 +119,14 @@
   fi
 #+end_src
 
+* testb-file
+:script:
+#+begin_src sh
+  if [ -f foo-bar ]; then
+     exit 1
+  fi
+#+end_src
+
 * tr
 :script:
 #+begin_src sh
