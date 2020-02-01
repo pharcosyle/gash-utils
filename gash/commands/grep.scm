@@ -168,4 +168,5 @@ Options:
                            (for-each display-match matches))
                          0))))))))
 
-(define main grep)
+(define (main . args)
+  (exit (apply grep args)))
