@@ -136,6 +136,7 @@ UNIT_TESTS =                                    \
 FULL_TESTS =                                    \
   tests/awk.org                                 \
   tests/core-utils.org                          \
+  tests/grep.org                                \
   tests/sed.org                                 \
   tests/tar.org
 
