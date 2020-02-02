@@ -145,10 +145,6 @@ AM_SCM_LOG_FLAGS = --no-auto-compile
 ORG_LOG_COMPILER = $(top_builddir)/pre-inst-env \
                        $(top_builddir)/tests/run-test-suite
 
-.PHONY: check-bootstrap
-check-bootstrap:
-	guix build -f tests/bootstrap/bash-without-bash.scm
-
 UNIT_TESTS =                                    \
   tests/unit/shell-utils.scm
 
