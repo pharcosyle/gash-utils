@@ -34,7 +34,9 @@
 * tar-ro
 :script:
 #+begin_src sh
-  \tar -xvf tests/data/ro.tar
+  TEST_DATA=$(pwd)/tests/data
+  cd "$TEST_TMP"
+  \tar -xvf "$TEST_DATA"/ro.tar
   \chmod -R +w foo
   \rm -r foo
 #+end_src
@@ -48,8 +50,9 @@
 * tar-Z
 :script:
 #+begin_src sh
-  \tar -cZf tmp.tar --sort=name tests/data/star
-  \tar -tZf tmp.tar
+  \tar -cZf "$TEST_TMP"/tmp.tar --sort=name tests/data/star
+  \tar -tZf "$TEST_TMP"/tmp.tar
+  rm "$TEST_TMP"/tmp.tar
 #+end_src
 :stdout:
 #+begin_example
@@ -63,8 +66,9 @@
 * tar-Z-old
 :script:
 #+begin_src sh
-  \tar cZf tmp.tar --sort=name tests/data/star
-  \tar tZf tmp.tar
+  \tar cZf "$TEST_TMP"/tmp.tar --sort=name tests/data/star
+  \tar tZf "$TEST_TMP"/tmp.tar
+  rm "$TEST_TMP"/tmp.tar
 #+end_src
 :stdout:
 #+begin_example

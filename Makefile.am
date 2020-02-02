@@ -19,6 +19,13 @@
 
 include $(top_srcdir)/build-aux/guile.am
 
+EXTRA_DIST +=                                   \
+  .dir-locals.el                                \
+  bootstrap                                     \
+  build-aux/git-version-gen                     \
+  guix.scm                                      \
+  tests/data/README
+
 # Modules and scripts
 #####################
 
@@ -129,12 +136,24 @@ do_subst = $(AM_V_GEN)sed                       \
   -e 's,[@]GODIR[@],$(ccachedir),g'
 
 $(WRAPPERS): $(srcdir)/scripts/template.in Makefile
+	$(AM_V_at) mkdir -p scripts
 	$(do_subst) -e 's,@UTILITY@,'"$$(basename '$@')"',' < $< > $@
 	$(AM_V_at)chmod a+x $@
 
 scripts/[: $(srcdir)/scripts/template.in Makefile
+	$(AM_V_at) mkdir -p scripts
 	$(do_subst) -e 's,@UTILITY@,testb,' < $< > $@
 	$(AM_V_at)chmod a+x $@
+
+EXTRA_DIST +=                                   \
+  scripts/egrep                                 \
+  scripts/fgrep                                 \
+  scripts/template.in
+
+CLEANFILES +=                                   \
+  $(WRAPPERS)                                   \
+  gash/commands/testb.scm                       \
+  scripts/[
 
 # Tests
 #######
@@ -155,7 +174,22 @@ FULL_TESTS =                                    \
   tests/sed.org                                 \
   tests/tar.org
 
+TEST_DATA_FILES =                               \
+  tests/data/empty                              \
+  tests/data/foo                                \
+  tests/data/fooRbar                            \
+  tests/data/ro.tar                             \
+  tests/data/star/0                             \
+  tests/data/star/1                             \
+  tests/data/star/2                             \
+  tests/data/star/3
+
 TESTS = $(UNIT_TESTS) $(FULL_TESTS)
+
+EXTRA_DIST +=                                   \
+  $(TESTS)                                      \
+  $(TEST_DATA_FILES)                            \
+  tests/unit/automake.scm
 
 # Distribution
 ##############
