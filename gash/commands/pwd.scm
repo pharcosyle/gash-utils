@@ -17,7 +17,6 @@
 ;;; along with Gash.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (gash commands pwd)
-  #:use-module (gash environment)
   #:use-module (ice-9 match)
   #:export (pwd))
 
@@ -34,7 +33,7 @@
       (("-L" . tail) (loop tail #t))
       (()
        (display (if logical?
-                    (getvar "PWD")
+                    (getenv "PWD")
                     (getcwd)))
        (newline)
        0))))
