@@ -197,3 +197,23 @@ EXTRA_DIST +=                                   \
 
 dist-hook:
 	echo $(VERSION) > $(distdir)/.tarball-version
+	if test -e .git; then \
+	    git ls-tree -r --name-only HEAD \
+	        > $(distdir)/.tarball-manifest; \
+	else \
+	    cp $(srcdir)/.tarball-manifest $(distdir)/.tarball-manifest; \
+	fi
+
+distcheck-hook:
+	set -e;                                 \
+	manifest=$(distdir)/.tarball-manifest;  \
+	test -f "$$manifest";                   \
+	for x in `cat "$$manifest"`;            \
+	do                                      \
+	    if ! test -f $(distdir)/"$$x"       \
+                && ! test "$$x" = .gitignore;   \
+	    then                                \
+	        echo "Missing: $$x";            \
+	        exit 1;                         \
+	    fi;                                 \
+	done
