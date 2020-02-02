@@ -29,11 +29,11 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (srfi srfi-26)
-  #:use-module ((ice-9 iconv) #:prefix iconv:)
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
   #:use-module (rnrs bytevectors)
   #:use-module (rnrs io ports)
+  #:use-module (gash compat)
   #:use-module (gash shell-utils)
   #:export (read-ustar-archive
             read-ustar-port
@@ -41,6 +41,22 @@
             write-ustar-port
             list-ustar-archive
             list-ustar-port))
+
+(if-guile-version-below (2 0 15)
+  (begin
+    ;; ERROR: invalid or unknown character encoding "ISO-8859-1"
+    (define %encoding-none "ascii")
+    (define (bytevector->raw-string bv)
+      (list->string (map integer->char (bytevector->u8-list bv))))
+    (define (raw-string->bytevector raw)
+      (u8-list->bytevector (map char->integer (string->list raw)))))
+  (begin
+    (define %encoding-none "ISO-8859-1")
+    (define %transcoder-none (make-transcoder (latin-1-codec)))
+    (define (bytevector->raw-string bv)
+      (bytevector->string bv %transcoder-none))
+    (define (raw-string->bytevector raw)
+      (string->bytevector raw %transcoder-none))))
 
 (define (fmt-error fmt . args)
   (error (apply format #f fmt args)))
@@ -87,7 +103,7 @@
                name
                (string-filter (negate valid-ustar-char?) str)
                str))
-  (bytevector-pad (iconv:string->bytevector str "ISO-8859-1") n))
+  (bytevector-pad (raw-string->bytevector str) n))
 
 (define (ustar-0string n str name)
   (bytevector-pad (ustar-string (- n 1) str name)
@@ -100,10 +116,9 @@
     (fmt-error "~a is not a non-negative exact integer: ~a" name num))
   (unless (< num (expt 8 (- n 1)))
     (fmt-error "~a is too large (max ~a): ~a" name (expt 8 (- n 1)) num))
-  (bytevector-pad (iconv:string->bytevector (string-pad (number->string num 8)
-                                                        (- n 1)
-                                                        #\0)
-                                            "ISO-8859-1")
+  (bytevector-pad (raw-string->bytevector (string-pad (number->string num 8)
+                                                      (- n 1)
+                                                      #\0))
                   n))
 
 (define (checksum-bv bv)
@@ -200,7 +215,7 @@
     (or (string->number string 8) 0)))
 
 (define (bv->ustar-0string bv name)
-  (iconv:bytevector->string bv "ISO-8859-1"))
+  (bytevector->raw-string bv))
 
 (define-immutable-record-type <ustar-header>
   (make-ustar-header name
@@ -467,7 +482,7 @@
          (dir (dirname file-name))
          (extract? (and extract? (not (string-null? file-name))))
          (thunk (lambda _
-                  (set-port-encoding! (current-output-port) "ISO-8859-1") ; bootstrap-guile uses default UTF-8
+                  (set-port-encoding! (current-output-port) %encoding-none)
                   (let loop ((read 0))
                     (and (< read size)
                          (let ((record (read-ustar-record port)))
