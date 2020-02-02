@@ -1,19 +1,42 @@
+# Gash-Utils
+# Copyright © 2018 Timothy Sample <samplet@ngyro.com>
+#
+# This file is part of Gash-Utils.
+#
+# Gash-Utils is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or (at
+# your option) any later version.
+#
+# Gash-Utils is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Gash-Utils.  If not, see <http://www.gnu.org/licenses/>.
+
 image: debian:buster
 
 before_script:
   - apt-get update -qq && apt-get install -y -qq
       autoconf
       automake
-      guile-2.2-dev
+      git
+      guile-${TEST_GUILE_VERSION}-dev
       make
       pkg-config
   - which guile
   - guile --version
-  # Guile's M4 macros are pretty sure that the `guild' binary has to
-  # have the exact same suffix as the `guile' binary.  In practice,
-  # this means we need a `guild-2.2' binary.
-  - ln -s /usr/bin/guild /usr/bin/guild-2.2
 
-test:
+test-guile-2.0:
+  variables:
+    TEST_GUILE_VERSION: "2.0"
+  script:
+    - ./bootstrap && ./configure && make && make check
+
+test-guile-2.2:
+  variables:
+    TEST_GUILE_VERSION: "2.2"
   script:
     - ./bootstrap && ./configure && make && make check
