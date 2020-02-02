@@ -17,11 +17,7 @@
 ;;; along with Gash.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (gash commands config)
-  #:export (%bzip2
-            %xz
-            %compress
-            %gzip
-            %version))
+  #:export (%version))
 
 ;;; Commentary:
 ;;;
@@ -32,29 +28,3 @@
 
 (define %version
   "@VERSION@")
-
-(define %bzip2
-  "@BZIP2@")
-
-(define exec-internal-compress
-  (let* ((guile "@GUILE@")
-         (expr `(begin
-                  (set! %load-path ',%load-path)
-                  (set! %load-compiled-path ',%load-compiled-path)
-                  (apply (@@ (gash commands compress) main) "compress"
-                         (cdr (program-arguments)))))
-         (script (with-output-to-string (lambda () (write expr)))))
-    (lambda args
-      (apply execl guile guile "--no-auto-compile" "-c" script args))))
-
-(define %compress
-  (let ((external-compress "@COMPRESS@"))
-    (if (string-null? external-compress)
-        exec-internal-compress
-        external-compress)))
-
-(define %gzip
-  "@GZIP@")
-
-(define %xz
-  "@XZ@")

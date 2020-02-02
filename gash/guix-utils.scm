@@ -75,7 +75,7 @@ buffered data is lost."
                     (lambda ()
                       (match command
                         (((? string? name) . _)
-                         (apply execl name command))
+                         (apply execlp name command))
                         (((? procedure? proc) . args)
                          (apply proc args))))
                     (lambda args
@@ -113,10 +113,10 @@ buffered data is lost."
 a symbol such as 'xz."
   (match compression
     ((or #f 'none) (values input '()))
-    ('bzip2        (filtered-port `(,%bzip2 "-dc") input))
-    ('compress     (filtered-port `(,%compress "-dc") input))
-    ('xz           (filtered-port `(,%xz "-dc" "-T0") input))
-    ('gzip         (filtered-port `(,%gzip "-dc") input))
+    ('bzip2        (filtered-port `("bzip2" "-dc") input))
+    ('compress     (filtered-port `("compress" "-dc") input))
+    ('xz           (filtered-port `("xz" "-dc" "-T0") input))
+    ('gzip         (filtered-port `("gzip" "-dc") input))
     (else          (error "unsupported compression scheme" compression))))
 
 (define (compressed-port compression input)
@@ -124,10 +124,10 @@ a symbol such as 'xz."
 a symbol such as 'xz."
   (match compression
     ((or #f 'none) (values input '()))
-    ('bzip2        (filtered-port `(,%bzip2 "-c") input))
-    ('compress     (filtered-port `(,%compress "-c") input))
-    ('xz           (filtered-port `(,%xz "-c" "-T0") input))
-    ('gzip         (filtered-port `(,%gzip "-c") input))
+    ('bzip2        (filtered-port `("bzip2" "-c") input))
+    ('compress     (filtered-port `("compress" "-c") input))
+    ('xz           (filtered-port `("xz" "-c" "-T0") input))
+    ('gzip         (filtered-port `("gzip" "-c") input))
     (else          (error "unsupported compression scheme" compression))))
 
 (define (call-with-decompressed-port compression port proc)
@@ -165,7 +165,7 @@ data is lost."
               (lambda ()
                 (match command
                   (((? string? name) . _)
-                   (apply execl name command))
+                   (apply execlp name command))
                   (((? procedure? proc) . args)
                    (apply proc args))))
               (lambda args
@@ -186,10 +186,10 @@ of PIDs to wait for.  OPTIONS is a list of strings passed to the compression
 program--e.g., '(\"--fast\")."
   (match compression
     ((or #f 'none) (values output '()))
-    ('bzip2        (filtered-output-port `(,%bzip2 "-c" ,@options) output))
-    ('compress     (filtered-output-port `(,%compress "-c" ,@options) output))
-    ('xz           (filtered-output-port `(,%xz "-c" "-T0" ,@options) output))
-    ('gzip         (filtered-output-port `(,%gzip "-c" ,@options) output))
+    ('bzip2        (filtered-output-port `("bzip2" "-c" ,@options) output))
+    ('compress     (filtered-output-port `("compress" "-c" ,@options) output))
+    ('xz           (filtered-output-port `("xz" "-c" "-T0" ,@options) output))
+    ('gzip         (filtered-output-port `("gzip" "-c" ,@options) output))
     (else          (error "unsupported compression scheme" compression))))
 
 (define* (call-with-compressed-output-port compression port proc
