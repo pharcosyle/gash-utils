@@ -23,6 +23,7 @@ EXTRA_DIST +=                                   \
   .dir-locals.el                                \
   bootstrap                                     \
   build-aux/git-version-gen                     \
+  build-aux/gitlab-ci.yml                       \
   guix.scm                                      \
   tests/data/README
 
