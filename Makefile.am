@@ -107,7 +107,7 @@ bin_SCRIPTS =                                   \
 do_subst = $(AM_V_GEN)sed                       \
   -e 's,[@]GUILE[@],$(GUILE),g'                 \
   -e 's,[@]MODDIR[@],$(moddir),g'               \
-  -e 's,[@]CCACHEDIR[@],$(ccachedir),g'
+  -e 's,[@]GODIR[@],$(ccachedir),g'
 
 $(WRAPPERS): $(srcdir)/scripts/template.in Makefile
 	$(do_subst) -e 's,@UTILITY@,'"$$(basename '$@')"',' < $< > $@
