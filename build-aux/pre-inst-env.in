@@ -1,5 +1,28 @@
 #!/bin/sh
 
+# Gash-Utils
+#
+# This file was adapted from:
+#
+# GNU Guix --- Functional package management for GNU
+# Copyright © 2012, 2013, 2014, 2015, 2017, 2018, 2019 Ludovic Courtès <ludo@gnu.org>
+# Copyright © 2017 Eric Bavier <bavier@cray.com>
+#
+# This file is part of Gash-Utils.
+#
+# Gash-Utils is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Gash-Utils is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Gash-Utils.  If not, see <https://www.gnu.org/licenses/>.
+
 abs_top_srcdir="`cd "@abs_top_srcdir@" > /dev/null; pwd -P`"
 abs_top_builddir="`cd "@abs_top_builddir@" > /dev/null; pwd -P`"
 
