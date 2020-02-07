@@ -27,5 +27,4 @@
 #+begin_src sh
   grep . tests/data/empty
 #+end_src
-
 :status: 1
