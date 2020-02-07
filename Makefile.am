@@ -201,9 +201,20 @@ dist-hook:
 	if test -e .git; then \
 	    git ls-tree -r --name-only HEAD \
 	        > $(distdir)/.tarball-manifest; \
+	    git show HEAD --format=%ct --no-patch 2>/dev/null \
+	        > $(distdir)/.tarball-timestamp; \
 	else \
 	    cp $(srcdir)/.tarball-manifest $(distdir)/.tarball-manifest; \
+	    cp $(srcdir)/.tarball-timestamp $(distdir)/.tarball-timestamp; \
 	fi
+
+# Reproducible tarball
+# Be friendly to Debian; avoid using EPOCH
+override GZIP_ENV = "--best --no-name"
+am__tar = $${TAR-tar} -chof - --sort=name \
+  --mtime=@$$(cat "$$tardir"/.tarball-timestamp) \
+  --owner=0 --group=0 --numeric-owner \
+  --mode=go=rX,u+rw,a-s "$$tardir"
 
 distcheck-hook:
 	set -e;                                 \
