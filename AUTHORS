@@ -1,15 +1,24 @@
-Rutger EW van Beusekom <rutger.van.beusekom@gmail.com>
-Main author
-All files except the imported files listed below
+Gash-Utils was created by:
 
-Adapted from GNU Guix
-gash/commands/*.scm
-gash/shell-utils.scm
-gash/guix-utils.scm
+    Rutger EW van Beusekom <rutger.van.beusekom@gmail.com>
+    Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+    Timothy Sample <samplet@ngyro.com>
 
-Adapted from Mes
-build-aux/build-guile.sh
+The following files were adapted from GNU Guix:
 
-Adapted from Guile100 Challenge
-gash/compress.scm
-gash/ustar.scm
+    gash/commands/find.scm
+    gash/commands/wc.scm
+    gash/commands/reboot.scm
+    gash/commands/rm.scm
+    gash/commands/cat.scm
+    gash/commands/ls.scm
+    gash/commands/which.scm
+    gash/shell-utils.scm
+    gash/guix-utils.scm
+
+The files 'gash/compress.scm' and 'gash/lzw.scm' were originally
+written by Daniel Hartwig <mandyke@gmail.com> for the Guile100
+Challenge.
+
+The file 'gash/ustar.scm' was originally written by Mark H Weaver
+<mhw@netris.org> for the Guile100 Challenge.
