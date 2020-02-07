@@ -21,6 +21,7 @@ include $(top_srcdir)/build-aux/guile.am
 
 EXTRA_DIST +=                                   \
   .dir-locals.el                                \
+  COPYING.CC0                                   \
   bootstrap                                     \
   build-aux/git-version-gen                     \
   build-aux/gitlab-ci.yml                       \

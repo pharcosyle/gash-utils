@@ -1,20 +1,60 @@
-This project aims to produce at least a POSIX compliant sh replacement
-or even implement GNU bash.  On top of that it also intends to make
-scheme available for interactive and scripting application.  The
-approach also intends to allow capturing the intermediate scheme
-representation of the "original" shell script to offer a migration
-path away from [ba]sh. On top of this GNU make could similarly be
-replaced, as make turns out to be fraught with limitations and
-complexities.  One of the features I personally desire is not be
-forced to keep doing what was done in the past, i.e. once an object
-file is produced, it does not have to be produced again as long as the
-original is kept around. The orignal must be replaced when any of its
-dependencies change (source, compiler options, linker, etc.)
+Gash-Utils
+**********
 
-I feel that the shell has been instrumental on my path to embracing
-functional programming, however now I mostly experience that the
-language itselfs folds on functional expression, pun intended.
+Gash-Utils provides Scheme implementations of many common POSIX
+utilities (there are about 40 of them, ranging in complexity from
+'false' to 'awk').  The utilities are designed to be capable of
+bootstrapping their standard GNU counterparts.  Underpinning these
+utilities are many Scheme interfaces for manipulating files and text.
+One of the goals of this project is to expose these interfaces and
+provide Guile users with all the superpowers available to a standard
+POSIX shell (but with way more parens, obviously).  While the
+utilities are able (with some difficulty) to do the bootstrapping job,
+the Scheme interfaces are still under development and are not ready
+for public use.
 
+Requirements
+============
 
-* history flattened vs full, i.e. navigate interactively without
-  redundancy vs export as script
+Gash-Utils depends Gash <https://savannah.nongnu.org/projects/gash/>.
+
+Installing
+==========
+
+This package uses GNU Autotools for building and installing.  For
+details on how to configure, build, and install it, see the file named
+'INSTALLING'.
+
+If you have GNU Guix, you can skip all that and install the package
+by running:
+
+     guix package -f guix.scm
+
+Gash-Utils is designed to work with Guile versions as early as 2.0.9.
+
+Testing
+=======
+
+Gash-Utils includes a number of unit and integration tests that can be
+run using 'make check'.  If you are using Guile 2.0.9, you will have to
+make SRFI 64 available to run the unit tests.  To do this, you can copy
+'module/srfi/srfi-64.scm' and the 'module/srfi/srfi-64' directory from a
+newer version of Guile into a directory named 'srfi' in the Gash-Utils
+source code directory.
+
+Copying Gash-Utils
+==================
+
+Gash-Utils is free software released under the GNU GPLv3 (or later).
+See 'COPYING' for the full license.  Enjoy!
+
+Copying this file
+=================
+
+This file was written by Timothy Sample <samplet@ngyro.com>.
+
+To the extent possible under law, the author(s) have waived all
+copyright and related or neighboring rights to this file.
+
+You should have received a copy of the CC0 legalcode along with this
+work.  If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
