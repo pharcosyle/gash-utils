@@ -27,18 +27,13 @@
   #:use-module (ice-9 rdelim)
   #:use-module (ice-9 receive)
   #:use-module (ice-9 regex)
-
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
-
   #:use-module (gash commands config)
   #:use-module (gash util)
   #:use-module (gash commands awk lexer)
   #:use-module (gash commands awk parser)
-
-  #:export (
-            awk
-            ))
+  #:export (awk))
 
 ;; Builtins
 

@@ -22,14 +22,10 @@
 
 (define-module (gash commands diff)
   #:use-module (ice-9 getopt-long)
-
   #:use-module (srfi srfi-1)
-
   #:use-module (gash commands config)
   #:use-module (gash diff)
-  #:export (
-            diff
-            ))
+  #:export (diff))
 
 (define (diff . args)
   (let* ((option-spec

@@ -24,21 +24,16 @@
 (define-module (gash commands grep)
   #:use-module (ice-9 match)
   #:use-module (ice-9 regex)
-
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-26)
   #:use-module (srfi srfi-37)
-
   #:use-module (gash commands config)
   #:use-module (gash compat)
   #:use-module (gash io)
   #:use-module (gash util)
   #:use-module (gash shell-utils)
-
-  #:export (
-            grep
-            ))
+  #:export (grep))
 
 (define* (flag name #:optional single-char)
   (option (if single-char

@@ -29,10 +29,7 @@
   #:use-module (gash ustar)
   #:use-module (gash guix-utils)
   #:use-module (gash shell-utils)
-
-  #:export (
-            tar
-            ))
+  #:export (tar))
 
 (define (tar . args)
   (let* ((option-spec

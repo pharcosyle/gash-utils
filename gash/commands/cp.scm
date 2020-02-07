@@ -22,13 +22,9 @@
 
 (define-module (gash commands cp)
   #:use-module (ice-9 getopt-long)
-
   #:use-module (gash commands config)
   #:use-module (gash shell-utils)
-
-  #:export (
-            cp
-            ))
+  #:export (cp))
 
 (define (cp . args)
   (let* ((option-spec

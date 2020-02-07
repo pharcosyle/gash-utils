@@ -29,9 +29,7 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
   #:use-module (gash shell-utils)
-  #:export (
-            rm
-            ))
+  #:export (rm))
 
 (define (rm name . args)
   (let ((recursive? (or (member "-r" args)

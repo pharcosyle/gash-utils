@@ -24,16 +24,11 @@
   #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 match)
   #:use-module (ice-9 rdelim)
-
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
-
   #:use-module (gash commands config)
   #:use-module (gash shell-utils)
-
-  #:export (
-            cut
-            ))
+  #:export (cut))
 
 (define (cut-fields inport outport delimiter fields)
   (let ((dstring (make-string 1 delimiter)))

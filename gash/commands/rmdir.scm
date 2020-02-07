@@ -22,13 +22,9 @@
 
 (define-module (gash commands rmdir)
   #:use-module (ice-9 getopt-long)
-
   #:use-module (gash commands config)
   #:use-module (gash shell-utils)
-
-  #:export (
-            rmdir
-            ))
+  #:export (rmdir))
 
 (define (rmdir . args)
   (format (current-error-port) "rmdir: args=~s\n" args)

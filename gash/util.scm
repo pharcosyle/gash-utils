@@ -20,15 +20,12 @@
 (define-module (gash util)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
-
-  #:export (
-            conjoin
+  #:export (conjoin
             disjoin
             wrap-command
             char->string
             string->string-list
-            string-replace-string
-            ))
+            string-replace-string))
 
 (define (disjoin . predicates)
   (lambda (. arguments)

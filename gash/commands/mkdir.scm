@@ -22,13 +22,9 @@
 
 (define-module (gash commands mkdir)
   #:use-module (ice-9 getopt-long)
-
   #:use-module (gash commands config)
   #:use-module (gash shell-utils)
-
-  #:export (
-            mkdir'
-            ))
+  #:export (mkdir'))
 
 (define (mkdir' . args)
   (let* ((option-spec

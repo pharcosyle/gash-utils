@@ -22,13 +22,9 @@
 
 (define-module (gash commands ln)
   #:use-module (ice-9 getopt-long)
-
   #:use-module (gash commands config)
   #:use-module (gash shell-utils)
-
-  #:export (
-            ln
-            ))
+  #:export (ln))
 
 (define (ln . args)
   (let* ((option-spec

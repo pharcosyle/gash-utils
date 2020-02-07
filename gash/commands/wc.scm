@@ -28,13 +28,10 @@
 (define-module (gash commands wc)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-11)
-
   #:use-module (ice-9 format)
   #:use-module (ice-9 match)
   #:use-module (gash shell-utils)
-  #:export (
-            wc
-            ))
+  #:export (wc))
 
 (define (lines+words+chars port)
   "Return the number of lines, words and chars read from PORT."

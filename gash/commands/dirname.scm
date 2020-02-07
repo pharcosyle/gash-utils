@@ -22,12 +22,8 @@
 
 (define-module (gash commands dirname)
   #:use-module (ice-9 getopt-long)
-
   #:use-module (gash commands config)
-
-  #:export (
-            dirname
-            ))
+  #:export (dirname))
 
 (define (dirname . args)
   (let* ((option-spec

@@ -23,12 +23,8 @@
 (define-module (gash commands basename)
   #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 receive)
-
   #:use-module (gash commands config)
-
-  #:export (
-            basename
-            ))
+  #:export (basename))
 
 (define (basename . args)
   (let* ((option-spec

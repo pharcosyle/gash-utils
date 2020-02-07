@@ -27,14 +27,10 @@
 
 (define-module (gash commands find)
   #:use-module (ice-9 getopt-long)
-
   #:use-module (gash commands config)
   #:use-module (gash io)
   #:use-module (gash shell-utils)
-
-  #:export (
-            find
-            ))
+  #:export (find))
 
 (define (find . args)
   (let* ((option-spec

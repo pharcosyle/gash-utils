@@ -23,16 +23,11 @@
 (define-module (gash commands chmod)
   #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 receive)
-
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
-
   #:use-module (gash commands config)
   #:use-module (gash shell-utils)
-
-  #:export (
-            chmod
-            ))
+  #:export (chmod))
 
 (define (chmod . args)
   (let* ((option-spec

@@ -32,18 +32,15 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (srfi srfi-26)
-
   #:use-module (ice-9 ftw)
   #:use-module (ice-9 format)
   #:use-module (ice-9 match)
   #:use-module (ice-9 regex)
   #:use-module (ice-9 rdelim)
-
   #:use-module (rnrs bytevectors)
   #:use-module (rnrs io ports)
   #:use-module (gash util)
-  #:export (
-            delete-file-recursively
+  #:export (delete-file-recursively
             display-tabulated
             display-file
             dump-port
@@ -94,8 +91,7 @@
             substitute*
             substitute-port
             with-atomic-file-replacement
-            let-matches
-            ))
+            let-matches))
 
 ;;; Commentary:
 

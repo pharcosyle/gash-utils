@@ -23,15 +23,10 @@
 (define-module (gash commands touch)
   #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 receive)
-
   #:use-module (srfi srfi-26)
-
   #:use-module (gash commands config)
   #:use-module (gash shell-utils)
-
-  #:export (
-            touch
-            ))
+  #:export (touch))
 
 (define (create-or-touch file time)
   (let ((exists? (file-exists? file)))

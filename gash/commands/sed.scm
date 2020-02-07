@@ -31,15 +31,11 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (srfi srfi-26)
-
   #:use-module (gash commands sed reader)
   #:use-module (gash commands config)
   #:use-module (gash shell-utils)
   #:use-module (gash util)
-
-  #:export (
-            sed
-            ))
+  #:export (sed))
 
 (define-immutable-record-type <env>
   (make-env in out line target hold queue sub? labels)

@@ -26,9 +26,7 @@
 ;;; Code:
 
 (define-module (gash commands reboot)
-  #:export (
-            reboot'
-            ))
+  #:export (reboot'))
 
 (define (reboot' name . args)
   "Emit code for 'reboot'."

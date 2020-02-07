@@ -25,9 +25,7 @@
   #:use-module (srfi srfi-26)
   #:use-module (gash commands config)
   #:use-module (gash shell-utils)
-  #:export (
-            mv
-            ))
+  #:export (mv))
 
 (define (mv name . args)
   (define (usage port)

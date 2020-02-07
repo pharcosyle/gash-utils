@@ -28,9 +28,7 @@
 (define-module (gash commands which)
   #:use-module (gash io)
   #:use-module (gash shell-utils)
-  #:export (
-            which
-            ))
+  #:export (which))
 
 (define (which name program . rest)
   (stdout (search-path (executable-path) program)))

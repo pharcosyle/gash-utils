@@ -29,9 +29,7 @@
   #:use-module (srfi srfi-26)
   #:use-module (gash commands config)
   #:use-module (gash util)
-  #:export (
-            tr
-            ))
+  #:export (tr))
 
 (define (gfilter pred gen)
   (lambda ()

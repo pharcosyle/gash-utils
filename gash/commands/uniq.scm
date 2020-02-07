@@ -24,13 +24,9 @@
   #:use-module (ice-9 format)
   #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 rdelim)
-
   #:use-module (gash commands config)
   #:use-module (gash shell-utils)
-
-  #:export (
-            uniq
-            ))
+  #:export (uniq))
 
 (define* (uniq-lines inport outport #:key count?)
   (let loop ((line (read-line inport)) (count 1))

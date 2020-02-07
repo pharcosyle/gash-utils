@@ -23,14 +23,11 @@
 (define-module (gash commands compress)
   #:use-module (ice-9 getopt-long)
   #:use-module (srfi srfi-1)
-
   #:use-module (gash commands config)
   #:use-module (gash compat)
   #:use-module (gash compress)
   #:use-module (gash guix-utils)
-  #:export (
-            compress
-            ))
+  #:export (compress))
 
 (define (compress . args)
   (let* ((option-spec
