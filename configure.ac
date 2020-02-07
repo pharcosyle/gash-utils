@@ -23,7 +23,7 @@ AC_INIT([Gash-Utils],
         [gash-utils])
 AC_CONFIG_SRCDIR([gash])
 AC_CONFIG_AUX_DIR([build-aux])
-AM_INIT_AUTOMAKE([color-tests silent-rules -Wall -Werror foreign])
+AM_INIT_AUTOMAKE([color-tests silent-rules -Wall -Werror])
 AM_SILENT_RULES([yes])
 
 GUILE_PKG([2.2 2.0])
