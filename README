@@ -16,7 +16,7 @@ for public use.
 Requirements
 ============
 
-Gash-Utils depends Gash <https://savannah.nongnu.org/projects/gash/>.
+Gash-Utils depends on Gash <https://savannah.nongnu.org/projects/gash/>.
 
 Installing
 ==========
