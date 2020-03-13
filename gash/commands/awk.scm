@@ -1,5 +1,6 @@
 ;;; Gash-Utils
 ;;; Copyright © 2019 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;; Copyright © 2020 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Gash-Utils.
 ;;;
@@ -287,6 +288,21 @@
     (('<awk-item> ('<awk-end>) action) action)
     (_ #f)))
 
+(define* (%eval-awk items names #:optional
+                    (out (current-output-port))
+                    #:key (field-separator " "))
+  (let* ((begin-blocks (filter-map begin-block items))
+         (program (filter (negate (disjoin begin-block end-block)) items))
+         (end-blocks (filter-map end-block items))
+         (variables `(("FS" . ,field-separator)
+                      ("NR" . 0)
+                      ("length" . ,awk-length)
+                      ("split" . ,awk-split)
+                      ("substr" . ,awk-substr)))
+         (variables (fold (cut run-commands #f out '() <> <>) variables begin-blocks))
+         (variables (fold (cut run-awk-file program out <> <>) variables names)))
+    (fold (cut run-commands #f out '() <> <>) variables end-blocks)))
+
 (define (awk . args)
   (let* ((option-spec
 	  '((file (single-char #\f) (value #t))
@@ -316,19 +332,10 @@ Usage: awk [OPTION]...
                    (values (with-input-from-string (car files) read-awk) (cdr files)))
              (when (getenv "AWK_DEBUG")
                (pretty-print parse-tree (current-error-port)))
-             (let* ((files (if (pair? files) files
-                               '("-")))
-                    (outport (current-output-port))
-                    (begin-blocks (filter-map begin-block parse-tree))
-                    (program (filter (negate (disjoin begin-block end-block)) parse-tree))
-                    (end-blocks (filter-map end-block parse-tree))
-                    (variables `(("FS" . ,delimiter)
-                                 ("NR" . 0)
-                                 ("length" . ,awk-length)
-                                 ("split" . ,awk-split)
-                                 ("substr" . ,awk-substr)))
-                    (variables (fold (cut run-commands #f outport '() <> <>) variables begin-blocks))
-                    (variables (fold (cut run-awk-file program outport <> <>) variables files)))
-               (fold (cut run-commands #f outport '() <> <>) variables end-blocks)))))))
+             (let ((files (if (pair? files) files
+                              '("-")))
+                   (outport (current-output-port)))
+               (%eval-awk parse-tree files outport
+                          #:field-separator delimiter)))))))
 
 (define main awk)
