@@ -213,6 +213,7 @@
      (receive (expr variables) (awk-expression->boolean pattern variables)
        (if expr (run-commands inport outport fields action variables)
            variables)))
+    (('<awk-item> (or ('<awk-begin>) ('<awk-end>)) action) variables)
     (('<awk-action> actions ...)
      (fold (cut run-commands inport outport fields <> <>) variables actions))
     (('<awk-expr> expr)
@@ -278,30 +279,25 @@
           (let ((variables (run-commands inport outport fields program variables)))
             (loop (read-line inport) variables)))))))
 
-(define (begin-block x)
-  (match x
-    (('<awk-item> ('<awk-begin>) action) action)
-    (_ #f)))
-
-(define (end-block x)
-  (match x
-    (('<awk-item> ('<awk-end>) action) action)
-    (_ #f)))
+(define (eval-special-items items pattern out env)
+  (match items
+    (() env)
+    ((('<awk-item> (? (cut equal? <> pattern)) action) . rest)
+     (let ((env* (run-commands #f out '() action env)))
+       (eval-special-items rest pattern out env*)))
+    ((_ . rest) (eval-special-items rest pattern out env))))
 
 (define* (%eval-awk items names #:optional
                     (out (current-output-port))
                     #:key (field-separator " "))
-  (let* ((begin-blocks (filter-map begin-block items))
-         (program (filter (negate (disjoin begin-block end-block)) items))
-         (end-blocks (filter-map end-block items))
-         (variables `(("FS" . ,field-separator)
+  (let* ((variables `(("FS" . ,field-separator)
                       ("NR" . 0)
                       ("length" . ,awk-length)
                       ("split" . ,awk-split)
                       ("substr" . ,awk-substr)))
-         (variables (fold (cut run-commands #f out '() <> <>) variables begin-blocks))
-         (variables (fold (cut run-awk-file program out <> <>) variables names)))
-    (fold (cut run-commands #f out '() <> <>) variables end-blocks)))
+         (variables (eval-special-items items '(<awk-begin>) out variables))
+         (variables (fold (cut run-awk-file items out <> <>) variables names)))
+    (eval-special-items items '(<awk-end>) out variables)))
 
 (define (awk . args)
   (let* ((option-spec
