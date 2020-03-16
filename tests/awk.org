@@ -440,3 +440,18 @@
 #+begin_example
   2
 #+end_example
+
+* Addition assignment precedence
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      n = 1
+      n += 1 + 1
+      print n
+  }
+#+end_src
+:stdout:
+#+begin_example
+  3
+#+end_example

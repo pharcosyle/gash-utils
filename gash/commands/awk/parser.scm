@@ -80,6 +80,7 @@
     REGEX
     STRING
 
+    (right: = ^= %= *= /= += -=)
     (left: ||)
     (left: &&)
     (left: < <= != == > >= ~ !~)
@@ -91,7 +92,6 @@
 
     (left: In)
     (right: ? :)
-    (right: = ^= %= *= /= += -=)
     (left: $))
 
    (program
