@@ -239,8 +239,8 @@
     (regex) : $1
     (lvalue ++) : `(<awk-post-inc> ,$1)
     (lvalue --) : `(<awk-post-dec> ,$1)
-    (++ lvalue) : `(<awk-pre-inc> ,$1)
-    (-- lvalue) : `(<awk-pre-dec> ,$1)
+    (++ lvalue) : `(<awk-pre-inc> ,$2)
+    (-- lvalue) : `(<awk-pre-dec> ,$2)
     (lvalue ^= expr) : `(^= ,$1 ,$3)
     (lvalue %= expr) : `(%= ,$1 ,$3)
     (lvalue *= expr) : `(*= ,$1 ,$3)
