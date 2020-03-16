@@ -264,9 +264,10 @@
        (if expr
            (run-commands inport outport fields then variables)
            (run-commands inport outport fields else variables))))
-    ;; ? awk-expr?
-    (((or '=) x ...) (receive (expr variables) (awk-expression command variables)
-                       variables))
+    ((or (? number?) (? string?)) variables)
+    (((? symbol?) . rest)
+     (receive (expr variables) (awk-expression command variables)
+       variables))
     ((lst ...) (fold (cut run-commands inport outport fields <> <>) variables lst))
     (_ (format (current-error-port) "skip: ~s\n" command)
        variables)))
