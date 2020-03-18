@@ -115,7 +115,10 @@
 (define (awk-expression expression variables)
   (match expression
     (('<awk-name> name) (values (get-var name variables) variables))
-    (('<awk-array-ref> name index) (values (get-var (awk-expression index variables) (get-var name variables)) variables))
+    (('<awk-array-ref> name index)
+     (let ((array (get-var name variables)))
+       (receive (index variables) (awk-expression index variables)
+         (values (get-var index array) variables))))
     (('<awk-in> index name) (values (and (assoc-ref (get-var name variables) index)) variables))
     (('<awk-field> ('<awk-name> "NF")) (values (last (get-var "*fields*" variables)) variables))
     (('<awk-field> number) (let ((field (awk-expression number variables))
