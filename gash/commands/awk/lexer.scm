@@ -133,16 +133,20 @@
 ;;    ("getline" . Getline) ;; DIFFE
 
 (define *builtins*
-  '(("close" . close)
+  '(("atan2" . atan2)
+    ("close" . close)
     ("cos" . cos)
     ("exp" . exp)
-    ("gsub" . gsub)   
+    ("gsub" . gsub)
+    ("index" . index)
     ("int" . int)
     ("length" . length)
     ("log" . log)
+    ("match" . match)
     ("rand" . rand)
     ("sin" . sin)
     ("split" . split)
+    ("sprintf" . sprintf)
     ("sqrt" . sqrt)
     ("srand" . srand)
     ("sub" . sub)
