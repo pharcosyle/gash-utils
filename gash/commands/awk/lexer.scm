@@ -1,5 +1,5 @@
 ;;; Gash-Utils
-;;; Copyright © 2017, 2018 Timothy Sample <samplet@ngyro.com>
+;;; Copyright © 2017, 2018, 2020 Timothy Sample <samplet@ngyro.com>
 ;;; Copyright © 2019 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
 ;;;
 ;;; This file is part of Gash-Utils.
@@ -216,7 +216,18 @@ character."
   (get-char port)
   (lookahead-char port))
 
-(define* (get-escape port #:optional (pred (lambda _ #t)))
+(define *escape-map*
+  '((#\")
+    (#\\)
+    (#\t . #\tab)))
+
+(define (standard-escape-map chr)
+  (match (assoc chr *escape-map*)
+    (#f #f)
+    ((x . ()) x)
+    ((_ . x) x)))
+
+(define* (get-escape port #:optional (escape-map standard-escape-map))
   "Get an escape sequence ('\\x') from @var{port}. If @var{pred} is set,
 then the backslash will be treated as a literal backslash unless the
 next character statisfies @var{pred} (or is a newline)."
@@ -225,10 +236,13 @@ next character statisfies @var{pred} (or is a newline)."
      (let ((chr (lookahead-char port)))
        (match chr
          (#\newline (begin (get-char port) '()))
-         ((and (? char?) (? pred)) (begin
-                                     (get-char port)
-                                     (string->list
-                                      (string-append "\\" (string chr)))))
+         ((? char?)
+          (cond
+           ((escape-map chr)
+            => (lambda (x)
+                 (get-char port)
+                 (list x)))
+           (else (list #\\))))
          (_ `(,(string #\\))))))))
 
 (define (get-regex port)
@@ -239,8 +253,7 @@ next character statisfies @var{pred} (or is a newline)."
                   (match chr
                     ((? eof-object?) (throw 'lex-error))
                     (#\/ '())
-                    (#\\ (let ((escape (get-escape port
-                                                   (cut member <> '(#\" #\\)))))
+                    (#\\ (let ((escape (get-escape port)))
                            (append escape (loop (lookahead-char port)))))
                     (_ (cons (get-char port) (loop (lookahead-char port)))))))
          (end-location (port->port-location port))
@@ -260,9 +273,8 @@ next character statisfies @var{pred} (or is a newline)."
                   (match chr
                     ((? eof-object?) (throw 'lex-error))
                     (#\" (begin (get-char port) '()))
-                    (#\\ (let ((escape (get-escape port
-                                                   (cut member <> '(#\" #\\)))))
-                           (append (loop (lookahead-char port)))))
+                    (#\\ (let ((escape (get-escape port)))
+                           (append escape (loop (lookahead-char port)))))
                     (_ (cons (get-char port) (loop (lookahead-char port)))))))
          (end-location (port->port-location port))
          (string (apply string chars)))
