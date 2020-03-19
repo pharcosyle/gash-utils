@@ -56,6 +56,13 @@
                  (string-length string))))
     (values (substring string start end) variables)))
 
+(define (awk-index variables s1 s2)
+  (let ((s1 (awk-expression->string s1))
+        (s2 (awk-expression->string s2)))
+    (match (string-contains s1 s2)
+      (#f (values 0 variables))
+      (idx (values (1+ idx) variables)))))
+
 (define (delete-var name variables)
   (filter (negate (compose (cut eq? <> name) car)) variables))
 
@@ -338,6 +345,7 @@
                     #:key (field-separator " "))
   (let* ((variables `(("FS" . ,field-separator)
                       ("NR" . 0)
+                      ("index" . ,awk-index)
                       ("length" . ,awk-length)
                       ("split" . ,awk-split)
                       ("substr" . ,awk-substr)))
