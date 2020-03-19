@@ -248,10 +248,17 @@
        (newline)
        variables))
     (('<awk-print> expr ..1)
-     (receive (result variables) (awk-expression expr variables)
-       (display result)
-       (newline)
-       variables))
+     (let loop ((exprs expr) (variables variables) (acc '()))
+       (match exprs
+         (()
+          ;; TODO: Use the OFS variable.
+          (display (string-join (reverse! acc) " "))
+          (newline)
+          variables)
+         ((expr . rest)
+          (receive (result variables) (awk-expression expr variables)
+            (loop rest variables
+                  (cons (awk-expression->string result) acc)))))))
     (('<awk-for-in> key array action)
      (let* ((save-key (assoc-ref variables key))
             (keys (map car (get-var array variables)))
