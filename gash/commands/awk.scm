@@ -226,6 +226,11 @@
                              (values (string-append (awk-expression->string x) (awk-expression->string y)) variables))))
     (('<awk-regex> regex) (values (and (string-match regex (get-var "*line*" variables)) 1) variables))))
 
+(define *next-record-prompt* (make-prompt-tag))
+
+(define (next-record variables)
+  (abort-to-prompt *next-record-prompt* variables))
+
 (define (run-commands inport outport fields command variables)
   (match command
     (('<awk-item> ('<awk-pattern> pattern) action)
@@ -286,11 +291,13 @@
        (if expr
            (run-commands inport outport fields then variables)
            (run-commands inport outport fields else variables))))
+    (('<awk-next>) (next-record variables))
     ((or (? number?) (? string?)) variables)
     (((? symbol?) . rest)
      (receive (expr variables) (awk-expression command variables)
        variables))
-    ((lst ...) (fold (cut run-commands inport outport fields <> <>) variables lst))
+    ((lst ...) (fold (cut run-commands inport outport fields <> <>)
+                     variables lst))
     (_ (format (current-error-port) "skip: ~s\n" command)
        variables)))
 
@@ -307,14 +314,22 @@
                (variables (assign "FNR" (1+ (get-var "FNR" variables)) variables))
                (variables (assign "*line*" line variables))
                (variables (assign "*fields*" fields variables)))
-          (let ((variables (run-commands inport outport fields program variables)))
+          (let ((variables (call-with-prompt *next-record-prompt*
+                             (lambda ()
+                               (run-commands inport outport fields
+                                             program variables))
+                             (lambda (cont variables) variables))))
             (loop (read-line inport) variables)))))))
 
 (define (eval-special-items items pattern out env)
   (match items
     (() env)
     ((('<awk-item> (? (cut equal? <> pattern)) action) . rest)
-     (let ((env* (run-commands #f out '() action env)))
+     (let* ((env* (call-with-prompt *next-record-prompt*
+                    (lambda ()
+                      (run-commands #f out '() action env))
+                    (lambda _
+                      (error "awk: next statement in special item")))))
        (eval-special-items rest pattern out env*)))
     ((_ . rest) (eval-special-items rest pattern out env))))
 
