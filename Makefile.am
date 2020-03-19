@@ -167,6 +167,7 @@ ORG_LOG_COMPILER = $(top_builddir)/pre-inst-env \
                        $(top_builddir)/tests/run-test-suite
 
 UNIT_TESTS =                                    \
+  tests/unit/awk-parser.scm                     \
   tests/unit/shell-utils.scm
 
 FULL_TESTS =                                    \

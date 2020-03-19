@@ -80,19 +80,15 @@
     REGEX
     STRING
 
-    (right: = ^= %= *= /= += -=)
-    (left: ||)
-    (left: &&)
-    (left: < <= != == > >= ~ !~)
-    (right: ^)
-    (left: !)
-    (left: + -)
-    (left: * / %)
-    (left: ++ --)
-
-    (left: In)
-    (right: ? :)
-    (left: $))
+    = ^= %= *= /= += -=
+    ! || && < <= != == > >= ~ !~
+    ;; We need to mark '/' as right associative for the parser
+    ;; generator to accept the ERE (regex) work-around.
+    ^ + - * (right: /) % ++ --
+    ;; There's an ambiguity in for loops, and marking 'In' as right
+    ;; associative lets the parser generator do the right thing
+    ;; without complaining.
+    (right: In) ? : $)
 
    (program
     (item-list) : $1
@@ -211,74 +207,144 @@
     () : '()
     (expr) : $1)
 
+   ;; The standard splits expressions into unary and non-unary to
+   ;; differentiate (for example) between subtraction and concatenating
+   ;; with negation.  This technique seems to be at odds with the way
+   ;; our parser generator does explicit precedence (having different
+   ;; types of expressions keeps the precedence rules from taking
+   ;; effect).  The following takes care of precedence implicitly,
+   ;; having a hierarchy of rules for the different precedences and
+   ;; associativities.  It's a little verbose, but it does limit the
+   ;; unary/non-unary distinction to the precedence levels between
+   ;; concatenation and the unary plus and minus.
    (expr
-    (+ expr) : `(+ ,$2)
-    (- expr) : `(- ,$2)
-    (LPAREN expr RPAREN) : $2
-    (! expr) : `(! ,$2)
-    (expr ^ expr) : `(^ ,$1 ,$3)
-    (expr * expr) : `(* ,$1 ,$3)
-    (expr / expr) : `(/ ,$1 ,$3)
-    (expr % expr) : `(% ,$1 ,$3)
-    (expr + expr) : `(+ ,$1 ,$3)
-    (expr - expr) : `(- ,$1 ,$3)
-    (expr < expr) : `(< ,$1 ,$3)
-    (expr <= expr) : `(<= ,$1 ,$3)
-    (expr != expr) : `(!= ,$1 ,$3)
-    (expr == expr) : `(== ,$1 ,$3)
-    (expr > expr) : `(> ,$1 ,$3)
-    (expr >= expr) : `(>= ,$1 ,$3)
-    (expr ~ expr) : `(~ ,$1 ,$3)
-    (expr !~ expr) : `(!~ ,$1 ,$3)
-    (expr In NAME) : `(<awk-in> ,$1 ,$3)
-    (LPAREN multiple-expr-list RPAREN In NAME)
-    (expr && expr) : `(&& ,$1 ,$3)
-    (expr || expr) : `(|| ,$1 ,$3)
-    (expr ? expr : expr) : `(? ,$1 ,$3 ,$5)
-    (concat-expr) : $1
-    (regex) : $1
-    (lvalue ++) : `(<awk-post-inc> ,$1)
-    (lvalue --) : `(<awk-post-dec> ,$1)
+    (assign-expr) : $1)
+
+   (assign-expr
+    (lvalue ^= assign-expr) : `(^= ,$1 ,$3)
+    (lvalue %= assign-expr) : `(%= ,$1 ,$3)
+    (lvalue *= assign-expr) : `(*= ,$1 ,$3)
+    (lvalue /= assign-expr) : `(/= ,$1 ,$3)
+    (lvalue += assign-expr) : `(+= ,$1 ,$3)
+    (lvalue -= assign-expr) : `(-= ,$1 ,$3)
+    (lvalue = assign-expr) : `(= ,$1 ,$3)
+    (cond-expr) : $1)
+
+   (cond-expr
+    (or-expr ? cond-expr : cond-expr) : `(? ,$1 ,$3 ,$5)
+    (or-expr) : $1)
+
+   (or-expr
+    (or-expr || and-expr) : `(|| ,$1 ,$3)
+    (and-expr) : $1)
+
+   (and-expr
+    (and-expr && member-expr) : `(&& ,$1 ,$3)
+    (member-expr) : $1)
+
+   (member-expr
+    (member-expr In NAME) : `(<awk-in> ,$1 ,$3)
+    ;; TODO: Multi-dimension array membership.
+    (re-expr) : $1)
+
+   (re-expr
+    (comp-expr ~ comp-expr) : `(~ ,$1 ,$3)
+    (comp-expr !~ comp-expr) : `(!~ ,$1 ,$3)
+    (comp-expr) : $1)
+
+   (comp-expr
+    (cat-expr < cat-expr) : `(< ,$1 ,$3)
+    (cat-expr <= cat-expr) : `(<= ,$1 ,$3)
+    (cat-expr != cat-expr) : `(!= ,$1 ,$3)
+    (cat-expr == cat-expr) : `(== ,$1 ,$3)
+    (cat-expr > cat-expr) : `(> ,$1 ,$3)
+    (cat-expr >= cat-expr) : `(>= ,$1 ,$3)
+    (cat-expr) : $1)
+
+   (cat-expr
+    (cat-expr non-unary-expr-expr) : `(<awk-concat> ,$1 ,$2)
+    (expr-expr) : $1)
+
+   (expr-expr
+    (unary-expr-expr) : $1
+    (non-unary-expr-expr) : $1)
+
+   (unary-expr-expr
+    (unary-expr-expr + term-expr) : `(+ ,$1 ,$3)
+    (unary-expr-expr - term-expr) : `(- ,$1 ,$3)
+    (unary-term-expr) : $1)
+
+   (non-unary-expr-expr
+    (non-unary-expr-expr + term-expr) : `(+ ,$1 ,$3)
+    (non-unary-expr-expr - term-expr) : `(- ,$1 ,$3)
+    (non-unary-term-expr) : $1)
+
+   (term-expr
+    (unary-term-expr) : $1
+    (non-unary-term-expr) : $1)
+
+   (unary-term-expr
+    (unary-term-expr * factor-expr) : `(* ,$1 ,$3)
+    (unary-term-expr / factor-expr) : `(/ ,$1 ,$3)
+    (unary-term-expr % factor-expr) : `(% ,$1 ,$3)
+    (unary-factor-expr) : $1)
+
+   (non-unary-term-expr
+    (non-unary-term-expr * factor-expr) : `(* ,$1 ,$3)
+    (non-unary-term-expr / factor-expr) : `(/ ,$1 ,$3)
+    (non-unary-term-expr % factor-expr) : `(% ,$1 ,$3)
+    (non-unary-factor-expr) : $1)
+
+   (factor-expr
+    (unary-factor-expr) : $1
+    (non-unary-factor-expr) : $1)
+
+   (unary-factor-expr
+    (+ exp-expr) : `(+ ,$2)
+    (- exp-expr) : `(- ,$2))
+
+   (non-unary-factor-expr
+    (! exp-expr) : `(! ,$2)
+    (exp-expr) : $1)
+
+   (exp-expr
+    (prepostfix-expr ^ exp-expr) : `(^ ,$1 ,$3)
+    (prepostfix-expr) : $1)
+
+   (prepostfix-expr
     (++ lvalue) : `(<awk-pre-inc> ,$2)
     (-- lvalue) : `(<awk-pre-dec> ,$2)
-    (lvalue ^= expr) : `(^= ,$1 ,$3)
-    (lvalue %= expr) : `(%= ,$1 ,$3)
-    (lvalue *= expr) : `(*= ,$1 ,$3)
-    (lvalue /= expr) : `(/= ,$1 ,$3)
-    (lvalue += expr) : `(+= ,$1 ,$3)
-    (lvalue -= expr) : `(-= ,$1 ,$3)
-    (lvalue = expr) : `(= ,$1 ,$3))
+    (lvalue prepostfix-expr*) : (if $2 `(,$2 ,$1) $1)
+    (base-expr) : $1)
+
+   (prepostfix-expr*
+    (++) : '<awk-post-inc>
+    (--) : '<awk-post-dec>
+    () : #f)
+
+   (lvalue
+    (NAME) : `(<awk-name> ,$1)
+    (NAME LBRACKET expr RBRACKET) : `(<awk-array-ref> ,$1 ,$3)
+    ($ lvalue) : `(<awk-field> ,$2)
+    ($ base-expr) : `(<awk-field> ,$2))
+
+   (base-expr
+    (LPAREN expr RPAREN) : $2
+    (NUMBER) : $1
+    (STRING) : $1
+    (regex) : $1
+    (Func LPAREN expr-list-opt RPAREN) : `(<awk-call> ,$1 ,$3)
+    ;; XXX: These built-in rules cause a shift/reduce conflict.  It
+    ;; works out because of the documented way the parser generator
+    ;; handles conflicts, but it would be better to fix it explicitly.
+    (Builtin LPAREN expr-list-opt RPAREN) : `(<awk-call> ,$1 ,$3)
+    (Builtin) : `(<awk-call> ,$1))
 
    (regex
     (regex-start REGEX /) : (begin (set! %regex #f) `(<awk-regex> ,$2)))
 
    (regex-start
     (/) : (set! %regex #t))
-
-   (concat-expr
-    (concatable-exprs) : (match $1
-                           ((head . tail)
-                            (fold (lambda (x acc)
-                                    `(<awk-concat> ,x ,acc))
-                                  head
-                                  tail))))
-
-   (concatable-exprs
-    (concatable-exprs concatable-expr) : (cons $2 $1)
-    (concatable-expr) : (list $1))
-
-   (concatable-expr
-    (STRING) : $1
-    (lvalue) : $1
-    (Builtin LPAREN expr-list-opt RPAREN) : `(<awk-call> ,$1 ,$3)
-    (Func LPAREN expr-list-opt RPAREN) : `(<awk-call> ,$1 ,$3)
-    (NUMBER) : $1
-    (Builtin) : `(<awk-call> ,$1))
-
-   (lvalue
-    (NAME) : `(<awk-name> ,$1)
-    (NAME LBRACKET expr RBRACKET) : `(<awk-array-ref> ,$1 ,$3)
-    ($ expr) : `(<awk-field> ,$2))
 
    (newline-opt
     () : '()
