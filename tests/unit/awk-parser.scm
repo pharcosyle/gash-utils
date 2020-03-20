@@ -43,6 +43,10 @@
 
 ;;; Statements
 
+(test-equal "Parses a dangling else with the nearest if"
+  '(<awk-if> 1 (<awk-if> 2 3 4))
+  (parse* "if (1) if (2) 3; else 4"))
+
 (test-equal "Parses a for loop"
   '(<awk-for> (<awk-name> "foo") 1 2 3)
   (parse* "for ( foo ; 1 ; 2 ) 3"))
