@@ -54,7 +54,7 @@
     NO_MATCH
     RBRACE
     RBRACKET
-    (left: RPAREN)
+    RPAREN
     SEMI
 
     Begin
@@ -187,7 +187,7 @@
 
    (simple-print-statement
     (Print expr-list-opt) : `(<awk-print> ,@$2)
-    (Print LPAREN expr-list RPAREN) : `(<awk-print> ,@$3))
+    (Print LPAREN multiple-expr-list RPAREN) : `(<awk-print> ,@$3))
 
    ;; output-redirection
 
