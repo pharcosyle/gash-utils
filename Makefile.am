@@ -174,6 +174,7 @@ FULL_TESTS =                                    \
   tests/awk.org                                 \
   tests/core-utils.org                          \
   tests/grep.org                                \
+  tests/printf.org                              \
   tests/sed.org                                 \
   tests/tar.org
 

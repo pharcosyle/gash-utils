@@ -1,0 +1,62 @@
+;;; Gash-Utils
+;;; Copyright © 2020 Timothy Sample <samplet@ngyro.com>
+;;;
+;;; This file is part of Gash-Utils.
+;;;
+;;; Gash-Utils is free software: you can redistribute it and/or modify
+;;; it under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation, either version 3 of the License, or
+;;; (at your option) any later version.
+;;;
+;;; Gash-Utils is distributed in the hope that it will be useful,
+;;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;;; GNU General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with Gash-Utils.  If not, see <http://www.gnu.org/licenses/>.
+
+;; Note that we use "`which printf`" throughout to avoid using the
+;; Bash built-in version.
+
+* Processes a specifier
+:script:
+#+begin_src sh
+  "`which printf`" '%s' foo
+#+end_src
+:stdout: "foo"
+
+* Processes multiple specifiers
+:script:
+#+begin_src sh
+  "`which printf`" '%s:%s' foo bar
+#+end_src
+:stdout: "foo:bar"
+
+* Treats missing arguments as empty strings
+:script:
+#+begin_src sh
+  "`which printf`" '%s:%s' foo
+#+end_src
+:stdout: "foo:"
+
+* Processes escapes
+:script:
+#+begin_src sh
+  "`which printf`" 'foo\tbar'
+#+end_src
+:stdout: "foo\tbar"
+
+* Processes escapes and specifiers
+:script:
+#+begin_src sh
+  "`which printf`" '%s\txxx\n%s\t%s\n' foo bar baz
+#+end_src
+:stdout: "foo\txxx\nbar\tbaz\n"
+
+* Signals error when given no arguments
+:script:
+#+begin_src sh
+  "`which printf`"
+#+end_src
+:status: 1
