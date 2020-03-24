@@ -31,10 +31,10 @@
 
 (define (main . args)
   (let ((name (match args ((name . _) name) (_ "???")))
-        (ags (if (null? args) args (cdr args))))
+        (args (if (null? args) args (cdr args))))
     (catch #t
       (lambda ()
-        (apply printf (cdr args))
+        (apply printf args)
         (primitive-exit 0))
       (lambda args
         (match args
