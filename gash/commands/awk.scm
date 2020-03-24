@@ -36,10 +36,24 @@
   #:use-module (gash commands awk parser)
   #:export (awk))
 
+(define char-set:awk-non-space
+  (char-set-complement (char-set-union char-set:blank (char-set #\newline))))
+
+(define (string-split/awk str delim)
+  (cond
+   ((string-null? delim)
+    (map string (string->list str)))
+   ((string=? delim " ")
+    (string-tokenize str char-set:awk-non-space))
+   ((= (string-length delim) 1)
+    (string-split str (string-ref delim 0)))
+   (else
+    (error "regex field splitting is not supported"))))
+
 ;; Builtins
 
 (define (awk-split variables string array delimiter delimiters)
-  (let* ((split (string-split string (car (string->list delimiter))))
+  (let* ((split (string-split/awk string delimiter))
          (count (length split))
          (variables (fold (cut assign-array array <> <> <>)
                           variables (iota count 1) split)))
@@ -315,7 +329,7 @@
                                                       ("FNR" . 0)
                                                       ,@variables)))
       (if (eof-object? line) variables
-        (let* ((fields (string-split line (car (string->list (get-var "FS" variables)))))
+        (let* ((fields (string-split/awk line (get-var "FS" variables)))
                (variables (assign "NF" (length fields) variables))
                (variables (assign "NR" (1+ (get-var "NR" variables)) variables))
                (variables (assign "FNR" (1+ (get-var "FNR" variables)) variables))
