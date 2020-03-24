@@ -393,3 +393,13 @@
   echo foo | sed -n n
 #+end_src
 :stdout: ""
+
+* The ~n~ function works on the last line
+:script:
+#+begin_src sh
+  echo foo | sed n
+#+end_src
+:stdout:
+#+begin_example
+  foo
+#+end_example
