@@ -38,7 +38,7 @@
   #:export (sed))
 
 (define-immutable-record-type <env>
-  (make-env in out line target hold queue sub? labels)
+  (make-env in out line target hold queue sub? quiet? labels)
   env?
   (in env-in)                         ; port - Input port.
   (out env-out)                       ; port - Output port.
@@ -47,6 +47,7 @@
   (hold env-hold set-env-hold)        ; string - Hold space.
   (queue env-queue set-env-queue)     ; list - Output queue.
   (sub? env-sub? set-env-sub?)        ; bool - Made a substitution?
+  (quiet? env-quiet?)                 ; bool - Suppress default output?
   (labels env-labels))                ; alist - Labels for branching
 
 (define (interpolate-match s m)
@@ -232,8 +233,9 @@
        ((? eof-object?) (abort-to-prompt end-of-script-tag env #f))
        (x (set-env-target env (string-append (env-target env) "\n" x)))))
     (('n)
-     (display (env-target env) (env-out env))
-     (newline (env-out env))
+     (unless (env-quiet? env)
+       (display (env-target env) (env-out env))
+       (newline (env-out env)))
      (set-env-target env (read-line (env-in env))))
     (('p)
      (display (env-target env) (env-out env))
@@ -327,7 +329,7 @@
 
   (parameterize ((regexp-factory (make-regexp-factory)))
     (let loop ((env (make-env in out 1 (read-line in) ""
-                              '() #f (find-labels commands))))
+                              '() #f quiet? (find-labels commands))))
       (unless (eof-object? (env-target env))
         (call-with-prompt end-of-script-tag
           (lambda ()

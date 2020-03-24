@@ -386,3 +386,10 @@
   s,@program_transform_name@,s\,x\,x\,,;t t
   s,@AMDEPBACKSLASH@,\\,;t t
 #+end_example
+
+* The ~n~ function respects the quiet (~-n~) option
+:script:
+#+begin_src sh
+  echo foo | sed -n n
+#+end_src
+:stdout: ""
