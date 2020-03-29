@@ -174,3 +174,11 @@
   BaR
   Baz
 #+end_example
+
+* rm: Removes files listed after non-existent file
+:script:
+#+begin_src sh
+  mkdir "$TEST_TMP"/exists
+  rm -rf "$TEST_TMP"/does-not-exist "$TEST_TMP"/exists
+  test ! -e "$TEST_TMP"/exists
+#+end_src

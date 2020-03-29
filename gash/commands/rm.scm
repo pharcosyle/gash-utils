@@ -3,6 +3,7 @@
 ;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;; Copyright © 2017 Ricardo Wurmus <rekado@elephly.net>
 ;;; Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;; Copyright © 2020 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Gash-Utils.
 ;;;
@@ -28,6 +29,7 @@
 (define-module (gash commands rm)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
+  #:use-module (gash compat)
   #:use-module (gash shell-utils)
   #:export (rm))
 
@@ -39,13 +41,24 @@
                     (member "-rf" args)
                     (member "-fr" args)))
         (files (filter (negate (cut string-prefix? "-" <>)) args)))
-    (catch #t
-      (lambda _
-        (if recursive? (for-each delete-file-recursively files)
-            (for-each delete-file files))
-        #t)
-      (lambda ( . rest)
-        (or force?
-            (apply throw rest))))))
+    (fold (lambda (file status)
+            (catch 'system-error
+              (lambda ()
+                (if recursive?
+                    (delete-file-recursively file)
+                    (delete-file file))
+                status)
+              (lambda args
+                (let ((errno (system-error-errno args)))
+                  (if force?
+                      status
+                      (begin
+                        (format (current-error-port)
+                                "rm: cannot remove ~s: ~a~%"
+                                file (strerror errno))
+                        EXIT_FAILURE))))))
+          EXIT_SUCCESS
+          files)))
 
-(define main rm)
+(define (main . args)
+  (exit (apply rm args)))
