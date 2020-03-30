@@ -29,15 +29,29 @@
 (define-module (gash commands rm)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
+  #:use-module (gash commands config)
   #:use-module (gash compat)
   #:use-module (gash shell-utils)
   #:use-module (gash-utils options)
   #:export (rm))
 
+(define *help-message* "\
+Usage: rm [OPTION]... [FILE]...
+  -f, --force           ignore nonexistent files
+  -r, -R, --recursive   remove directories recursively
+  -h, --help            display this help
+  -V, --version         display version
+")
+
+(define *version-message*
+  (format #f "rm (~a) ~a~%" %package-name %version))
+
 (define *options-grammar*
   (make-options-grammar
    `((flag force #\f)
-     (flag recursive #\r #\R))
+     (flag recursive #\r #\R)
+     (message ("help" #\h) ,*help-message*)
+     (message ("version" #\V) ,*version-message*))
    #:default 'files))
 
 (define (rm . args)
