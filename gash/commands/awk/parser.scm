@@ -95,17 +95,17 @@
 
    (item-list
     (newline-opt) : '()
-    (item-list item terminator) : `(,@$1 ,$2)
-    (item-list actionless-item terminator) : `(,@$1 ,$2))
+    (item-list terminated-item terminator) : `(,@$1 ,$2)
+    (item-list unterminated-item terminator) : `(,@$1 ,$2))
 
-   (item
+   (terminated-item
     (action) : $1
     (pattern action) : `(<awk-item> ,$1 ,$2)
     (Function NAME LPAREN param-list-opt RPAREN newline-opt action) : '(<awk-function>)
     ;;(Function FUNC_NAME LPAREN param-list-opt RPAREN newline-opt action) '(<awk-function>)
     )
 
-   (actionless-item
+   (unterminated-item
     (normal-pattern) : $1)
 
    (param-list-opt
