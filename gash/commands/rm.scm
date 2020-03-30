@@ -31,16 +31,20 @@
   #:use-module (srfi srfi-26)
   #:use-module (gash compat)
   #:use-module (gash shell-utils)
+  #:use-module (gash-utils options)
   #:export (rm))
 
-(define (rm name . args)
-  (let ((recursive? (or (member "-r" args)
-                        (member "-fr" args)
-                        (member "-rf" args)))
-        (force? (or (member "-f" args)
-                    (member "-rf" args)
-                    (member "-fr" args)))
-        (files (filter (negate (cut string-prefix? "-" <>)) args)))
+(define *options-grammar*
+  (make-options-grammar
+   `((flag force #\f)
+     (flag recursive #\r #\R))
+   #:default 'files))
+
+(define (rm . args)
+  (let* ((options (parse-options args *options-grammar*))
+         (force? (assoc-ref options 'force))
+         (recursive? (assoc-ref options 'recursive))
+         (files (assoc-ref options 'files)))
     (fold (lambda (file status)
             (catch 'system-error
               (lambda ()
