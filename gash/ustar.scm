@@ -491,7 +491,8 @@
                                        (block (if (< read size) record
                                                   (sub-bytevector record 0 (- size -512 read)))))
                                   (when extract?
-                                    (display (bv->ustar-0string block "block")))
+                                    (put-bytevector (current-output-port)
+                                                    block))
                                   (loop read)))))))))
     (when extract?
       (mkdir-p dir))
