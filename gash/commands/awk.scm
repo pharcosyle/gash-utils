@@ -39,6 +39,16 @@
 (define char-set:awk-non-space
   (char-set-complement (char-set-union char-set:blank (char-set #\newline))))
 
+(define (string-split/regex str pattern)
+  (let loop ((matches (list-matches pattern str)) (k 0) (acc '()))
+    (match matches
+      (()
+       (let ((subs (substring str k)))
+         (reverse (cons subs acc))))
+      ((m . rest)
+       (let ((subs (substring str k (match:start m))))
+         (loop rest (match:end m) (cons subs acc)))))))
+
 (define (string-split/awk str delim)
   (cond
    ((string-null? delim)
@@ -48,7 +58,7 @@
    ((= (string-length delim) 1)
     (string-split str (string-ref delim 0)))
    (else
-    (error "regex field splitting is not supported"))))
+    (string-split/regex str delim))))
 
 ;; Builtins
 
