@@ -101,8 +101,8 @@
     (item-list action terminator) : `(,@$1 ,$2))
 
    (actionless-item-list
-    (item-list pattern terminator) : `(,$1 ,$2)
-    (actionless-item-list pattern terminator) : `(,@$1 ,$2))
+    (item-list normal-pattern terminator) : `(,$1 ,$2)
+    (actionless-item-list normal-pattern terminator) : `(,@$1 ,$2))
 
    (item
     (pattern action) : `(<awk-item> ,$1 ,$2)
@@ -119,10 +119,16 @@
     (param-list COMMA NAME) : `(,$2 ,@$1))
 
    (pattern
-    (Begin) : '(<awk-begin>)
-    (End) : '(<awk-end>)
+    (normal-pattern) : $1
+    (special-pattern) : $1)
+
+   (normal-pattern
     (expr) : `(<awk-pattern> ,$1)
     (expr COMMA newline-opt expr) : `(<awk-pattern> ,$1 ,$2))
+
+   (special-pattern
+    (Begin) : '(<awk-begin>)
+    (End) : '(<awk-end>))
 
    (action
     (LBRACE newline-opt RBRACE) : '(<awk-action>)
