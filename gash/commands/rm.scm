@@ -38,6 +38,7 @@
 (define *help-message* "\
 Usage: rm [OPTION]... [FILE]...
   -f, --force           ignore nonexistent files
+  -i, --interactive     prompt before removing a file
   -r, -R, --recursive   remove directories recursively
   -h, --help            display this help
   -V, --version         display version
@@ -48,7 +49,9 @@ Usage: rm [OPTION]... [FILE]...
 
 (define *options-grammar*
   (make-options-grammar
-   `((flag force #\f)
+   `((toggle communication
+             (("force" #\f) none)
+             (("interactive" #\i) ask))
      (flag recursive #\r #\R)
      (message ("help" #\h) ,*help-message*)
      (message ("version" #\V) ,*version-message*))
@@ -56,9 +59,12 @@ Usage: rm [OPTION]... [FILE]...
 
 (define (rm . args)
   (let* ((options (parse-options args *options-grammar*))
-         (force? (assoc-ref options 'force))
+         (communication (or (assoc-ref options 'communication) 'warn))
          (recursive? (assoc-ref options 'recursive))
          (files (assoc-ref options 'files)))
+    (when (eq? communication 'ask)
+      (format (current-error-port) "rm: interactive mode not supported~%")
+      (exit EXIT_FAILURE))
     (fold (lambda (file status)
             (catch 'system-error
               (lambda ()
@@ -68,7 +74,7 @@ Usage: rm [OPTION]... [FILE]...
                 status)
               (lambda args
                 (let ((errno (system-error-errno args)))
-                  (if force?
+                  (if (eq? communication 'none)
                       status
                       (begin
                         (format (current-error-port)
