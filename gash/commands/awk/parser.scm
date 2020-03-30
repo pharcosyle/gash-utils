@@ -91,17 +91,12 @@
     (right: In) ? : $)
 
    (program
-    (item-list) : $1
-    (actionless-item-list): $1)
+    (item-list) : $1)
 
    (item-list
     (newline-opt) : '()
-    (actionless-item-list item terminator) : `(,@$1 ,$2)
-    (item-list item terminator) : `(,@$1 ,$2))
-
-   (actionless-item-list
-    (item-list normal-pattern terminator) : `(,$1 ,$2)
-    (actionless-item-list normal-pattern terminator) : `(,@$1 ,$2))
+    (item-list item terminator) : `(,@$1 ,$2)
+    (item-list actionless-item terminator) : `(,@$1 ,$2))
 
    (item
     (action) : $1
@@ -109,6 +104,9 @@
     (Function NAME LPAREN param-list-opt RPAREN newline-opt action) : '(<awk-function>)
     ;;(Function FUNC_NAME LPAREN param-list-opt RPAREN newline-opt action) '(<awk-function>)
     )
+
+   (actionless-item
+    (normal-pattern) : $1)
 
    (param-list-opt
     () : '(<awk-param-list>)
