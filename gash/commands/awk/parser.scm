@@ -91,7 +91,9 @@
     (right: In) ? : $)
 
    (program
-    (item-list) : $1)
+    (item-list) : $1
+    (item-list terminated-item) : `(,@$1 ,$2)
+    (item-list unterminated-item) : `(,@$1 ,$2))
 
    (item-list
     (newline-opt) : '()
