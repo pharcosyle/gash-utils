@@ -1,5 +1,6 @@
 ;;; Gash-Utils
 ;;; Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;; Copyright © 2020 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Gash-Utils.
 ;;;
@@ -25,6 +26,14 @@
   #:use-module (gash commands config)
   #:use-module (gash shell-utils)
   #:export (mkdir'))
+
+(define (call-with-umask mask thunk)
+  (let ((outer-mask #f)
+        (inner-mask mask))
+    (dynamic-wind
+      (lambda () (set! outer-mask (umask inner-mask)))
+      thunk
+      (lambda () (set! inner-mask (umask outer-mask))))))
 
 (define (mkdir' . args)
   (let* ((option-spec
@@ -55,8 +64,12 @@ Options:
 ")
            (exit (if usage? 2 0)))
           (else
-           (let ((mode (if mode (umask (chmodifiers->mode (parse-chmodifiers mode)))
-                           #o755)))
-             (for-each (if parents? mkdir-p (@ (guile) mkdir)) files))))))
+           (let* ((chomodifiers (parse-chmodifiers (or mode "755")))
+                  (mode (chmodifiers->mode chomodifiers)))
+             ;; XXX: This seems like a fragile way to invert the mode.
+             (call-with-umask (bit-extract (lognot mode) 0 9)
+               (lambda ()
+                 (for-each (if parents? mkdir-p (@ (guile) mkdir))
+                           files))))))))
 
 (define main mkdir')
