@@ -17,7 +17,7 @@
 ;;; along with Gash-Utils.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (gash commands config)
-  #:export (%version))
+  #:export (%package-name %version))
 
 ;;; Commentary:
 ;;;
@@ -25,6 +25,9 @@
 ;;; here, make sure to have configure substitute it.
 ;;;
 ;;; Code:
+
+(define %package-name
+  "@PACKAGE_NAME@")
 
 (define %version
   "@VERSION@")
