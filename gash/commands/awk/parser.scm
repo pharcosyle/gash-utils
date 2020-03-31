@@ -84,20 +84,27 @@
     ! || && < <= != == > >= ~ !~
     ;; We need to mark '/' as right associative for the parser
     ;; generator to accept the ERE (regex) work-around.
-    ^ + - * (right: /) % ++ --
+    ^ + - * (right: /) %
+    ;; Shift these in when possible.  This means that 'n ++ n' reads
+    ;; as '(n++) n'.
+    (right: ++ --)
     ;; There's an ambiguity in for loops, and marking 'In' as right
     ;; associative lets the parser generator do the right thing
     ;; without complaining.
     (right: In) ? : $)
 
+   ;; Splitting items into terminated and unterminated is not
+   ;; standard.  The standard requires that consecutive items be
+   ;; separated by a terminator, but implementations allow an action
+   ;; to be followed another item without a terminator.  We also need
+   ;; to allow this, since the GNU Build System makes use of it.
    (program
     (item-list) : $1
-    (item-list terminated-item) : `(,@$1 ,$2)
     (item-list unterminated-item) : `(,@$1 ,$2))
 
    (item-list
     (newline-opt) : '()
-    (item-list terminated-item terminator) : `(,@$1 ,$2)
+    (item-list terminated-item terminator-opt) : `(,@$1 ,$2)
     (item-list unterminated-item terminator) : `(,@$1 ,$2))
 
    (terminated-item
@@ -134,6 +141,10 @@
     (LBRACE newline-opt RBRACE) : '(<awk-action>)
     (LBRACE newline-opt terminated-statement-list RBRACE) : `(<awk-action> ,@$3)
     (LBRACE newline-opt unterminated-statement-list RBRACE) : `(<awk-action> ,@$3))
+
+   (terminator-opt
+    () : #f
+    (terminator) : $1)
 
    (terminator
     (terminator SEMI) : '(<awk-terminator>)
@@ -320,13 +331,10 @@
    (prepostfix-expr
     (++ lvalue) : `(<awk-pre-inc> ,$2)
     (-- lvalue) : `(<awk-pre-dec> ,$2)
-    (lvalue prepostfix-expr*) : (if $2 `(,$2 ,$1) $1)
+    (lvalue ++) : `(<awk-post-inc> ,$1)
+    (lvalue --) : `(<awk-post-dec> ,$1)
+    (lvalue) : $1
     (base-expr) : $1)
-
-   (prepostfix-expr*
-    (++) : '<awk-post-inc>
-    (--) : '<awk-post-dec>
-    () : #f)
 
    (lvalue
     (NAME) : `(<awk-name> ,$1)
