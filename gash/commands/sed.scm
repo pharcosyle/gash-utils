@@ -341,7 +341,7 @@
                   (values (execute-commands commands env) #t))
                 (lambda (cont env* cycle?)
                   (values env* cycle?)))
-            (flush-then-loop (if cycle? loop noop) env*))))))
+            (flush-then-loop (if cycle? loop (const #t)) env*))))))
 
 (define (sed . args)
   (let* ((option-spec
