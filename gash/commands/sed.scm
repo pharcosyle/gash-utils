@@ -1,6 +1,6 @@
 ;;; Gash-Utils
 ;;; Copyright © 2018,2019 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
-;;; Copyright © 2018 Timothy Sample <samplet@ngyro.com>
+;;; Copyright © 2018, 2020 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Gash-Utils.
 ;;;
@@ -333,14 +333,15 @@
   (parameterize ((regexp-factory (make-regexp-factory)))
     (let loop ((env (make-env in out 1 (read-line in) ""
                               '() #f quiet? (find-labels commands))))
-      (unless (eof-object? (env-target env))
-        (call-with-prompt end-of-script-tag
-          (lambda ()
-            (let ((env* (execute-commands commands env)))
-              (flush-then-loop loop env*)))
-          (lambda (cont env* cycle?)
-            (flush-then-loop (if cycle? loop noop) env*))))
-      #t)))
+      (if (eof-object? (env-target env))
+          #t
+          (receive (env* cycle?)
+              (call-with-prompt end-of-script-tag
+                (lambda ()
+                  (values (execute-commands commands env) #t))
+                (lambda (cont env* cycle?)
+                  (values env* cycle?)))
+            (flush-then-loop (if cycle? loop noop) env*))))))
 
 (define (sed . args)
   (let* ((option-spec
