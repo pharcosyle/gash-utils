@@ -338,9 +338,10 @@
 (define* (run-awk-file program outport file-name variables)
   (let ((inport (if (equal? file-name "-") (current-input-port)
                     (open-input-file file-name))))
-    (let loop ((line (read-line inport)) (variables `(("FILENAME" . ,file-name)
-                                                      ("FNR" . 0)
-                                                      ,@variables)))
+    (let loop ((line (read-delimited (get-var "RS" variables) inport))
+               (variables `(("FILENAME" . ,file-name)
+                            ("FNR" . 0)
+                            ,@variables)))
       (if (eof-object? line) variables
         (let* ((fields (string-split/awk line (get-var "FS" variables)))
                (variables (assign "NF" (length fields) variables))
@@ -353,7 +354,8 @@
                                (run-commands inport outport fields
                                              program variables))
                              (lambda (cont variables) variables))))
-            (loop (read-line inport) variables)))))))
+            (loop (read-delimited (get-var "RS" variables) inport)
+                  variables)))))))
 
 (define (eval-special-items items pattern out env)
   (match items
@@ -370,7 +372,8 @@
 (define* (%eval-awk items names #:optional
                     (out (current-output-port))
                     #:key (field-separator " "))
-  (let* ((variables `(("FS" . ,field-separator)
+  (let* ((variables `(("RS" . "\n")
+                      ("FS" . ,field-separator)
                       ("NR" . 0)
                       ("index" . ,awk-index)
                       ("length" . ,awk-length)
