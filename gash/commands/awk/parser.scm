@@ -80,6 +80,8 @@
     REGEX
     STRING
 
+    >> PIPE
+
     = ^= %= *= /= += -=
     ! || && < <= != == > >= ~ !~
     ;; We need to mark '/' as right associative for the parser
@@ -199,22 +201,34 @@
 
    (print-statement
     (simple-print-statement) : $1
-    ;;(simple-print-statement output-redirection) : ...
-    )
+    (simple-print-statement output-redirection)
+    : (match-let ((('<awk-print> . exprs) $1))
+        (cons* '<awk-print-to> $2 exprs)))
 
    (simple-print-statement
-    (Print expr-list-opt) : `(<awk-print> ,@$2)
+    (Print print-expr-list-opt) : `(<awk-print> ,@$2)
     (Print LPAREN multiple-expr-list RPAREN) : `(<awk-print> ,@$3))
 
-   ;; output-redirection
+   (output-redirection
+    (> expr) : `(truncate ,$2)
+    (>> expr) : `(append ,$2)
+    (PIPE expr) : `(pipe ,$2))
 
    (expr-list-opt
     () : '()
     (expr-list) : $1)
 
+   (print-expr-list-opt
+    () : '()
+    (print-expr-list) : $1)
+
    (expr-list
     (expr) : `(,$1)
     (multiple-expr-list) : $1)
+
+   (print-expr-list
+    (print-expr) : `(,$1)
+    (print-expr-list COMMA newline-opt print-expr) : `(,@$1 ,$4))
 
    (multiple-expr-list
     (expr COMMA newline-opt expr) : `(,$1 ,$4)
@@ -237,6 +251,14 @@
    (expr
     (assign-expr) : $1)
 
+   ;; Since printing supports redirects, '>' would have two meanings
+   ;; if we used the normal 'expr' nonterminal.  Instead, awk avoids
+   ;; this by disallowing comparisons in print statements.  No
+   ;; comparisons means no 'x > y', which solves the problem.  For us,
+   ;; this means copying the 'expr' hierarchy without 'comp-expr'.
+   (print-expr
+    (print-assign-expr) : $1)
+
    (assign-expr
     (lvalue ^= assign-expr) : `(^= ,$1 ,$3)
     (lvalue %= assign-expr) : `(%= ,$1 ,$3)
@@ -247,27 +269,59 @@
     (lvalue = assign-expr) : `(= ,$1 ,$3)
     (cond-expr) : $1)
 
+   (print-assign-expr
+    (lvalue ^= print-assign-expr) : `(^= ,$1 ,$3)
+    (lvalue %= print-assign-expr) : `(%= ,$1 ,$3)
+    (lvalue *= print-assign-expr) : `(*= ,$1 ,$3)
+    (lvalue /= print-assign-expr) : `(/= ,$1 ,$3)
+    (lvalue += print-assign-expr) : `(+= ,$1 ,$3)
+    (lvalue -= print-assign-expr) : `(-= ,$1 ,$3)
+    (lvalue = print-assign-expr) : `(= ,$1 ,$3)
+    (print-cond-expr) : $1)
+
    (cond-expr
     (or-expr ? cond-expr : cond-expr) : `(? ,$1 ,$3 ,$5)
     (or-expr) : $1)
+
+   (print-cond-expr
+    (print-or-expr ? print-cond-expr : print-cond-expr) : `(? ,$1 ,$3 ,$5)
+    (print-or-expr) : $1)
 
    (or-expr
     (or-expr || and-expr) : `(|| ,$1 ,$3)
     (and-expr) : $1)
 
+   (print-or-expr
+    (print-or-expr || print-and-expr) : `(|| ,$1 ,$3)
+    (print-and-expr) : $1)
+
    (and-expr
     (and-expr && member-expr) : `(&& ,$1 ,$3)
     (member-expr) : $1)
+
+   (print-and-expr
+    (print-and-expr && print-member-expr) : `(&& ,$1 ,$3)
+    (print-member-expr) : $1)
 
    (member-expr
     (member-expr In NAME) : `(<awk-in> ,$1 ,$3)
     ;; TODO: Multi-dimension array membership.
     (re-expr) : $1)
 
+   (print-member-expr
+    (print-member-expr In NAME) : `(<awk-in> ,$1 ,$3)
+    ;; TODO: Multi-dimension array membership.
+    (print-re-expr) : $1)
+
    (re-expr
     (comp-expr ~ comp-expr) : `(~ ,$1 ,$3)
     (comp-expr !~ comp-expr) : `(!~ ,$1 ,$3)
     (comp-expr) : $1)
+
+   (print-re-expr
+    (cat-expr ~ cat-expr) : `(~ ,$1 ,$3)
+    (cat-expr !~ cat-expr) : `(!~ ,$1 ,$3)
+    (cat-expr) : $1)
 
    (comp-expr
     (cat-expr < cat-expr) : `(< ,$1 ,$3)
