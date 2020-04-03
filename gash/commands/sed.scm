@@ -197,6 +197,18 @@
     (('in from to) (address->pred (cons from to)))
     (_ (error "SED: unsupported address predicate" apred))))
 
+(define (fast-forward env address)
+  (define apred (address->pred address))
+  (let loop ((env (set-fields env
+                    ((env-target) (read-line (env-in env)))
+                    ((env-line) (1+ (env-line env))))))
+    (cond
+     ((eof-object? (env-target env)) env)
+     ((apred env) env)
+     (else (loop (set-fields env
+                   ((env-target) (read-line (env-in env)))
+                   ((env-line) (1+ (env-line env)))))))))
+
 (define (find-labels commands)
   (let loop ((commands commands) (acc '()))
     (match commands
@@ -284,6 +296,8 @@
      (if ((get-address-pred apred) env)
          ;; Handle branching functions here, since they are the only
          ;; ones that need to change what commands get executed next.
+         ;; Also, the 'c' function needs access to the address
+         ;; predicate, so handle it here as well.
          (match function
            ((': label)
             (execute-commands rest env))
@@ -293,6 +307,16 @@
             (match (assoc-ref (env-labels env) label)
               (#f (error "SED: no such label" label))
               (commands* (execute-commands commands* env))))
+           (('c text)
+            (let ((env* (match apred
+                          ((or ('in _ end) ('not ('in _ end)))
+                           (fast-forward env end))
+                          (_ env))))
+              (unless (eof-object? (env-target env*))
+                (display text (env-out env*))
+                (newline (env-out env*)))
+              (abort-to-prompt end-of-script-tag
+                               (set-env-target env* #f) #t)))
            (('t "")
             (if (env-sub? env)
                 (abort-to-prompt end-of-script-tag env #t)
