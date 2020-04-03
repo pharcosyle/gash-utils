@@ -301,6 +301,15 @@
           (receive (result variables) (awk-expression expr variables)
             (loop rest variables
                   (cons (awk-expression->string result) acc)))))))
+    (('<awk-print-to> redir . exprs)
+     (match redir
+       ;; This is an Automake idiom for printing to stderr.
+       (('pipe "cat >&2")
+        (with-output-to-port (current-error-port)
+          (lambda ()
+            (let ((command* `(<awk-print> ,@exprs)))
+              (run-commands inport outport fields command* variables)))))
+       (_ (error "awk: cannot redirect output"))))
     (('<awk-for-in> key array action)
      (let* ((save-key (assoc-ref variables key))
             (keys (map car (get-var array variables)))
