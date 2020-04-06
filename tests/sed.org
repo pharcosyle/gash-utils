@@ -403,3 +403,25 @@
 #+begin_example
   foo
 #+end_example
+
+* Allows repeating range addresses
+:interpreter: "sed"
+:script: "/a/,/z/d"
+:stdin:
+#+begin_example
+  1
+  a
+  2
+  z
+  3
+  a
+  4
+  z
+  5
+#+end_example
+:stdout:
+#+begin_example
+  1
+  3
+  5
+#+end_example
