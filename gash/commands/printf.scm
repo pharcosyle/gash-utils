@@ -52,8 +52,8 @@
       (#\s (values (lambda (x) (or x "")) 1))
       (_ (error "unknown conversion specifier")))))
 
-(define* (parse-format-string s #:optional (start 0)
-                              (end (string-length s)))
+(define* (parse-file-format s #:optional (start 0)
+                            (end (string-length s)))
   (let loop ((k start) (acc '()))
     (match (and (< k end) (string-ref s k))
       (#f (reverse acc))
@@ -63,7 +63,7 @@
       (chr (receive (part length) (parse-escaped-string s k end)
              (loop (+ k length) (cons part acc)))))))
 
-(define (eval-format-string parts . args)
+(define (eval-file-format parts . args)
   (let loop ((parts parts) (args args) (acc '()))
     (match parts
       (() (string-concatenate-reverse acc))
@@ -75,8 +75,8 @@
          ((arg . args*) (loop parts* args* (cons (proc arg) acc))))))))
 
 (define (printf format-string . args)
-  (let* ((format (parse-format-string format-string))
-         (result (apply eval-format-string format args)))
+  (let* ((format (parse-file-format format-string))
+         (result (apply eval-file-format format args)))
     (display result)))
 
 (define (main . args)
