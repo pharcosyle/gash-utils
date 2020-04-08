@@ -107,7 +107,7 @@ with the trailing delimiter discarded.
 
 This procedure takes into account the ways that the delimiter could
 appear in the regular expression without ending it, such as in a
-bracket expression or capture group.  It order to determine what
+bracket expression or capture group.  In order to determine what
 constitutes a capture group, it uses the `%extended?' parameter."
   (let loop ((chr (lookahead-char port)) (depth 0) (acc '()))
     (cond
