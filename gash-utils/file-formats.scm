@@ -26,6 +26,13 @@
             parse-file-format
             fold-file-format))
 
+;;; Commentary:
+;;;
+;;; This module provides an implementation of the POSIX File Format
+;;; Notation.
+;;;
+;;; Code:
+
 (define-record-type <conversion>
   (%make-conversion type proc width?)
   conversion?
