@@ -34,6 +34,7 @@
   #:use-module (gash util)
   #:use-module (gash commands awk lexer)
   #:use-module (gash commands awk parser)
+  #:use-module (gash-utils file-formats)
   #:export (awk))
 
 (define char-set:awk-non-space
@@ -265,6 +266,22 @@
 (define (next-record variables)
   (abort-to-prompt *next-record-prompt* variables))
 
+(define awk-conversion-adapter
+  (make-conversion-adapter
+   (lambda (expression variables)
+     (receive (result variables) (awk-expression expression variables)
+       (values (awk-expression->string result) variables)))
+   awk-expression->number))
+
+(define (awk-printf variables format-string . args)
+  (receive (format-string variables) (awk-expression format-string variables)
+    (let ((format (parse-file-format (awk-expression->string format-string)
+                                     #:escaped? #f)))
+      (receive (result variables)
+          (apply fold-file-format awk-conversion-adapter variables format args)
+        (display result)
+        variables))))
+
 (define (run-commands inport outport fields command variables)
   (match command
     (('<awk-item> ('<awk-pattern> pattern) action)
@@ -301,6 +318,8 @@
           (receive (result variables) (awk-expression expr variables)
             (loop rest variables
                   (cons (awk-expression->string result) acc)))))))
+    (('<awk-printf> format-string args ...)
+     (apply awk-printf variables format-string args))
     (('<awk-print-to> redir . exprs)
      (match redir
        ;; This is an Automake idiom for printing to stderr.

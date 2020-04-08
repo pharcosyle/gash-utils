@@ -72,6 +72,7 @@
     If
     Next
     Print
+    Printf
     Return
     While
 
@@ -207,7 +208,9 @@
 
    (simple-print-statement
     (Print print-expr-list-opt) : `(<awk-print> ,@$2)
-    (Print LPAREN multiple-expr-list RPAREN) : `(<awk-print> ,@$3))
+    (Print LPAREN multiple-expr-list RPAREN) : `(<awk-print> ,@$3)
+    (Printf print-expr-list) : `(<awk-printf> ,@$2)
+    (Printf LPAREN multiple-expr-list RPAREN) : `(<awk-printf> ,@$3))
 
    (output-redirection
     (> expr) : `(truncate ,$2)

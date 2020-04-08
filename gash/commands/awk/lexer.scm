@@ -130,6 +130,7 @@
     ("in" . In)
     ("next" . Next)
     ("print" . Print)
+    ("printf" . Printf)
     ("return" . Return)   
     ("while" . While)))
 
