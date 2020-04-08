@@ -21,15 +21,29 @@
   #:use-module (gash-utils file-formats)
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
-  #:use-module (srfi srfi-9))
+  #:use-module (srfi srfi-9)
+  #:use-module (srfi srfi-26))
 
 (define-syntax-rule (invalid-options proc msg args ...)
   (scm-error 'invalid-options proc msg (list args ...) '()))
 
+(define printf-conversion-adapter
+  (make-conversion-adapter
+   (lambda (s seed)
+     (values (or s "") seed))
+   (lambda (n seed)
+     (cond
+      ;; TODO: Use C-style numbers instead of Scheme-style numbers.
+      ((string->number n) => (cut values <> seed))
+      (else (format (current-error-port) "printf: invalid number: ~a~%" n)
+            (values 0 #f))))))
+
 (define (printf format-string . args)
-  (let* ((format (parse-file-format format-string))
-         (result (apply eval-file-format format args)))
-    (display result)))
+  (let ((format (parse-file-format format-string)))
+    (receive (result seed)
+        (apply fold-file-format printf-conversion-adapter #t format args)
+      (display result)
+      seed)))
 
 (define (main . args)
   (let ((name (match args ((name . _) name) (_ "???")))
@@ -39,10 +53,11 @@
         (match args
           (() (invalid-options "printf" "Invalid options: ~s" args))
           ((format . args)
-           (apply printf format args)
-           (primitive-exit 0))))
+           (exit (apply printf format args)))))
       (lambda args
         (match args
+          (('quit status)
+           (exit status))
           (('invalid-options proc msg args data)
            (format (current-error-port) "~a: " name)
            (apply format (current-error-port) msg args))

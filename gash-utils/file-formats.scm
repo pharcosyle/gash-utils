@@ -19,8 +19,28 @@
 (define-module (gash-utils file-formats)
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
-  #:export (parse-file-format
-            eval-file-format))
+  #:use-module (srfi srfi-9)
+  #:export (<conversion-adapter>
+            make-conversion-adapter
+            conversion-adapter?
+            parse-file-format
+            fold-file-format))
+
+(define-record-type <conversion>
+  (%make-conversion type proc width?)
+  conversion?
+  (type conversion-type)
+  (proc conversion-proc)
+  (width? conversion-width?))
+
+(define* (make-conversion type proc #:optional width?)
+  (%make-conversion type proc width?))
+
+(define-record-type <conversion-adapter>
+  (make-conversion-adapter to-string to-number)
+  conversion-adapter?
+  (to-string conversion-to-string)
+  (to-number conversion-to-number))
 
 (define* (parse-escape s #:optional (start 0) (end (string-length s)))
   (match (and (< start end) (string-ref s start))
@@ -39,7 +59,8 @@
     (match (and (< k end) (string-ref s k))
       (#f (error "missing format character"))
       (#\% (values "%" 1))
-      (#\s (values (lambda (x) (or x "")) 1))
+      (#\d (values (make-conversion 'number number->string) 1))
+      (#\s (values (make-conversion 'string values) 1))
       (_ (error "unknown conversion specifier")))))
 
 (define* (parse-file-format s #:optional (start 0) (end (string-length s)))
@@ -56,13 +77,22 @@
              (#\\ (receive (part length) (parse-escape s (1+ j) end)
                     (loop (+ j length 1) (cons part acc))))))))))
 
-(define (eval-file-format parts . args)
-  (let loop ((parts parts) (args args) (acc '()))
-    (match parts
-      (() (string-concatenate-reverse acc))
-      (((? string? str) . parts*)
-       (loop parts* args (cons str acc)))
-      (((? procedure? proc) . parts*)
-       (match args
-         (() (loop parts* args (cons (proc #f) acc)))
-         ((arg . args*) (loop parts* args* (cons (proc arg) acc))))))))
+(define (fold-file-format adapter seed parts . args)
+  (match-let ((($ <conversion-adapter> to-string to-number) adapter))
+    (let loop ((parts parts) (args args) (seed seed) (acc '()))
+      (match parts
+        (() (values (string-concatenate-reverse acc) seed))
+        (((? string? str) . parts*)
+         (loop parts* args seed (cons str acc)))
+        ((($ <conversion> type proc width?) . parts*)
+         (match (cons type args)
+           (('string)
+            (loop parts* args seed (cons (proc "") acc)))
+           (('number)
+            (loop parts* args seed (cons (proc 0) acc)))
+           (('string arg . args*)
+            (receive (value seed) (to-string arg seed)
+              (loop parts* args* seed (cons (proc value) acc))))
+           (('number arg . args*)
+            (receive (value seed) (to-number arg seed)
+              (loop parts* args* seed (cons (proc value) acc))))))))))

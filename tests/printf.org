@@ -60,3 +60,24 @@
   "`which printf`"
 #+end_src
 :status: 1
+
+* Processes a numeric specifier
+:script:
+#+begin_src sh
+  "`which printf`" '%d' 42
+#+end_src
+:stdout: "42"
+
+* Treats missing numeric arguments as zero
+:script:
+#+begin_src sh
+  "`which printf`" '%d:%d' 42
+#+end_src
+:stdout: "42:0"
+
+* Signals error on bad numeric argument
+:script:
+#+begin_src sh
+  "`which printf`" '%d' not-a-number
+#+end_src
+:status: 1
