@@ -1,5 +1,6 @@
 ;;; Gash-Utils
 ;;; Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;; Copyright © 2020 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Gash-Utils.
 ;;;
@@ -25,37 +26,46 @@
   #:use-module (srfi srfi-26)
   #:use-module (gash commands config)
   #:use-module (gash shell-utils)
+  #:use-module (gash-utils options)
   #:export (mv))
 
-(define (mv name . args)
-  (define (usage port)
-    (display "Usage: mv [OPTION]... SOURCE... DEST
-
+(define *help-message* "\
+Usage: mv [OPTION]... SOURCE... DEST
 Options:
   -f, --force     ignored for compatibility
   -h, --help      display this help and exit
   -V, --version   display version information and exit
-" port))
-  (match args
-    (((or "-f" "--force") args ...)
-     (apply mv (cons name args)))
-    (((or "-h" "--help") t ...)
-     (usage (current-output-port))
-     (exit 0))
-    (((or "-V" "--version") t ...)
-     (format #t "mv (GASH) ~a\n" %version) (exit 0))
-    ((source (and (? directory-exists?) dir))
-     (rename-file source (string-append dir "/" (basename source))))
-    ((source dest)
-     (rename-file source dest))
-    ((sources ... dir)
-     (unless (directory-exists? dir)
-       (error (format #f "mv: target `~a' is not a directory\n" dir)))
-     (for-each
-      rename-file
-      sources
-      (map (compose (cute string-append dir "/" <>) basename)
-           sources)))
-    (_ (usage (current-error-port)) (exit 2))))
+")
+
+(define *version-message*
+  (format #f "mv (~a) ~a~%" %package-name %version))
+
+(define *options-grammar*
+  (make-options-grammar
+   `((flag force #\f)
+     (message ("help" #\h) ,*help-message*)
+     (message ("version" #\V) ,*version-message*))
+   #:default 'files))
+
+(define (mv . args)
+  (let* ((options (parse-options args *options-grammar*))
+         (force? (assoc-ref options 'force))
+         (files (or (assoc-ref options 'files) '())))
+    (match files
+      ((source (and (? directory-exists?) dir))
+       (rename-file source (string-append dir "/" (basename source))))
+      ((source dest)
+       (rename-file source dest))
+      ((sources ... dir)
+       (unless (directory-exists? dir)
+         (error (format #f "mv: target `~a' is not a directory\n" dir)))
+       (for-each
+        rename-file
+        sources
+        (map (compose (cute string-append dir "/" <>) basename)
+             sources)))
+      (x (format (current-error-port) "mv: invalid options: ~s~%" x)
+         (display *help-message*)
+         (exit 2)))))
 
 (define main mv)
