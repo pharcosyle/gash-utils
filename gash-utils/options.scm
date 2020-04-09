@@ -113,8 +113,8 @@ it is the value @code{'()}."
    (match default
      ((? procedure?) default)
      (_ (lambda (arg result)
-          (let ((tail (or (assoc-ref result default) '())))
-            (alist-cons default (cons arg tail) result)))))))
+          (let ((operands (or (assoc-ref result default) '())))
+            (alist-cons default (append operands (list arg)) result)))))))
 
 (define* (parse-options args grammar)
   "Parse @var{args} according to the options grammar @var{grammar}."
