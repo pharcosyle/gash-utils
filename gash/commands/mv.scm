@@ -56,7 +56,7 @@ Options:
        (rename-file source (string-append dir "/" (basename source))))
       ((source dest)
        (rename-file source dest))
-      ((sources ... dir)
+      ((sources ..1 dir)
        (unless (directory-exists? dir)
          (error (format #f "mv: target `~a' is not a directory\n" dir)))
        (for-each
