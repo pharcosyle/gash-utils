@@ -201,6 +201,8 @@
      (execute-commands commands env))
     (('a text)
      (set-env-queue env (cons (string-append text "\n") (env-queue env))))
+    (('comment text)
+     env)
     (('d)
      (abort-to-prompt end-of-script-tag (set-env-target env #f) #t))
     (('g)
