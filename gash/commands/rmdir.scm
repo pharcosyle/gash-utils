@@ -27,7 +27,6 @@
   #:export (rmdir))
 
 (define (rmdir . args)
-  (format (current-error-port) "rmdir: args=~s\n" args)
   (let* ((option-spec
 	  '((help (single-char #\h))
             (parents (single-char #\p))
