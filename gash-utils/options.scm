@@ -17,6 +17,7 @@
 ;;; along with Gash-Utils.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (gash-utils options)
+  #:use-module (gash compat)
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
@@ -116,7 +117,7 @@ it is the value @code{'()}."
           (let ((operands (or (assoc-ref result default) '())))
             (alist-cons default (append operands (list arg)) result)))))))
 
-(define* (parse-options args grammar)
+(define (%parse-options args grammar)
   "Parse @var{args} according to the options grammar @var{grammar}."
   (match-let (((program . args) args)
               (($ <options-grammar> options default) grammar))
@@ -130,3 +131,44 @@ it is the value @code{'()}."
                  (exit 2))
                default
                '())))
+
+
+;;; This next section is just routing around a bug in older versions
+;;; of Guile.  Before version 2.2.2, SRFI 37 could not handle null
+;;; arguments (cf. <https://bugs.gnu.org/26013>).
+
+(define (make-sentinel args)
+  (match-let (((_ . args) args))
+    (let loop ((k 0))
+      (let ((sentinel (format #f "GASH-UTILS-NULL-~a" k)))
+        (if (member sentinel args)
+            (loop (1+ k))
+            sentinel)))))
+
+(define (fix-grammar-for-null-args grammar sentinel)
+  (match-let ((($ <options-grammar> options default) grammar))
+    (%make-options-grammar
+     (map (lambda (opt)
+            (let ((names (option-names opt))
+                  (required-arg? (option-required-arg? opt))
+                  (optional-arg? (option-optional-arg? opt))
+                  (processor (option-processor opt)))
+              (option names required-arg? optional-arg?
+                      (lambda (fixed-opt name arg . args)
+                        (if (equal? arg sentinel)
+                            (apply processor opt name "" args)
+                            (apply processor opt name arg args))))))
+          options)
+     (lambda (arg . args)
+       (if (string=? arg sentinel)
+           (apply default "" args)
+           (apply default arg args))))))
+
+(if-guile-version-below (2 2 2)
+  (define (parse-options args grammar)
+    (let* ((sentinel (make-sentinel args))
+           (grammar* (fix-grammar-for-null-args grammar sentinel)))
+      (%parse-options (map (match-lambda ("" sentinel) (arg arg))
+                           args)
+                      grammar*)))
+  (define parse-options %parse-options))
