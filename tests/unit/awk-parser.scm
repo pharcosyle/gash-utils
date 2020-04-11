@@ -70,4 +70,8 @@
   '(/= (<awk-name> "a") (/= (<awk-name> "b") 1))
   (parse* "a /=b/= 1"))
 
+(test-equal "Parses concatenation without whitespace"
+  '(<awk-concat> (<awk-field> (<awk-name> "i")) "/")
+  (parse* "$i\"/\""))
+
 (test-end)

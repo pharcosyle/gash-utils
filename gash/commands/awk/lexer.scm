@@ -322,9 +322,8 @@ next character statisfies @var{pred} (or is a newline)."
       ((or (? eof-object?)
            (? operator-prefix-char?)
            (? blank?)
+           #\"
            #\newline) (acc->token acc chr))
-      (#\" (let ((string (get-string port)))
-             (loop (lookahead-char port) (cons string acc))))
       (_ (let ((str (get-word-string port)))
            (loop (lookahead-char port) (if (not (string-null? str))
                                            (cons str acc)
