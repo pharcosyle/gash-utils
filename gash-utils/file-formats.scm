@@ -70,8 +70,9 @@
       (#\s (values (make-conversion 'string values) 1))
       (_ (error "unknown conversion specifier")))))
 
-(define* (parse-file-format s #:optional (start 0) (end (string-length s)))
-  (define stop-chars (char-set #\\ #\%))
+(define* (parse-file-format s #:optional (start 0) (end (string-length s))
+                            #:key (escaped? #t))
+  (define stop-chars (if escaped? (char-set #\\ #\%) #\%))
   (let loop ((k start) (acc '()))
     (match (string-index s stop-chars k end)
       (#f (reverse (if (< k end)
