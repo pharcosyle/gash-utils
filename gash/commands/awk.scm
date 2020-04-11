@@ -266,6 +266,11 @@
 (define (next-record variables)
   (abort-to-prompt *next-record-prompt* variables))
 
+(define *break-loop-prompt* (make-prompt-tag))
+
+(define (break-loop variables)
+  (abort-to-prompt *break-loop-prompt* variables))
+
 (define awk-conversion-adapter
   (make-conversion-adapter
    (lambda (expression variables)
@@ -339,13 +344,18 @@
        (if save-key (assign key save-key variables)
            (delete-var key variables))))
     (('<awk-for> init test expr action)
-     (receive (init-expr variables) (awk-expression init variables)
-       (let loop ((variables variables))
-         (receive (test variables) (awk-expression->boolean test variables)
-           (if (not test) variables
-               (let ((variables (run-commands inport outport fields action variables)))
-                 (receive (expr variables) (awk-expression expr variables)
-                   (loop variables))))))))
+     (call-with-prompt *break-loop-prompt*
+       (lambda ()
+         (receive (init-expr variables) (awk-expression init variables)
+           (let loop ((variables variables))
+             (receive (test variables) (awk-expression->boolean test variables)
+               (if (not test) variables
+                   (let ((variables (run-commands inport outport fields
+                                                  action variables)))
+                     (receive (expr variables) (awk-expression expr variables)
+                       (loop variables))))))))
+       (lambda (cont variables)
+         variables)))
     (('<awk-while> test action)
      (let loop ((variables variables))
        (receive (result variables) (awk-expression->boolean test variables)
@@ -369,6 +379,7 @@
        (if expr
            (run-commands inport outport fields then variables)
            (run-commands inport outport fields else variables))))
+    (('<awk-break>) (break-loop variables))
     (('<awk-next>) (next-record variables))
     ((or (? number?) (? string?)) variables)
     (((? symbol?) . rest)
