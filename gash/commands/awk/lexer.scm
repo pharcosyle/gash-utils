@@ -222,7 +222,14 @@ character."
 (define *escape-map*
   '((#\")
     (#\\)
-    (#\t . #\tab)))
+    (#\/)
+    (#\a . #\alarm)
+    (#\b . #\backspace)
+    (#\f . #\page)
+    (#\n . #\newline)
+    (#\r . #\return)
+    (#\t . #\tab)
+    (#\v . #\vtab)))
 
 (define (standard-escape-map chr)
   (match (assoc chr *escape-map*)
