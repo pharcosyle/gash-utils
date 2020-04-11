@@ -45,6 +45,7 @@ SOURCES =                                       \
   gash/commands/cut.scm                         \
   gash/commands/diff.scm                        \
   gash/commands/dirname.scm                     \
+  gash/commands/env.scm                         \
   gash/commands/expr.scm                        \
   gash/commands/false.scm                       \
   gash/commands/find.scm                        \
@@ -101,6 +102,7 @@ WRAPPERS =                                      \
   scripts/cut                                   \
   scripts/diff                                  \
   scripts/dirname                               \
+  scripts/env                                   \
   scripts/expr                                  \
   scripts/false                                 \
   scripts/find                                  \
