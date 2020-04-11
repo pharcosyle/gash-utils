@@ -346,6 +346,19 @@
                (let ((variables (run-commands inport outport fields action variables)))
                  (receive (expr variables) (awk-expression expr variables)
                    (loop variables))))))))
+    (('<awk-while> test action)
+     (let loop ((variables variables))
+       (receive (result variables) (awk-expression->boolean test variables)
+         (if result
+             (loop (run-commands inport outport fields action variables))
+             variables))))
+    (('<awk-do> action test)
+     (let loop ((variables (run-commands inport outport fields
+                                         action variables)))
+       (receive (result variables) (awk-expression->boolean test variables)
+         (if result
+             (loop (run-commands inport outport fields action variables))
+             variables))))
     (('<awk-if> expr then)
      (receive (expr variables) (awk-expression->boolean expr variables)
        (if expr

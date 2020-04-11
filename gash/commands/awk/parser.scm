@@ -167,7 +167,7 @@
     (action newline-opt) : $1
     (If LPAREN expr RPAREN newline-opt terminated-statement) : `(<awk-if> ,$3 ,$6)
     (If LPAREN expr RPAREN newline-opt terminated-statement Else newline-opt terminated-statement) : `(<awk-if> ,$3 ,$6 ,$9)
-    (While LPAREN expr RPAREN newline-opt terminated-statement) : `(<awk-while> ,$3 ,$5)
+    (While LPAREN expr RPAREN newline-opt terminated-statement) : `(<awk-while> ,$3 ,$6)
     (For LPAREN simple-statement-opt SEMI expr-opt SEMI simple-statement-opt RPAREN newline-opt terminated-statement) : `(<awk-for> ,$3 ,$5 ,$7 ,$10)
     (For LPAREN NAME In NAME RPAREN newline-opt terminated-statement) : `(<awk-for-in> ,$3 ,$5 ,$8)
     (SEMI newline-opt) : '()
@@ -178,7 +178,7 @@
     (terminatable-statement) : $1
     (If LPAREN expr RPAREN newline-opt unterminated-statement) : `(<awk-if> ,$3 ,$6)
     (If LPAREN expr RPAREN newline-opt terminated-statement Else newline-opt unterminated-statement) : `(<awk-if> ,$3 ,$6 ,$9)
-    (While LPAREN expr RPAREN newline-opt unterminated-statement) : `(<awk-while> ,$3 ,$5)
+    (While LPAREN expr RPAREN newline-opt unterminated-statement) : `(<awk-while> ,$3 ,$6)
     (For LPAREN simple-statement-opt SEMI expr-opt SEMI simple-statement-opt RPAREN newline-opt unterminated-statement) : `(<awk-for> ,$3 ,$5 ,$7 ,$10)
     (For LPAREN NAME In NAME RPAREN newline-opt unterminated-statement) : `(<awk-for-in> ,$3 ,$5 ,$8))
 
