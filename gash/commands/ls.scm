@@ -119,8 +119,8 @@ Options:
                                          files)))
                   (dot-file? (lambda (x) (let ((file (car x)))
                                            (and (string-prefix? "." file)
-                                                (or (string=? file ".")
-                                                    (not (eq? (string-ref file 1) #\/)))))))
+                                                (not (string-prefix? "./" file))
+                                                (not (string-prefix? "../" file))))))
                   (files (if (or all? directory?) files
                              (filter (negate dot-file?) files)))
                   (files (if (not sort-by-modification-time?) files
