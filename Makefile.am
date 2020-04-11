@@ -172,7 +172,8 @@ ORG_LOG_COMPILER = $(top_builddir)/pre-inst-env \
 
 UNIT_TESTS =                                    \
   tests/unit/awk-parser.scm                     \
-  tests/unit/shell-utils.scm
+  tests/unit/shell-utils.scm                    \
+  tests/unit/sed-reader.scm
 
 FULL_TESTS =                                    \
   tests/awk.org                                 \

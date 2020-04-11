@@ -1,5 +1,5 @@
 ;;; Gash-Utils
-;;; Copyright © 2018 Timothy Sample <samplet@ngyro.com>
+;;; Copyright © 2018, 2020 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Gash-Utils.
 ;;;
@@ -66,14 +66,15 @@ bracket (`]') may occur in a bracket expression without terminating
 it, such as named character classes and backslash escapes."
 
   (define (read-until-pair chr1 chr2 port)
-    (let loop ((chunk (read-delimited chr1 port 'concat)) (acc '()))
+    (let loop ((chunk (read-delimited (string chr1) port 'concat)) (acc '()))
       (unless (and (not (string-null? chunk))
                    (char=? (string-ref chunk (1- (string-length chunk)))
                            chr1))
         (error "Unterminated bracket expression"))
       (if (char=? (lookahead-char port) chr2)
-          (string->list (string-concatenate (reverse! acc)))
-          (loop (read-delimited chr1 port 'concat) (cons chunk acc)))))
+          (string->list (string-concatenate-reverse acc chunk))
+          (loop (read-delimited (string chr1) port 'concat)
+                (cons chunk acc)))))
 
   (define (read-rest)
     (let loop ((chr (get-char port)) (acc '()))
@@ -83,8 +84,9 @@ it, such as named character classes and backslash escapes."
         (#\[ (match (get-char port)
                ((? eof-object?) (error "Unterminated bracket expression"))
                ((and cc (or #\= #\. #\:))
-                (let ((class (read-until-pair cc #\] port)))
-                  (loop (get-char port) (append-reverse class acc))))
+                (let ((class (read-until-pair cc #\] port))
+                      (acc* (cons* cc #\[ acc)))
+                  (loop (get-char port) (append-reverse class acc*))))
                (chr (loop (get-char port) (cons* chr #\[ acc)))))
         (#\\ (match (get-char port)
                ((? eof-object?) (error "Unterminated bracket expression"))
