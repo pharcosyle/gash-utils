@@ -166,7 +166,7 @@
                                  (fields (get-var "*fields*" variables))
                                  (line (get-var "*line*" variables)))
                              (values (cond ((zero? field) line)
-                                           ((>= field (length fields)) "")
+                                           ((> field (length fields)) "")
                                            (else (list-ref fields (1- field))))
                                      variables)))
     ;; FIXME
