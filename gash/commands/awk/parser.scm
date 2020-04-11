@@ -69,6 +69,7 @@
     (left: Else)
     End
     Exit
+    Getline
     If
     Next
     Print

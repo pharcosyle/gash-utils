@@ -126,6 +126,7 @@
     ("else" . Else)
     ("exit" . Exit)
     ("function" . Function)
+    ("getline" . Getline)
     ("if" . If)
     ("in" . In)
     ("next" . Next)
@@ -133,8 +134,6 @@
     ("printf" . Printf)
     ("return" . Return)   
     ("while" . While)))
-
-;;    ("getline" . Getline) ;; DIFFE
 
 (define *builtins*
   '(("atan2" . atan2)
