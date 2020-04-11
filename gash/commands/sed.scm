@@ -38,7 +38,7 @@
   #:export (sed))
 
 (define-immutable-record-type <env>
-  (make-env in out line target hold queue sub? cycle? quiet? labels)
+  (make-env in out line target hold queue sub? cycle? read? quiet? labels)
   env?
   (in env-in)                         ; port - Input port.
   (out env-out)                       ; port - Output port.
@@ -48,6 +48,7 @@
   (queue env-queue set-env-queue)     ; list - Output queue.
   (sub? env-sub? set-env-sub?)        ; bool - Made a substitution?
   (cycle? env-cycle? set-env-cycle?)  ; bool - Start next cycle?
+  (read? env-read? set-env-read?)     ; bool - Read next line?
   (quiet? env-quiet?)                 ; bool - Suppress default output?
   (labels env-labels))                ; alist - Labels for branching
 
@@ -206,6 +207,14 @@
      env)
     (('d)
      (abort-to-prompt end-of-script-tag (set-env-target env #f)))
+    (('D)
+     (match (string-index (env-target env) #\newline)
+       (#f (execute-function '(d) env))
+       (k (abort-to-prompt end-of-script-tag
+                           (set-fields env
+                             ((env-target) (substring (env-target env)
+                                                      (1+ k)))
+                             ((env-read?) #f))))))
     (('g)
      (set-env-target env (env-hold env)))
     (('G)
@@ -335,16 +344,21 @@
                 (str (display str out)))
               (reverse (env-queue env)))
     (if (env-cycle? env)
-        (loop (set-fields env
-                ((env-target) (read-line (env-in env)))
-                ((env-line) (1+ (env-line env)))
-                ((env-queue) '())
-                ((env-sub?) #f)))
+        (let ((env* (if (env-read? env)
+                        (set-fields env
+                          ((env-target) (read-line (env-in env)))
+                          ((env-line) (1+ (env-line env))))
+                        env)))
+          (loop (set-fields env*
+                  ((env-queue) '())
+                  ((env-sub?) #f)
+                  ((env-read?) #t))))
         #t))
 
   (parameterize ((regexp-factory (make-regexp-factory)))
     (let loop ((env (make-env in out 1 (read-line in) ""
-                              '() #f #t quiet? (find-labels commands))))
+                              '() #f #t #t quiet?
+                              (find-labels commands))))
       (if (eof-object? (env-target env))
           #t
           (let ((env* (call-with-prompt end-of-script-tag
