@@ -131,7 +131,7 @@
 (define (awk-expression->number expression variables)
   (match expression
     ("" (values 0 variables))
-    ((? string?) (values (string->number expression) variables))
+    ((? string?) (values (or (string->number expression) 0) variables))
     ((? number?) (values expression variables))
     (#t (values 1 variables))
     (#f (values 0 variables))
