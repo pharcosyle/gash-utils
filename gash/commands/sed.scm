@@ -403,3 +403,7 @@ Usage: sed [OPTION]... [SCRIPT] [FILE]...
                        (else (edit-stream commands #:quiet? quiet?))))))))))
 
 (define main sed)
+
+;;; Local Variables:
+;;; eval: (put 'set-fields 'scheme-indent-function 1)
+;;; End:
