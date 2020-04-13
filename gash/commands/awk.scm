@@ -39,8 +39,10 @@
   #:export (awk))
 
 (define-immutable-record-type <env>
-  (make-env variables)
+  (make-env record fields variables)
   env?
+  (record env-record set-env-record)
+  (fields env-fields set-env-fields)
   (variables env-variables set-env-variables))
 
 (define char-set:awk-non-space
@@ -177,10 +179,10 @@
        (receive (index env) (awk-expression index env)
          (values (or (assoc-ref array index) "") env))))
     (('<awk-in> index name) (values (and (assoc-ref (get-var name env) index)) env))
-    (('<awk-field> ('<awk-name> "NF")) (values (last (get-var "*fields*" env)) env))
+    (('<awk-field> ('<awk-name> "NF")) (values (last (env-fields env)) env))
     (('<awk-field> number) (let ((field (awk-expression number env))
-                                 (fields (get-var "*fields*" env))
-                                 (line (get-var "*line*" env)))
+                                 (fields (env-fields env))
+                                 (line (env-record env)))
                              (values (cond ((zero? field) line)
                                            ((> field (length fields)) "")
                                            (else (list-ref fields (1- field))))
@@ -275,7 +277,7 @@
     (('<awk-concat> x y) (receive (x env) (awk-expression x env)
                            (receive (y env) (awk-expression y env)
                              (values (string-append (awk-expression->string x) (awk-expression->string y)) env))))
-    (('<awk-regex> regex) (values (and (string-match regex (get-var "*line*" env)) 1) env))))
+    (('<awk-regex> regex) (values (and (string-match regex (env-record env)) 1) env))))
 
 (define *next-record-prompt* (make-prompt-tag))
 
@@ -303,22 +305,23 @@
         (display result)
         env))))
 
-(define (run-commands inport outport fields command env)
+(define (run-commands inport outport command env)
   (match command
     (('<awk-item> ('<awk-pattern> pattern) action)
      (receive (expr env) (awk-expression->boolean pattern env)
-       (if expr (run-commands inport outport fields action env)
+       (if expr (run-commands inport outport action env)
            env)))
     (('<awk-item> (or ('<awk-begin>) ('<awk-end>)) action) env)
     (('<awk-pattern> _)
      (let ((command* `(<awk-item> ,command (<awk-print>))))
-       (run-commands inport outport fields command* env)))
+       (run-commands inport outport command* env)))
     (('<awk-action> actions ...)
-     (fold (cut run-commands inport outport fields <> <>) env actions))
+     (fold (cut run-commands inport outport <> <>) env actions))
     (('<awk-expr> expr)
      (receive (expr env) (awk-expression expr env) env))
     (('<awk-print>)
-     (let ((count  (min (get-var "NF" env) (length fields))))
+     (let* ((fields (env-fields env))
+            (count  (min (get-var "NF" env) (length fields))))
        (display (string-join (list-head fields count))))
      (newline)
      env)
@@ -347,13 +350,13 @@
         (with-output-to-port (current-error-port)
           (lambda ()
             (let ((command* `(<awk-print> ,@exprs)))
-              (run-commands inport outport fields command* env)))))
+              (run-commands inport outport command* env)))))
        (_ (error "awk: cannot redirect output"))))
     (('<awk-for-in> key array action)
      (let* ((save-key (get-var key env))
             (keys (map car (get-var array env)))
             (env (fold (lambda (value env)
-                               (run-commands inport outport fields action
+                               (run-commands inport outport action
                                              (assign key value env)))
                              env
                              keys)))
@@ -366,8 +369,7 @@
            (let loop ((env env))
              (receive (test env) (awk-expression->boolean test env)
                (if (not test) env
-                   (let ((env (run-commands inport outport fields
-                                                  action env)))
+                   (let ((env (run-commands inport outport action env)))
                      (receive (expr env) (awk-expression expr env)
                        (loop env))))))))
        (lambda (cont env)
@@ -376,58 +378,63 @@
      (let loop ((env env))
        (receive (result env) (awk-expression->boolean test env)
          (if result
-             (loop (run-commands inport outport fields action env))
+             (loop (run-commands inport outport action env))
              env))))
     (('<awk-do> action test)
-     (let loop ((env (run-commands inport outport fields
-                                         action env)))
+     (let loop ((env (run-commands inport outport action env)))
        (receive (result env) (awk-expression->boolean test env)
          (if result
-             (loop (run-commands inport outport fields action env))
+             (loop (run-commands inport outport action env))
              env))))
     (('<awk-if> expr then)
      (receive (expr env) (awk-expression->boolean expr env)
        (if expr
-           (run-commands inport outport fields then env)
+           (run-commands inport outport then env)
            env)))
     (('<awk-if> expr then else)
      (receive (expr env) (awk-expression->boolean expr env)
        (if expr
-           (run-commands inport outport fields then env)
-           (run-commands inport outport fields else env))))
+           (run-commands inport outport then env)
+           (run-commands inport outport else env))))
     (('<awk-break>) (break-loop env))
     (('<awk-next>) (next-record env))
     ((or (? number?) (? string?)) env)
     (((? symbol?) . rest)
      (receive (expr env) (awk-expression command env)
        env))
-    ((lst ...) (fold (cut run-commands inport outport fields <> <>)
-                     env lst))
+    ((lst ...) (fold (cut run-commands inport outport <> <>) env lst))
     (_ (format (current-error-port) "skip: ~s\n" command)
        env)))
 
+(define (read-record inport env)
+  (match (read-delimited (get-var "RS" env) inport)
+    ((? eof-object? eof) (set-fields env
+                           ((env-record) eof)
+                           ((env-fields) '())))
+    (record
+     (let* ((fields (string-split/awk record (get-var "FS" env)))
+            (pairs `(("NF" . ,(length fields))
+                     ("NR" . ,(1+ (get-var "NR" env)))
+                     ("FNR" . ,(1+ (get-var "FNR" env))))))
+       (assign* pairs (set-fields env
+                        ((env-record) record)
+                        ((env-fields) fields)))))))
+
 (define* (run-awk-file program outport file-name env)
   (let ((inport (if (equal? file-name "-") (current-input-port)
-                    (open-input-file file-name))))
-    (let loop ((line (read-delimited (get-var "RS" env) inport))
-               (env (assign* `(("FILENAME" . ,file-name)
-                               ("FNR" . 0))
-                             env)))
-      (if (eof-object? line) env
-        (let* ((fields (string-split/awk line (get-var "FS" env)))
-               (env (assign* `(("NF" . ,(length fields))
-                               ("NR" . ,(1+ (get-var "NR" env)))
-                               ("FNR" . ,(1+ (get-var "FNR" env)))
-                               ("*line*" . ,line)
-                               ("*fields*" . ,fields))
-                             env)))
+                    (open-input-file file-name)))
+        (env (assign* `(("FILENAME" . ,file-name)
+                        ("FNR" . 0))
+                      env)))
+    (let loop ((env (read-record inport env)))
+      (if (eof-object? (env-record env))
+          env
           (let ((env (call-with-prompt *next-record-prompt*
-                             (lambda ()
-                               (run-commands inport outport fields
-                                             program env))
-                             (lambda (cont env) env))))
-            (loop (read-delimited (get-var "RS" env) inport)
-                  env)))))))
+                       (lambda ()
+                         (run-commands inport outport program env))
+                       (lambda (cont env)
+                         env))))
+            (loop (read-record inport env)))))))
 
 (define (eval-special-items items pattern out env)
   (match items
@@ -435,7 +442,7 @@
     ((('<awk-item> (? (cut equal? <> pattern)) action) . rest)
      (let* ((env* (call-with-prompt *next-record-prompt*
                     (lambda ()
-                      (run-commands #f out '() action env))
+                      (run-commands #f out action env))
                     (lambda _
                       (error "awk: next statement in special item")))))
        (eval-special-items rest pattern out env*)))
@@ -450,7 +457,7 @@
       ("length" . ,awk-length)
       ("split" . ,awk-split)
       ("substr" . ,awk-substr)))
-  (make-env variables))
+  (make-env #f '() variables))
 
 (define* (%eval-awk items names #:optional
                     (out (current-output-port))
@@ -496,3 +503,7 @@ Usage: awk [OPTION]...
                           #:field-separator delimiter)))))))
 
 (define main awk)
+
+;;; Local Variables:
+;;; eval: (put 'set-fields 'scheme-indent-function 1)
+;;; End:
