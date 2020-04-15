@@ -1,0 +1,98 @@
+AWK Abstract Syntax Tree Specification
+**************************************
+
+The AWK parser parses the AWK language into an abstract syntax tree
+(AST) that has the following form.
+
+item   ::= defun
+         | (pat expr ...)
+
+defun  ::= ('defun name (name ...) expr ...)
+
+pat    ::= mexpr
+         | (expr expr)
+         | 'begin
+         | 'end
+
+expr   ::= ('progn expr ...)
+         | ('if test-expr then-expr [else-expr])
+         | ('while test-expr expr ...)
+         | ('do test-expr expr ...)
+         | ('for (init-expr test-mexpr update-expr) expr ...)
+         | ('for-each (name name) expr ...)
+         | ('break)
+         | ('continue)
+         | ('next)
+         | ('exit [expr])
+         | ('return [expr])
+         | print
+         | getln
+         | ('post-incr! lvalue)
+         | ('post-decr! lvalue)
+         | ('pre-incr! lvalue)
+         | ('pre-decr! lvalue)
+         | ('+ expr [expr])
+         | ('- expr [expr])
+         | ('* expr expr)
+         | ('/ expr expr)
+         | ('modulo expr expr)
+         | ('expt expr expr)
+         | ('string-append expr expr)
+         | ('< expr expr)
+         | ('<= expr expr)
+         | ('equal? expr expr)
+         | ('not-equal? expr expr)
+         | ('> expr expr)
+         | ('>= expr expr)
+         | ('string-match expr expr)
+         | ('not-string-match expr expr)
+         | ('array-member? key name)
+         | ('array-delete! key name)
+         | ('and expr expr)
+         | ('or expr expr)
+         | ('not expr)
+         | ('set! lvalue expr)
+         | ('set-op! setop lvalue expr)
+         | ('apply name expr ...)
+         | lvalue
+         | string
+         | number
+         | ('re string)
+
+mexpr  ::= #t
+         | expr
+
+print  ::= ('print expr ...)
+         | ('printf format-expr expr ...)
+         | ('with-redirect oredir print)
+
+oredir ::= ('truncate expr)
+         | ('append expr)
+         | ('pipe-to expr)
+
+getln  ::= ('getline [lvalue])
+         | ('with-redirect iredir getln)
+
+iredir ::= ('read expr)
+         | ('pipe-from expr)
+
+setop  ::= '+ | '- | '* | '/ | 'modulo | 'expt
+
+lvalue ::= name
+         | (array-ref key name)
+         | ('$ expr)
+
+key    ::= expr
+         | (first-expr second-expr expr ...)
+
+name   ::= symbol
+
+Copying this file
+=================
+
+Copyright © 2020 Timothy Sample <samplet@ngyro.com>
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.  This file is offered as-is,
+without any warranty.

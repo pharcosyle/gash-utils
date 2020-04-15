@@ -25,6 +25,7 @@ EXTRA_DIST +=                                   \
   bootstrap                                     \
   build-aux/git-version-gen                     \
   build-aux/gitlab-ci.yml                       \
+  doc/awk-syntax.txt                            \
   guix.scm                                      \
   tests/data/README
 

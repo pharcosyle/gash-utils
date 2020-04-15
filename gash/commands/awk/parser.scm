@@ -41,6 +41,16 @@
   "Make a lexer thunk that reads tokens from @var{port}."
   (lambda _ (get-token port)))
 
+(define (strip-progn expr)
+  (match expr
+    (('progn . body) body)
+    (_ (list expr))))
+
+(define (unwrap-singleton lst)
+  (match lst
+    ((x) x)
+    (_ lst)))
+
 (define* (make-parser)
   "Make an LALR parser for the Awk language."
   (lalr-parser
@@ -112,49 +122,50 @@
     (item-list unterminated-item terminator) : `(,@$1 ,$2))
 
    (terminated-item
-    (action) : $1
-    (pattern action) : `(<awk-item> ,$1 ,$2)
-    (Function NAME LPAREN param-list-opt RPAREN newline-opt action) : '(<awk-function>)
+    (action) : `(#t ,@$1)
+    (pattern action) : `(,$1 ,@$2)
+    (Function name LPAREN param-list-opt RPAREN newline-opt action)
+    : `(defun ,$2 ,$4 ,@$7)
     ;;(Function FUNC_NAME LPAREN param-list-opt RPAREN newline-opt action) '(<awk-function>)
     )
 
    (unterminated-item
-    (normal-pattern) : $1)
+    (normal-pattern) : `(,$1 (print)))
 
    (param-list-opt
-    () : '(<awk-param-list>)
+    () : '()
     (param-list) : $1)
 
    (param-list
-    (NAME) : $1
-    (param-list COMMA NAME) : `(,$2 ,@$1))
+    (name) : `(,$1)
+    (param-list COMMA name) : `(,@$1 ,$3))
 
    (pattern
     (normal-pattern) : $1
     (special-pattern) : $1)
 
    (normal-pattern
-    (expr) : `(<awk-pattern> ,$1)
-    (expr COMMA newline-opt expr) : `(<awk-pattern> ,$1 ,$2))
+    (expr) : $1
+    (expr COMMA newline-opt expr) : `(,$1 ,$4))
 
    (special-pattern
-    (Begin) : '(<awk-begin>)
-    (End) : '(<awk-end>))
+    (Begin) : 'begin
+    (End) : 'end)
 
    (action
-    (LBRACE newline-opt RBRACE) : '(<awk-action>)
-    (LBRACE newline-opt terminated-statement-list RBRACE) : `(<awk-action> ,@$3)
-    (LBRACE newline-opt unterminated-statement-list RBRACE) : `(<awk-action> ,@$3))
+    (LBRACE newline-opt RBRACE) : '()
+    (LBRACE newline-opt terminated-statement-list RBRACE) : $3
+    (LBRACE newline-opt unterminated-statement-list RBRACE) : $3)
 
    (terminator-opt
     () : #f
     (terminator) : $1)
 
    (terminator
-    (terminator SEMI) : '(<awk-terminator>)
-    (terminator NEWLINE) : '(<awk-terminator>)
-    (SEMI) : '(<awk-terminator>)
-    (NEWLINE) : '(<awk-terminator>))
+    (terminator SEMI) : $2
+    (terminator NEWLINE) : $2
+    (SEMI) : $1
+    (NEWLINE) : $1)
 
    (terminated-statement-list
     (terminated-statement) : `(,$1)
@@ -165,58 +176,74 @@
     (terminated-statement-list unterminated-statement) : `(,@$1 ,$2))
 
    (terminated-statement
-    (action newline-opt) : $1
-    (If LPAREN expr RPAREN newline-opt terminated-statement) : `(<awk-if> ,$3 ,$6)
-    (If LPAREN expr RPAREN newline-opt terminated-statement Else newline-opt terminated-statement) : `(<awk-if> ,$3 ,$6 ,$9)
-    (While LPAREN expr RPAREN newline-opt terminated-statement) : `(<awk-while> ,$3 ,$6)
-    (For LPAREN simple-statement-opt SEMI expr-opt SEMI simple-statement-opt RPAREN newline-opt terminated-statement) : `(<awk-for> ,$3 ,$5 ,$7 ,$10)
-    (For LPAREN NAME In NAME RPAREN newline-opt terminated-statement) : `(<awk-for-in> ,$3 ,$5 ,$8)
-    (SEMI newline-opt) : '()
+    (action newline-opt) : (match $1
+                             ((expr) expr)
+                             (exprs `(progn ,@exprs)))
+    (If LPAREN expr RPAREN newline-opt terminated-statement)
+    : `(if ,$3 ,$6)
+    (If LPAREN expr RPAREN newline-opt terminated-statement
+        Else newline-opt terminated-statement)
+    : `(if ,$3 ,$6 ,$9)
+    (While LPAREN expr RPAREN newline-opt terminated-statement)
+    : `(while ,$3 ,@(strip-progn $6))
+    (For LPAREN simple-statement-opt SEMI expr-opt SEMI
+         simple-statement-opt RPAREN newline-opt terminated-statement)
+    : `(for (,$3 ,$5 ,$7) ,@(strip-progn $10))
+    (For LPAREN name In name RPAREN newline-opt terminated-statement)
+    : `(for-each (,$3 ,$5) ,@(strip-progn $8))
+    (SEMI newline-opt) : '(progn)
     (terminatable-statement NEWLINE newline-opt) : $1
     (terminatable-statement SEMI newline-opt) : $1)
 
    (unterminated-statement
     (terminatable-statement) : $1
-    (If LPAREN expr RPAREN newline-opt unterminated-statement) : `(<awk-if> ,$3 ,$6)
-    (If LPAREN expr RPAREN newline-opt terminated-statement Else newline-opt unterminated-statement) : `(<awk-if> ,$3 ,$6 ,$9)
-    (While LPAREN expr RPAREN newline-opt unterminated-statement) : `(<awk-while> ,$3 ,$6)
-    (For LPAREN simple-statement-opt SEMI expr-opt SEMI simple-statement-opt RPAREN newline-opt unterminated-statement) : `(<awk-for> ,$3 ,$5 ,$7 ,$10)
-    (For LPAREN NAME In NAME RPAREN newline-opt unterminated-statement) : `(<awk-for-in> ,$3 ,$5 ,$8))
+    (If LPAREN expr RPAREN newline-opt unterminated-statement)
+    : `(if ,$3 ,$6)
+    (If LPAREN expr RPAREN newline-opt terminated-statement
+        Else newline-opt unterminated-statement)
+    : `(if ,$3 ,$6 ,$9)
+    (While LPAREN expr RPAREN newline-opt unterminated-statement)
+    : `(while ,$3 ,@(strip-progn $6))
+    (For LPAREN simple-statement-opt SEMI expr-opt SEMI
+         simple-statement-opt RPAREN newline-opt unterminated-statement)
+    : `(for (,$3 ,$5 ,$7) ,@(strip-progn $10))
+    (For LPAREN name In name RPAREN newline-opt unterminated-statement)
+    : `(for-each (,$3 ,$5) ,@(strip-progn $8)))
 
    (terminatable-statement
     (simple-statement) : $1
-    (Break) : `(<awk-break>)
-    (Continue) : `(<awk-continue>)
-    (Next) : `(<awk-next>)
-    (Exit expr-opt) : `(<awk-exit> ,$2)
-    (Return expr-opt) : `(<awk-return> ,$2)
-    (Do newline-opt terminated-statement While LPAREN expr RPAREN) : `(<awk-do> ,$3 ,$6))
+    (Break) : `(break)
+    (Continue) : `(continue)
+    (Next) : `(next)
+    (Exit expr-opt) : (if (eq? $2 #t) '(exit) `(exit ,$2))
+    (Return expr-opt) : (if (eq? $2 #t) '(return) `(return ,$2))
+    (Do newline-opt terminated-statement While LPAREN expr RPAREN)
+    : `(do ,$6 ,@(strip-progn $3)))
 
    (simple-statement-opt
-    () : '()
+    () : '(progn)
     (simple-statement) : $1)
 
    (simple-statement
-    (Delete NAME LBRACKET expr-list RBRACKET) : $1
+    (Delete name LBRACKET expr-list RBRACKET)
+    : `(array-delete! ,(unwrap-singleton $4) ,$2)
     (expr) : $1
     (print-statement) : $1)
 
    (print-statement
     (simple-print-statement) : $1
-    (simple-print-statement output-redirection)
-    : (match-let ((('<awk-print> . exprs) $1))
-        (cons* '<awk-print-to> $2 exprs)))
+    (simple-print-statement output-redirection) : `(with-redirect ,$2 ,$1))
 
    (simple-print-statement
-    (Print print-expr-list-opt) : `(<awk-print> ,@$2)
-    (Print LPAREN multiple-expr-list RPAREN) : `(<awk-print> ,@$3)
-    (Printf print-expr-list) : `(<awk-printf> ,@$2)
-    (Printf LPAREN multiple-expr-list RPAREN) : `(<awk-printf> ,@$3))
+    (Print print-expr-list-opt) : `(print ,@$2)
+    (Print LPAREN multiple-expr-list RPAREN) : `(print ,@$3)
+    (Printf print-expr-list) : `(printf ,@$2)
+    (Printf LPAREN multiple-expr-list RPAREN) : `(printf ,@$3))
 
    (output-redirection
     (> expr) : `(truncate ,$2)
     (>> expr) : `(append ,$2)
-    (PIPE expr) : `(pipe ,$2))
+    (PIPE expr) : `(pipe-to ,$2))
 
    (expr-list-opt
     () : '()
@@ -239,7 +266,7 @@
     (multiple-expr-list COMMA newline-opt expr) : `(,@$1 ,$4))
 
    (expr-opt
-    () : '()
+    () : #t
     (expr) : $1)
 
    ;; The standard splits expressions into unary and non-unary to
@@ -264,80 +291,84 @@
     (print-assign-expr) : $1)
 
    (assign-expr
-    (lvalue ^= assign-expr) : `(^= ,$1 ,$3)
-    (lvalue %= assign-expr) : `(%= ,$1 ,$3)
-    (lvalue *= assign-expr) : `(*= ,$1 ,$3)
-    (lvalue /= assign-expr) : `(/= ,$1 ,$3)
-    (lvalue += assign-expr) : `(+= ,$1 ,$3)
-    (lvalue -= assign-expr) : `(-= ,$1 ,$3)
-    (lvalue = assign-expr) : `(= ,$1 ,$3)
+    (lvalue ^= assign-expr) : `(set-op! expt ,$1 ,$3)
+    (lvalue %= assign-expr) : `(set-op! modulo ,$1 ,$3)
+    (lvalue *= assign-expr) : `(set-op! * ,$1 ,$3)
+    (lvalue /= assign-expr) : `(set-op! / ,$1 ,$3)
+    (lvalue += assign-expr) : `(set-op! + ,$1 ,$3)
+    (lvalue -= assign-expr) : `(set-op! - ,$1 ,$3)
+    (lvalue = assign-expr) : `(set! ,$1 ,$3)
     (cond-expr) : $1)
 
    (print-assign-expr
-    (lvalue ^= print-assign-expr) : `(^= ,$1 ,$3)
-    (lvalue %= print-assign-expr) : `(%= ,$1 ,$3)
-    (lvalue *= print-assign-expr) : `(*= ,$1 ,$3)
-    (lvalue /= print-assign-expr) : `(/= ,$1 ,$3)
-    (lvalue += print-assign-expr) : `(+= ,$1 ,$3)
-    (lvalue -= print-assign-expr) : `(-= ,$1 ,$3)
-    (lvalue = print-assign-expr) : `(= ,$1 ,$3)
+    (lvalue ^= print-assign-expr) : `(set-op! expt ,$1 ,$3)
+    (lvalue %= print-assign-expr) : `(set-op! modulo ,$1 ,$3)
+    (lvalue *= print-assign-expr) : `(set-op! * ,$1 ,$3)
+    (lvalue /= print-assign-expr) : `(set-op! / ,$1 ,$3)
+    (lvalue += print-assign-expr) : `(set-op! + ,$1 ,$3)
+    (lvalue -= print-assign-expr) : `(set-op! - ,$1 ,$3)
+    (lvalue = print-assign-expr) : `(set! ,$1 ,$3)
     (print-cond-expr) : $1)
 
    (cond-expr
-    (or-expr ? cond-expr : cond-expr) : `(? ,$1 ,$3 ,$5)
+    (or-expr ? cond-expr : cond-expr) : `(if ,$1 ,$3 ,$5)
     (or-expr) : $1)
 
    (print-cond-expr
-    (print-or-expr ? print-cond-expr : print-cond-expr) : `(? ,$1 ,$3 ,$5)
+    (print-or-expr ? print-cond-expr : print-cond-expr) : `(if ,$1 ,$3 ,$5)
     (print-or-expr) : $1)
 
    (or-expr
-    (or-expr || and-expr) : `(|| ,$1 ,$3)
+    (or-expr || and-expr) : `(or ,$1 ,$3)
     (and-expr) : $1)
 
    (print-or-expr
-    (print-or-expr || print-and-expr) : `(|| ,$1 ,$3)
+    (print-or-expr || print-and-expr) : `(or ,$1 ,$3)
     (print-and-expr) : $1)
 
    (and-expr
-    (and-expr && member-expr) : `(&& ,$1 ,$3)
+    (and-expr && member-expr) : `(and ,$1 ,$3)
     (member-expr) : $1)
 
    (print-and-expr
-    (print-and-expr && print-member-expr) : `(&& ,$1 ,$3)
+    (print-and-expr && print-member-expr) : `(and ,$1 ,$3)
     (print-member-expr) : $1)
 
    (member-expr
-    (member-expr In NAME) : `(<awk-in> ,$1 ,$3)
-    ;; TODO: Multi-dimension array membership.
+    (member-expr In name)
+    : `(array-member? ,(unwrap-singleton $1) ,$3)
+    (LPAREN multiple-expr-list RPAREN In name)
+    : `(array-member? ,(unwrap-singleton $2) ,$5)
     (re-expr) : $1)
 
    (print-member-expr
-    (print-member-expr In NAME) : `(<awk-in> ,$1 ,$3)
-    ;; TODO: Multi-dimension array membership.
+    (print-member-expr In name)
+    : `(array-member? ,(unwrap-singleton $1) ,$3)
+    (LPAREN multiple-expr-list RPAREN In name)
+    : `(array-member? ,(unwrap-singleton $2) ,$5)
     (print-re-expr) : $1)
 
    (re-expr
-    (comp-expr ~ comp-expr) : `(~ ,$1 ,$3)
-    (comp-expr !~ comp-expr) : `(!~ ,$1 ,$3)
+    (comp-expr ~ comp-expr) : `(string-match ,$1 ,$3)
+    (comp-expr !~ comp-expr) : `(not-string-match ,$1 ,$3)
     (comp-expr) : $1)
 
    (print-re-expr
-    (cat-expr ~ cat-expr) : `(~ ,$1 ,$3)
-    (cat-expr !~ cat-expr) : `(!~ ,$1 ,$3)
+    (cat-expr ~ cat-expr) : `(string-match ,$1 ,$3)
+    (cat-expr !~ cat-expr) : `(not-string-match ,$1 ,$3)
     (cat-expr) : $1)
 
    (comp-expr
     (cat-expr < cat-expr) : `(< ,$1 ,$3)
     (cat-expr <= cat-expr) : `(<= ,$1 ,$3)
-    (cat-expr != cat-expr) : `(!= ,$1 ,$3)
-    (cat-expr == cat-expr) : `(== ,$1 ,$3)
+    (cat-expr != cat-expr) : `(not-equal? ,$1 ,$3)
+    (cat-expr == cat-expr) : `(equal? ,$1 ,$3)
     (cat-expr > cat-expr) : `(> ,$1 ,$3)
     (cat-expr >= cat-expr) : `(>= ,$1 ,$3)
     (cat-expr) : $1)
 
    (cat-expr
-    (cat-expr non-unary-expr-expr) : `(<awk-concat> ,$1 ,$2)
+    (cat-expr non-unary-expr-expr) : `(string-append ,$1 ,$2)
     (expr-expr) : $1)
 
    (expr-expr
@@ -361,13 +392,13 @@
    (unary-term-expr
     (unary-term-expr * factor-expr) : `(* ,$1 ,$3)
     (unary-term-expr / factor-expr) : `(/ ,$1 ,$3)
-    (unary-term-expr % factor-expr) : `(% ,$1 ,$3)
+    (unary-term-expr % factor-expr) : `(modulo ,$1 ,$3)
     (unary-factor-expr) : $1)
 
    (non-unary-term-expr
     (non-unary-term-expr * factor-expr) : `(* ,$1 ,$3)
     (non-unary-term-expr / factor-expr) : `(/ ,$1 ,$3)
-    (non-unary-term-expr % factor-expr) : `(% ,$1 ,$3)
+    (non-unary-term-expr % factor-expr) : `(modulo ,$1 ,$3)
     (non-unary-factor-expr) : $1)
 
    (factor-expr
@@ -379,48 +410,52 @@
     (- exp-expr) : `(- ,$2))
 
    (non-unary-factor-expr
-    (! exp-expr) : `(! ,$2)
+    (! exp-expr) : `(not ,$2)
     (exp-expr) : $1)
 
    (exp-expr
-    (prepostfix-expr ^ exp-expr) : `(^ ,$1 ,$3)
+    (prepostfix-expr ^ exp-expr) : `(expt ,$1 ,$3)
     (prepostfix-expr) : $1)
 
    (prepostfix-expr
-    (++ lvalue) : `(<awk-pre-inc> ,$2)
-    (-- lvalue) : `(<awk-pre-dec> ,$2)
-    (lvalue ++) : `(<awk-post-inc> ,$1)
-    (lvalue --) : `(<awk-post-dec> ,$1)
+    (++ lvalue) : `(pre-incr! ,$2)
+    (-- lvalue) : `(pre-decr! ,$2)
+    (lvalue ++) : `(post-incr! ,$1)
+    (lvalue --) : `(post-decr! ,$1)
     (lvalue) : $1
     (base-expr) : $1)
 
    (lvalue
-    (NAME) : `(<awk-name> ,$1)
-    (NAME LBRACKET expr RBRACKET) : `(<awk-array-ref> ,$1 ,$3)
-    ($ lvalue) : `(<awk-field> ,$2)
-    ($ base-expr) : `(<awk-field> ,$2))
+    (name) : $1
+    (name LBRACKET expr-list RBRACKET)
+    : `(array-ref ,(unwrap-singleton $3) ,$1)
+    ($ lvalue) : `($ ,$2)
+    ($ base-expr) : `($ ,$2))
 
    (base-expr
     (LPAREN expr RPAREN) : $2
     (NUMBER) : $1
     (STRING) : $1
     (regex) : $1
-    (Func LPAREN expr-list-opt RPAREN) : `(<awk-call> ,$1 ,$3)
+    (Func LPAREN expr-list-opt RPAREN) : `(apply ,$1 ,$3)
     ;; XXX: These built-in rules cause a shift/reduce conflict.  It
     ;; works out because of the documented way the parser generator
     ;; handles conflicts, but it would be better to fix it explicitly.
-    (Builtin LPAREN expr-list-opt RPAREN) : `(<awk-call> ,$1 ,$3)
-    (Builtin) : `(<awk-call> ,$1))
+    (Builtin LPAREN expr-list-opt RPAREN) : `(apply ,(string->symbol $1) ,@$3)
+    (Builtin) : `(apply ,(string->symbol $1)))
 
    (regex
-    (regex-start REGEX /) : (begin (set! %regex #f) `(<awk-regex> ,$2)))
+    (regex-start REGEX /) : (begin (set! %regex #f) `(re ,$2)))
 
    (regex-start
     (/) : (set! %regex #t))
 
    (newline-opt
     () : '()
-    (newline-opt NEWLINE) : `(,$1 ,$2))))
+    (newline-opt NEWLINE) : `(,$1 ,$2))
+
+   (name
+    (NAME) : (string->symbol $1))))
 
 (define* (syntax-error message #:optional token)
   "Handle a parser error"
