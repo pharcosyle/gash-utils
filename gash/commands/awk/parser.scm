@@ -92,10 +92,16 @@
     REGEX
     STRING
 
-    >> PIPE
+    ;; Mark 'PIPE' as right associative to keep the parser generator
+    ;; from complaining about 'getline'.  There is ambiguity between
+    ;; the '|' form and the '<' form.
+    >> (right: PIPE)
 
     = ^= %= *= /= += -=
-    ! || && < <= != == > >= ~ !~
+    ;; Mark '<' as right associative to ignore the ambiguity between
+    ;; the '|' and '<' forms of 'getline'.  Also, do not worry about
+    ;; ambiguity between '<' for 'getline' and '<' for less than.
+    ! || && (right: <) <= != == > >= ~ !~
     ;; We need to mark '/' as right associative for the parser
     ;; generator to accept the ERE (regex) work-around.
     ^ + - * (right: /) %
@@ -359,12 +365,17 @@
     (cat-expr) : $1)
 
    (comp-expr
-    (cat-expr < cat-expr) : `(< ,$1 ,$3)
-    (cat-expr <= cat-expr) : `(<= ,$1 ,$3)
-    (cat-expr != cat-expr) : `(not-equal? ,$1 ,$3)
-    (cat-expr == cat-expr) : `(equal? ,$1 ,$3)
-    (cat-expr > cat-expr) : `(> ,$1 ,$3)
-    (cat-expr >= cat-expr) : `(>= ,$1 ,$3)
+    (input-expr < input-expr) : `(< ,$1 ,$3)
+    (input-expr <= input-expr) : `(<= ,$1 ,$3)
+    (input-expr != input-expr) : `(not-equal? ,$1 ,$3)
+    (input-expr == input-expr) : `(equal? ,$1 ,$3)
+    (input-expr > input-expr) : `(> ,$1 ,$3)
+    (input-expr >= input-expr) : `(>= ,$1 ,$3)
+    (input-expr) : $1)
+
+   (input-expr
+    (simple-get < input-expr) : `(with-redirect (read ,$3) ,$1)
+    (input-expr PIPE simple-get) : `(with-redirect (pipe-from ,$1) ,$3)
     (cat-expr) : $1)
 
    (cat-expr
@@ -442,7 +453,12 @@
     ;; works out because of the documented way the parser generator
     ;; handles conflicts, but it would be better to fix it explicitly.
     (Builtin LPAREN expr-list-opt RPAREN) : `(apply ,(string->symbol $1) ,@$3)
-    (Builtin) : `(apply ,(string->symbol $1)))
+    (Builtin) : `(apply ,(string->symbol $1))
+    (simple-get) : $1)
+
+   (simple-get
+    (Getline) : '(getline)
+    (Getline lvalue) : `(getline ,$2))
 
    (regex
     (regex-start REGEX /) : (begin (set! %regex #f) `(re ,$2)))

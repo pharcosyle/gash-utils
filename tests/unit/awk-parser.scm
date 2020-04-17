@@ -229,7 +229,69 @@
 
 ;;; Input
 
-;; TODO: Add getline tests when it is implemented.
+(test-equal "Parses getline with no arguments"
+  '(getline)
+  (parse* "getline"))
+
+(test-equal "Parses getline with one argument"
+  '(getline x)
+  (parse* "getline x"))
+
+(test-equal "Can only getline into an lvalue"
+  '(string-append (getline) "foo")
+  (parse* "getline \"foo\""))
+
+(test-equal "Parses getline with a file redirect"
+  '(with-redirect (read "foo") (getline))
+  (parse* "getline < \"foo\""))
+
+(test-equal "Parses getline with an lvalue and a file redirect"
+  '(with-redirect (read "foo") (getline ($ 1)))
+  (parse* "getline $1 < \"foo\""))
+
+(test-equal "Parses getline with a pipe redirect"
+  '(with-redirect (pipe-from "ps") (getline))
+  (parse* "\"ps\" | getline"))
+
+(test-equal "Parses getline with an lvalue and a pipe redirect"
+  '(with-redirect (pipe-from "ps") (getline (array-ref k array)))
+  (parse* "\"ps\" | getline array[k]"))
+
+;; This is explicitly mentioned in POSIX.
+(test-equal "Parses a field reference in a getline pipe"
+  '(with-redirect (pipe-from ($ x)) (getline))
+  (parse* "$x | getline"))
+
+;; The following tests are not checking POSIX-specified behavior.
+;; They serve to document some decisions made about ambiguities left
+;; unspecified by POSIX.
+
+(test-equal "Parses concatenation in a getline redirect"
+  '(with-redirect (read (string-append "foo-" k)) (getline))
+  (parse* "getline < \"foo-\" k"))
+
+(test-equal "Parses concatenation in a getline pipe"
+  '(with-redirect (pipe-from (string-append "cat " file)) (getline))
+  (parse* "\"cat \" file | getline"))
+
+(test-equal "Parses a getline redirect in a getline pipe"
+  '(with-redirect (pipe-from (with-redirect (read "foo") (getline)))
+     (getline))
+  (parse* "getline < \"foo\" | getline"))
+
+(test-equal "Parses a getline pipe with less-than"
+  '(< (with-redirect (pipe-from "ps") (getline)) 1)
+  (parse* "\"ps\" | getline < 1"))
+
+(test-equal "Redirects for getline are right-associative"
+  (let ((inner '(with-redirect (read (getline z)) (getline y))))
+    `(with-redirect (read ,inner) (getline x)))
+  (parse* "getline x < getline y < getline z"))
+
+(test-equal "Pipes for getline are left-associative"
+  (let ((inner '(with-redirect (pipe-from (getline x)) (getline y))))
+    `(with-redirect (pipe-from ,inner) (getline z)))
+  (parse* "getline x | getline y | getline z"))
 
 
 ;;; Output
