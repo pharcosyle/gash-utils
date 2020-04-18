@@ -226,6 +226,42 @@
   '(set-op! expt x 2)
   (parse* "x ^= 2"))
 
+(test-equal "Parses user function application with no arguments"
+  '(apply foo)
+  (parse* "foo()"))
+
+(test-equal "Parses user function application with one argument"
+  '(apply foo bar)
+  (parse* "foo(bar)"))
+
+(test-equal "Parses user function application with two arguments"
+  '(apply foo bar baz)
+  (parse* "foo(bar, baz)"))
+
+(test-equal "Does not parse user function application with a space"
+  '(string-append foo bar)
+  (parse* "foo (bar)"))
+
+(test-equal "Parses built-in function application with no parentheses"
+  '(apply length)
+  (parse* "length"))
+
+(test-equal "Parses built-in function application with no arguments"
+  '(apply length)
+  (parse* "length()"))
+
+(test-equal "Parses built-in function application with one argument"
+  '(apply length x)
+  (parse* "length(x)"))
+
+(test-equal "Parses built-in function application with two arguments"
+  '(apply index x "$")
+  (parse* "index(x, \"$\")"))
+
+(test-equal "Parses built-in function application with a space"
+  '(apply length bar)
+  (parse* "length (bar)"))
+
 
 ;;; Input
 

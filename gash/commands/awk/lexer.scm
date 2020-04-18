@@ -320,7 +320,9 @@ next character statisfies @var{pred} (or is a newline)."
       ((str) (match str
                ((? reserved-word?) `(,(assoc-ref *reserved-words* str) . ,str))
                ((? builtin?) `(Builtin . ,str))
-               ((? name?) `(NAME . ,str))
+               ((? name?) (match (lookahead-char port)
+                            (#\( (get-char port) `(NAME+LPAREN . ,str))
+                            (_ `(NAME . ,str))))
                (_ `(WORD . ,str))))
       (lst lst)))
 

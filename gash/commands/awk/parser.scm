@@ -74,7 +74,6 @@
     Delete
     Do
     For
-    Func
     Function
     (left: Else)
     End
@@ -88,6 +87,7 @@
     While
 
     NAME
+    NAME+LPAREN
     NUMBER
     REGEX
     STRING
@@ -132,8 +132,8 @@
     (pattern action) : `(,$1 ,@$2)
     (Function name LPAREN param-list-opt RPAREN newline-opt action)
     : `(defun ,$2 ,$4 ,@$7)
-    ;;(Function FUNC_NAME LPAREN param-list-opt RPAREN newline-opt action) '(<awk-function>)
-    )
+    (Function name+LPAREN param-list-opt RPAREN newline-opt action)
+    : `(defun ,$2 ,$3 ,@$6))
 
    (unterminated-item
     (normal-pattern) : `(,$1 (print)))
@@ -448,7 +448,7 @@
     (NUMBER) : $1
     (STRING) : $1
     (regex) : $1
-    (Func LPAREN expr-list-opt RPAREN) : `(apply ,$1 ,$3)
+    (name+LPAREN expr-list-opt RPAREN) : `(apply ,$1 ,@$2)
     ;; XXX: These built-in rules cause a shift/reduce conflict.  It
     ;; works out because of the documented way the parser generator
     ;; handles conflicts, but it would be better to fix it explicitly.
@@ -471,7 +471,10 @@
     (newline-opt NEWLINE) : `(,$1 ,$2))
 
    (name
-    (NAME) : (string->symbol $1))))
+    (NAME) : (string->symbol $1))
+
+   (name+LPAREN
+    (NAME+LPAREN) : (string->symbol $1))))
 
 (define* (syntax-error message #:optional token)
   "Handle a parser error"
