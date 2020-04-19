@@ -38,6 +38,35 @@
   #:use-module (gash-utils file-formats)
   #:export (awk))
 
+(define-immutable-record-type <awk-array>
+  (make-awk-array values)
+  awk-array?
+  (values awk-array-values set-awk-array-values))
+
+(define awk-array-null (make-awk-array '()))
+
+(define* (awk-array-ref index awk-array #:optional (dflt *awk-undefined*))
+  (match (assoc index (awk-array-values awk-array))
+    ((_ . value) value)
+    (_ dflt)))
+
+(define (awk-array-member? index awk-array)
+  (match (assoc index (awk-array-values awk-array))
+    ((_ . _) #t)
+    (_ #f)))
+
+(define (awk-array-set index value awk-array)
+  (let* ((values (awk-array-values awk-array))
+         (values* (alist-cons index value (alist-delete index values))))
+    (set-awk-array-values awk-array values*)))
+
+(define (awk-array-delete index awk-array)
+  (let ((values (awk-array-values awk-array)))
+    (set-awk-array-values awk-array (alist-delete index values))))
+
+(define (awk-array-keys awk-array)
+  (map car (awk-array-values awk-array)))
+
 (define-immutable-record-type <env>
   (make-env in out record fields variables)
   env?
@@ -119,9 +148,8 @@
     (set-env-variables env (append pairs variables))))
 
 (define (assign-array name index value env)
-  (let* ((array (or (assoc-ref (env-variables env) name) '()))
-         (array (alist-delete index array))
-         (array (acons index value array)))
+  (let* ((array (get-var name env awk-array-null))
+         (array (awk-array-set index value array)))
     (assign name array env)))
 
 (define* (get-var name env #:optional (dflt *awk-undefined*))
@@ -135,6 +163,7 @@
     ((? number?) (number->string expression))
     (#t "1")
     (#f "0")
+    ((? awk-array?) (error "an array was used as a scalar"))
     ((? awk-undefined?) "")
     ((lst ...) (string-join (map awk-expression->string lst) ""))))
 
@@ -144,6 +173,7 @@
     ((? string?) (values (not (string-null? expression)) env))
     ((? boolean?) (values expression env))
     ((? vector?) (values 1 env))
+    ((? awk-array?) (error "an array was used as a scalar"))
     ((? awk-undefined?) (values #f env))
     (_ (receive (expression env) (awk-expression expression env)
          (awk-expression->boolean expression env)))))
@@ -155,9 +185,15 @@
     ((? number?) (values expression env))
     (#t (values 1 env))
     (#f (values 0 env))
+    ((? awk-array?) (error "an array was used as a scalar"))
     ((? awk-undefined?) (values 0 env))
     (_ (receive (v env) (awk-expression expression env)
          (awk-expression->number v env)))))
+
+(define (ensure-array value)
+  (unless (awk-array? value)
+    (error "a scalar was used an an array"))
+  value)
 
 (define (awk-set lvalue value env)
   ;; TODO: Handle fields.
@@ -172,17 +208,13 @@
   (match expression
     ((? symbol? name) (values (get-var name env) env))
     (('array-ref index name)
-     (let ((array (get-var name env)))
+     (let ((array (ensure-array (get-var name env awk-array-null))))
        (receive (index env) (awk-expression index env)
-         (match (assoc index array)
-           ((_ . value) (values value env))
-           (_ (values *awk-undefined* env))))))
+         (values (awk-array-ref index array) env))))
     (('array-member? index name)
-     (let ((array (get-var name env)))
+     (let ((array (ensure-array (get-var name env awk-array-null))))
        (receive (index env) (awk-expression index env)
-         (match (assoc index array)
-           ((_ . _) (values #t env))
-           (_ (values #f env))))))
+         (values (awk-array-member? index array) env))))
     (('$ 'NF) (values (last (env-fields env)) env))
     (('$ number) (let ((field (awk-expression number env))
                        (fields (env-fields env))
@@ -358,7 +390,8 @@
     ;; Loops
     (('for-each (key array) exprs ...)
      (let* ((save-key (get-var key env))
-            (keys (map car (get-var array env)))
+            (array (ensure-array (get-var array env awk-array-null)))
+            (keys (awk-array-keys array))
             (env (fold (lambda (value env)
                          (fold run-commands (assign key value env) exprs))
                        env
