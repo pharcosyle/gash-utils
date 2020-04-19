@@ -98,6 +98,11 @@
       (#f (values 0 env))
       (idx (values (1+ idx) env)))))
 
+(define *awk-undefined* (list 'awk-undefined))
+
+(define (awk-undefined? x)
+  (eq? x *awk-undefined*))
+
 (define (delete-var name env)
   (set-env-variables
    env (filter (negate (compose (cut eq? <> name) car))
@@ -119,17 +124,10 @@
          (array (acons index value array)))
     (assign name array env)))
 
-(define (get-var name env)
-  (or (assoc-ref (env-variables env) name) ""))
-
-(define (awk-not x env)
-  (match x
-    (#t 0)
-    (#f 1)
-    (0 1)
-    ((? number?) 0)
-    ("" 1)
-    ((? string?) 1)))
+(define* (get-var name env #:optional (dflt *awk-undefined*))
+  (match (assoc name (env-variables env))
+    ((_ . value) value)
+    (_ dflt)))
 
 (define (awk-expression->string expression)
   (match expression
@@ -137,6 +135,7 @@
     ((? number?) (number->string expression))
     (#t "1")
     (#f "0")
+    ((? awk-undefined?) "")
     ((lst ...) (string-join (map awk-expression->string lst) ""))))
 
 (define (awk-expression->boolean expression env)
@@ -145,6 +144,7 @@
     ((? string?) (values (not (string-null? expression)) env))
     ((? boolean?) (values expression env))
     ((? vector?) (values 1 env))
+    ((? awk-undefined?) (values #f env))
     (_ (receive (expression env) (awk-expression expression env)
          (awk-expression->boolean expression env)))))
 
@@ -155,6 +155,7 @@
     ((? number?) (values expression env))
     (#t (values 1 env))
     (#f (values 0 env))
+    ((? awk-undefined?) (values 0 env))
     (_ (receive (v env) (awk-expression expression env)
          (awk-expression->number v env)))))
 
@@ -173,9 +174,15 @@
     (('array-ref index name)
      (let ((array (get-var name env)))
        (receive (index env) (awk-expression index env)
-         (values (or (assoc-ref array index) "") env))))
+         (match (assoc index array)
+           ((_ . value) (values value env))
+           (_ (values *awk-undefined* env))))))
     (('array-member? index name)
-     (values (and (assoc-ref (get-var name env) index)) env))
+     (let ((array (get-var name env)))
+       (receive (index env) (awk-expression index env)
+         (match (assoc index array)
+           ((_ . _) (values #t env))
+           (_ (values #f env))))))
     (('$ 'NF) (values (last (env-fields env)) env))
     (('$ number) (let ((field (awk-expression number env))
                        (fields (env-fields env))
@@ -275,8 +282,9 @@
      (receive (v env) (awk-expression->number x env)
        (receive (y env) (awk-expression->number y env)
          (values (+ v y) (awk-set x (+ v y) env)))))
-    (('not x) (receive (x env) (awk-expression x env)
-                (values (awk-not x env) env)))
+    (('not x)
+     (receive (x env) (awk-expression->boolean x env)
+       (values (not x) env)))
     (('string-append x y)
      (receive (x env) (awk-expression x env)
        (receive (y env) (awk-expression y env)
@@ -322,7 +330,7 @@
      env)
     (('print expr)
      (receive (result env) (awk-expression expr env)
-       (display result)
+       (display (awk-expression->string result))
        (newline)
        env))
     (('print expr ..1)
