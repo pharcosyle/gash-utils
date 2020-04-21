@@ -76,6 +76,26 @@
   (fields env-fields set-env-fields)
   (variables env-variables set-env-variables))
 
+(define* (env-ref name env #:optional (dflt *awk-undefined*))
+  (match (assoc name (env-variables env))
+    ((_ . value) value)
+    (_ dflt)))
+
+(define (env-set name value env)
+  (let* ((variables (alist-delete name (env-variables env))))
+    (set-env-variables env (alist-cons name value variables))))
+
+(define (env-set* pairs env)
+  (let* ((keys (map car pairs))
+         (variables (filter (negate (compose (cut member <> keys) car))
+                            (env-variables env))))
+    (set-env-variables env (append pairs variables))))
+
+(define (env-set-array name index value env)
+  (let* ((array (env-ref name env awk-array-null))
+         (array (awk-array-set index value array)))
+    (env-set name array env)))
+
 (define char-set:awk-non-space
   (char-set-complement (char-set-union char-set:blank (char-set #\newline))))
 
@@ -105,7 +125,7 @@
 (define (awk-split env string array delimiter delimiters)
   (let* ((split (string-split/awk string delimiter))
          (count (length split))
-         (env (fold (cut assign-array array <> <> <>)
+         (env (fold (cut env-set-array array <> <> <>)
                     env (iota count 1) split)))
     (when delimiters
       (error (format #f "awk: split: delimiters not supported: ~s\n" delimiters)))
@@ -131,31 +151,6 @@
 
 (define (awk-undefined? x)
   (eq? x *awk-undefined*))
-
-(define (delete-var name env)
-  (set-env-variables
-   env (filter (negate (compose (cut eq? <> name) car))
-               (env-variables env))))
-
-(define (assign name value env)
-  (set-env-variables
-   env (acons name value (env-variables (delete-var name env)))))
-
-(define (assign* pairs env)
-  (let* ((keys (map car pairs))
-         (variables (filter (negate (compose (cut member <> keys) car))
-                            (env-variables env))))
-    (set-env-variables env (append pairs variables))))
-
-(define (assign-array name index value env)
-  (let* ((array (get-var name env awk-array-null))
-         (array (awk-array-set index value array)))
-    (assign name array env)))
-
-(define* (get-var name env #:optional (dflt *awk-undefined*))
-  (match (assoc name (env-variables env))
-    ((_ . value) value)
-    (_ dflt)))
 
 (define (awk-expression->string expression)
   (match expression
@@ -199,20 +194,20 @@
   ;; TODO: Handle fields.
   (match lvalue
     ((? symbol? name)
-     (assign name value env))
+     (env-set name value env))
     (('array-ref index name)
      (receive (result env) (awk-expression index env)
-       (assign-array name result value env)))))
+       (env-set-array name result value env)))))
 
 (define (awk-expression expression env)
   (match expression
-    ((? symbol? name) (values (get-var name env) env))
+    ((? symbol? name) (values (env-ref name env) env))
     (('array-ref index name)
-     (let ((array (ensure-array (get-var name env awk-array-null))))
+     (let ((array (ensure-array (env-ref name env awk-array-null))))
        (receive (index env) (awk-expression index env)
          (values (awk-array-ref index array) env))))
     (('array-member? index name)
-     (let ((array (ensure-array (get-var name env awk-array-null))))
+     (let ((array (ensure-array (env-ref name env awk-array-null))))
        (receive (index env) (awk-expression index env)
          (values (awk-array-member? index array) env))))
     (('$ 'NF) (values (last (env-fields env)) env))
@@ -229,16 +224,16 @@
        (let* ((array array)
               (delimiter (if (pair? arguments)
                              (car arguments)
-                             (get-var 'FS env)))
+                             (env-ref 'FS env)))
               (delimiters (if (= (length arguments) 2)
                               (cadr arguments)
                               #f)))
-         ((get-var name env) env string array delimiter delimiters))))
+         ((env-ref name env) env string array delimiter delimiters))))
     (('apply name argument)
      (receive (argument env) (awk-expression argument env)
-       ((get-var name env) env argument)))
+       ((env-ref name env) env argument)))
     (('apply name arguments ..1)
-     (let ((proc (get-var name env)))
+     (let ((proc (env-ref name env)))
        (let loop ((arguments arguments) (env env) (acc '()))
          (match arguments
            (() (apply proc env (reverse! acc)))
@@ -356,7 +351,7 @@
     ;; Output
     (('print)
      (let* ((fields (env-fields env))
-            (count  (min (get-var 'NF env) (length fields))))
+            (count  (min (env-ref 'NF env) (length fields))))
        (display (string-join (list-head fields count))))
      (newline)
      env)
@@ -389,7 +384,7 @@
        (_ (error "awk: cannot redirect output"))))
     ;; Loops
     (('for-each (key array) exprs ...)
-     (let* ((array (ensure-array (get-var array env awk-array-null)))
+     (let* ((array (ensure-array (env-ref array env awk-array-null)))
             (keys (awk-array-keys array)))
        (fold (lambda (value env)
                (fold run-commands (env-set key value env) exprs))
@@ -447,21 +442,21 @@
                   (open-input-file filename)))
         (pairs `((FILENAME . ,filename)
                  (FNR . 0))))
-    (assign* pairs (set-env-in env port))))
+    (env-set* pairs (set-env-in env port))))
 
 (define (read-record env)
-  (match (read-delimited (get-var 'RS env) (env-in env))
+  (match (read-delimited (env-ref 'RS env) (env-in env))
     ((? eof-object? eof) (set-fields env
                            ((env-record) eof)
                            ((env-fields) '())))
     (record
-     (let* ((fields (string-split/awk record (get-var 'FS env)))
+     (let* ((fields (string-split/awk record (env-ref 'FS env)))
             (pairs `((NF . ,(length fields))
-                     (NR . ,(1+ (get-var 'NR env)))
-                     (FNR . ,(1+ (get-var 'FNR env))))))
-       (assign* pairs (set-fields env
-                        ((env-record) record)
-                        ((env-fields) fields)))))))
+                     (NR . ,(1+ (env-ref 'NR env)))
+                     (FNR . ,(1+ (env-ref 'FNR env))))))
+       (env-set* pairs (set-fields env
+                         ((env-record) record)
+                         ((env-fields) fields)))))))
 
 (define (eval-item item env)
   (match item
