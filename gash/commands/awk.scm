@@ -91,10 +91,17 @@
                             (env-variables env))))
     (set-env-variables env (append pairs variables))))
 
+(define (env-ref/array name env)
+  (match (env-ref name env)
+    ((? awk-array? array)
+     (values array env))
+    ((? awk-undefined? undef)
+     (values awk-array-null (env-set name awk-array-null env)))
+    (_ (error "a scalar was used an an array: " name))))
+
 (define (env-set-array name index value env)
-  (let* ((array (env-ref name env awk-array-null))
-         (array (awk-array-set index value array)))
-    (env-set name array env)))
+  (receive (array env) (env-ref/array name env)
+    (env-set name (awk-array-set index value array) env)))
 
 (define char-set:awk-non-space
   (char-set-complement (char-set-union char-set:blank (char-set #\newline))))
@@ -185,11 +192,6 @@
     (_ (receive (v env) (awk-expression expression env)
          (awk-expression->number v env)))))
 
-(define (ensure-array value)
-  (unless (awk-array? value)
-    (error "a scalar was used an an array"))
-  value)
-
 (define (awk-set lvalue value env)
   ;; TODO: Handle fields.
   (match lvalue
@@ -203,11 +205,11 @@
   (match expression
     ((? symbol? name) (values (env-ref name env) env))
     (('array-ref index name)
-     (let ((array (ensure-array (env-ref name env awk-array-null))))
+     (receive (array env) (env-ref/array name env)
        (receive (index env) (awk-expression index env)
          (values (awk-array-ref index array) env))))
     (('array-member? index name)
-     (let ((array (ensure-array (env-ref name env awk-array-null))))
+     (receive (array env) (env-ref/array name env)
        (receive (index env) (awk-expression index env)
          (values (awk-array-member? index array) env))))
     (('$ 'NF) (values (last (env-fields env)) env))
@@ -384,12 +386,11 @@
        (_ (error "awk: cannot redirect output"))))
     ;; Loops
     (('for-each (key array) exprs ...)
-     (let* ((array (ensure-array (env-ref array env awk-array-null)))
-            (keys (awk-array-keys array)))
+     (receive (array env) (env-ref/array array env)
        (fold (lambda (value env)
                (fold run-commands (env-set key value env) exprs))
              env
-             keys)))
+             (awk-array-keys array))))
     (('for (init test expr) exprs ...)
      (call-with-prompt *break-loop-prompt*
        (lambda ()

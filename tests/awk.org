@@ -455,3 +455,25 @@
 #+begin_example
   3
 #+end_example
+
+* Accessing an undefined variable as an array makes it an array
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      print xs[42]
+      print xs + 0
+  }
+#+end_src
+:status: 1
+
+* Checking membership in an undefined variable makes it an array
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      print 42 in xs
+      print xs + 0
+  }
+#+end_src
+:status: 1
