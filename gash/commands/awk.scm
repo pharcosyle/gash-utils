@@ -389,15 +389,12 @@
        (_ (error "awk: cannot redirect output"))))
     ;; Loops
     (('for-each (key array) exprs ...)
-     (let* ((save-key (get-var key env))
-            (array (ensure-array (get-var array env awk-array-null)))
-            (keys (awk-array-keys array))
-            (env (fold (lambda (value env)
-                         (fold run-commands (assign key value env) exprs))
-                       env
-                       keys)))
-       (if save-key (assign key save-key env)
-           (delete-var key env))))
+     (let* ((array (ensure-array (get-var array env awk-array-null)))
+            (keys (awk-array-keys array)))
+       (fold (lambda (value env)
+               (fold run-commands (env-set key value env) exprs))
+             env
+             keys)))
     (('for (init test expr) exprs ...)
      (call-with-prompt *break-loop-prompt*
        (lambda ()
