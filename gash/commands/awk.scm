@@ -38,12 +38,21 @@
   #:use-module (gash-utils file-formats)
   #:export (awk))
 
+(define-immutable-record-type <awk-undefined>
+  (make-awk-undefined location)
+  awk-undefined?
+  (location awk-undefined-location))
+
+(define *awk-undefined* (make-awk-undefined #f))
+
 (define-immutable-record-type <awk-array>
-  (make-awk-array values)
+  (%make-awk-array location values)
   awk-array?
+  (location awk-array-location)
   (values awk-array-values set-awk-array-values))
 
-(define awk-array-null (make-awk-array '()))
+(define (make-awk-array location)
+  (%make-awk-array location '()))
 
 (define* (awk-array-ref index awk-array #:optional (dflt *awk-undefined*))
   (match (assoc index (awk-array-values awk-array))
@@ -68,40 +77,119 @@
   (map car (awk-array-values awk-array)))
 
 (define-immutable-record-type <env>
-  (make-env in out record fields variables)
+  (make-env in out record fields variables depth frames)
   env?
   (in env-in set-env-in)
   (out env-out)
   (record env-record set-env-record)
   (fields env-fields set-env-fields)
-  (variables env-variables set-env-variables))
+  (variables env-variables set-env-variables)
+  (depth env-depth set-env-depth)
+  (frames env-frames set-env-frames))
 
-(define* (env-ref name env #:optional (dflt *awk-undefined*))
-  (match (assoc name (env-variables env))
-    ((_ . value) value)
-    (_ dflt)))
+(define (push-env-frame env locals)
+  "Push @var{locals} onto the @var{env} frame stack."
+  (set-fields env
+    ((env-frames) (cons locals (env-frames env)))
+    ((env-depth) (1+ (env-depth env)))))
+
+(define (pop-env-frame env)
+  "Pop a frame off of the @var{env} frame stack."
+  (set-fields env
+    ((env-frames) (cdr (env-frames env)))
+    ((env-depth) (1- (env-depth env)))))
+
+(define (%env-ref location env)
+  "Get the value at @var{location} from @var{env}."
+  (match-let (((depth . name) location))
+    (let ((frame (if (zero? depth)
+                     (env-variables env)
+                     (list-ref (env-frames env)
+                               (- (env-depth env) depth)))))
+      (match (assoc name frame)
+        ((_ . value) value)))))
+
+(define (env-ref name env)
+  "Get the value named @var{name} from the closest frame in @var{env}."
+
+  (define frames
+    (match (env-frames env)
+      ((frame . _) (cons frame (list (env-variables env))))
+      (() (list (env-variables env)))))
+
+  (let loop ((frames frames))
+    (match frames
+      (() (make-awk-undefined (cons 0 name)))
+      ((frame . rest)
+       (match (assoc name frame)
+         ((_ . (? awk-array? array))
+          (%env-ref (awk-array-location array) env))
+         ((_ . scalar) scalar)
+         (_ (loop rest)))))))
+
+(define (%env-set location value env)
+  "Set the value at @var{location} to @var{value} in @var{env}."
+  (match location
+    ((0 . name)
+     (let ((variables (alist-delete name (env-variables env))))
+       (set-env-variables env (alist-cons name value variables))))
+    ((depth . name)
+     (let* ((frame-index (- (env-depth env) depth))
+            (old-frame (list-ref (env-frames env) frame-index))
+            (frame (alist-cons name value (alist-delete name old-frame)))
+            (above (list-head (env-frames env) frame-index))
+            (below (list-tail (env-frames env) (1+ frame-index))))
+       (set-env-frames env (append above (cons frame below)))))))
 
 (define (env-set name value env)
-  (let* ((variables (alist-delete name (env-variables env))))
-    (set-env-variables env (alist-cons name value variables))))
+  "Set the value named @var{name} to @var{value} in closest frame in
+@var{env}."
 
-(define (env-set* pairs env)
+  (define frames
+    (match (env-frames env)
+      ((frame . _) (cons frame (list (env-variables env))))
+      (() (list (env-variables env)))))
+
+  (let loop ((frames frames) (depth (env-depth env)))
+    (match frames
+      (() (%env-set (cons 0 name) value env))
+      ((frame . rest)
+       (match (assoc name frame)
+         ((_ . (? awk-array? array))
+          (if (and (awk-array? value)
+                   (equal? (awk-array-location array)
+                           (awk-array-location value)))
+              (%env-set (awk-array-location array) value env)
+              (error "an array was used as a scalar: " name)))
+         ((_ . (? awk-undefined? undef))
+          (if (awk-array? value)
+              (%env-set (awk-undefined-location undef) value env)
+              (%env-set (cons depth name) value env)))
+         ((_ . _) (%env-set (cons depth name) value env))
+         (_ (loop rest 0)))))))
+
+(define (env-set-globals pairs env)
+  "Set the each of the name-value pairs in @var{pairs} as global
+variables in @var{env}."
   (let* ((keys (map car pairs))
          (variables (filter (negate (compose (cut member <> keys) car))
                             (env-variables env))))
     (set-env-variables env (append pairs variables))))
 
 (define (env-ref/array name env)
+  "Get the value named @var{name} as an array from the closest frame in
+@var{env}.  If the value is undefined and has a location, it will
+updated to be an empty array.  As such, this procedure returns two
+values, the result and the updated environment."
   (match (env-ref name env)
     ((? awk-array? array)
      (values array env))
     ((? awk-undefined? undef)
-     (values awk-array-null (env-set name awk-array-null env)))
+     (match (awk-undefined-location undef)
+       (#f (error "a scalar was used an an array: " name))
+       (location (let ((array (make-awk-array location)))
+                   (values array (%env-set location array env))))))
     (_ (error "a scalar was used an an array: " name))))
-
-(define (env-set-array name index value env)
-  (receive (array env) (env-ref/array name env)
-    (env-set name (awk-array-set index value array) env)))
 
 (define char-set:awk-non-space
   (char-set-complement (char-set-union char-set:blank (char-set #\newline))))
@@ -129,14 +217,15 @@
 
 ;; Builtins
 
-(define (awk-split env string array delimiter delimiters)
-  (let* ((split (string-split/awk string delimiter))
-         (count (length split))
-         (env (fold (cut env-set-array array <> <> <>)
-                    env (iota count 1) split)))
-    (when delimiters
-      (error (format #f "awk: split: delimiters not supported: ~s\n" delimiters)))
-    (values count env)))
+(define (awk-split env string name delimiter delimiters)
+  (receive (array env) (env-ref/array name env)
+    (let* ((split (string-split/awk string delimiter))
+           (count (length split))
+           (array (fold awk-array-set array (iota count 1) split))
+           (env (env-set name array env)))
+      (when delimiters
+        (error (format #f "awk: split: delimiters not supported: ~s\n" delimiters)))
+      (values count env))))
 
 (define (awk-length env expr)
   (values (string-length (awk-expression->string expr)) env))
@@ -153,11 +242,6 @@
     (match (string-contains s1 s2)
       (#f (values 0 env))
       (idx (values (1+ idx) env)))))
-
-(define *awk-undefined* (list 'awk-undefined))
-
-(define (awk-undefined? x)
-  (eq? x *awk-undefined*))
 
 (define (awk-expression->string expression)
   (match expression
@@ -198,8 +282,9 @@
     ((? symbol? name)
      (env-set name value env))
     (('array-ref index name)
-     (receive (result env) (awk-expression index env)
-       (env-set-array name result value env)))))
+     (receive (array env) (env-ref/array name env)
+       (receive (result env) (awk-expression index env)
+         (env-set name (awk-array-set result value array) env))))))
 
 (define (awk-expression expression env)
   (match expression
@@ -231,10 +316,7 @@
                               (cadr arguments)
                               #f)))
          ((env-ref name env) env string array delimiter delimiters))))
-    (('apply name argument)
-     (receive (argument env) (awk-expression argument env)
-       ((env-ref name env) env argument)))
-    (('apply name arguments ..1)
+    (('apply name arguments ...)
      (let ((proc (env-ref name env)))
        (let loop ((arguments arguments) (env env) (acc '()))
          (match arguments
@@ -429,6 +511,9 @@
     ;; Simple statements
     (('break) (break-loop env))
     (('next) (next-record env))
+    (('return) (abort-to-prompt *return-prompt* *awk-undefined* env))
+    (('return expr) (receive (result env) (awk-expression expr env)
+                      (abort-to-prompt *return-prompt* result env)))
     ;; Sequencing
     (('progn exprs ...) (fold run-commands env exprs))
     ;; Others
@@ -443,7 +528,7 @@
                   (open-input-file filename)))
         (pairs `((FILENAME . ,filename)
                  (FNR . 0))))
-    (env-set* pairs (set-env-in env port))))
+    (env-set-globals pairs (set-env-in env port))))
 
 (define (read-record env)
   (match (read-delimited (env-ref 'RS env) (env-in env))
@@ -455,9 +540,9 @@
             (pairs `((NF . ,(length fields))
                      (NR . ,(1+ (env-ref 'NR env)))
                      (FNR . ,(1+ (env-ref 'FNR env))))))
-       (env-set* pairs (set-fields env
-                         ((env-record) record)
-                         ((env-fields) fields)))))))
+       (env-set-globals pairs (set-fields env
+                                ((env-record) record)
+                                ((env-fields) fields)))))))
 
 (define (eval-item item env)
   (match item
@@ -483,6 +568,38 @@
                          env))))
             (loop (read-record env)))))))
 
+(define *return-prompt* (make-prompt-tag))
+
+(define (make-function name arg-names exprs)
+  (lambda (env . args)
+    (let loop ((names arg-names) (args args) (locals '()))
+      (match names
+        (() (let ((env (push-env-frame env locals)))
+              (receive (result env)
+                  (call-with-prompt *return-prompt*
+                    (lambda ()
+                      (values *awk-undefined*
+                              (fold run-commands env exprs)))
+                    (lambda (cont result env)
+                      (values result env)))
+                (values result (pop-env-frame env)))))
+        ((name . names-rest)
+         (match args
+           (()
+            (let* ((location (cons (1+ (env-depth env)) name))
+                   (undef (make-awk-undefined location)))
+              (loop names-rest '() (alist-cons name undef locals))))
+           ((arg . args-rest)
+            (loop names-rest args-rest (alist-cons name arg locals)))))))))
+
+(define (eval-function-definition item env)
+  "Evaluate the function definition @var{item} with environment
+@var{env}.  If @var{item} is not a function definition, do nothing."
+  (match item
+    (('defun name (arg-names ...) exprs ...)
+     (env-set name (make-function name arg-names exprs) env))
+    (_ env)))
+
 (define (eval-special-items items pattern env)
   (match items
     (() env)
@@ -504,12 +621,13 @@
       (length . ,awk-length)
       (split . ,awk-split)
       (substr . ,awk-substr)))
-  (make-env #f out #f '() variables))
+  (make-env #f out #f '() variables 0 '()))
 
 (define* (%eval-awk items names #:optional
                     (out (current-output-port))
                     #:key (field-separator " "))
   (let* ((env (make-default-env out field-separator))
+         (env (fold eval-function-definition env items))
          (env (eval-special-items items 'begin env))
          (env (fold (cut run-awk-file items <> <>) env names)))
     (eval-special-items items 'end env)))

@@ -477,3 +477,317 @@
   }
 #+end_src
 :status: 1
+
+* Functions can be defined and applied
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function hello () {
+      print "hello"
+  }
+  BEGIN {
+      hello()
+  }
+#+end_src
+:stdout:
+#+begin_example
+  hello
+#+end_example
+
+* Function definitions are evaluated first
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      hello()
+  }
+  function hello () {
+      print "hello"
+  }
+#+end_src
+:stdout:
+#+begin_example
+  hello
+#+end_example
+
+* Functions return unspecified values by default
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function f() {}
+  BEGIN {
+      print "foo" f() "bar-" (f() + 1)
+  }
+#+end_src
+:stdout:
+#+begin_example
+  foobar-1
+#+end_example
+
+* Functions can return values
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function f() {
+      return 41
+  }
+  BEGIN {
+      print f() + 1
+  }
+#+end_src
+:stdout:
+#+begin_example
+  42
+#+end_example
+
+* Functions can receive scalar arguments
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function hello(name) {
+      print "hello " name
+  }
+  BEGIN {
+      hello("awk")
+  }
+#+end_src
+:stdout:
+#+begin_example
+  hello awk
+#+end_example
+
+* Functions can receive array arguments
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function hello(person) {
+      print "hello " person["name"]
+  }
+  BEGIN {
+      awk["name"] = "awk"
+      hello(awk)
+  }
+#+end_src
+:stdout:
+#+begin_example
+  hello awk
+#+end_example
+
+* Functions using a scalar as an array is an error
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function hello(person) {
+      print "hello " person["name"]
+  }
+  BEGIN {
+      hello("awk")
+  }
+#+end_src
+:status: 1
+
+* Functions using an array as a scalar is an error
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function hello(name) {
+      print "hello " name
+  }
+  BEGIN {
+      person["name"] = "awk"
+      hello(person)
+  }
+#+end_src
+:status: 1
+
+* Scalar arguments are passed by value
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function hello(name) {
+      print "hello " name
+      name = "you"
+      print "hello " name
+  }
+  BEGIN {
+      name = "awk"
+      hello(name)
+      print name
+  }
+#+end_src
+:stdout:
+#+begin_example
+  hello awk
+  hello you
+  awk
+#+end_example
+
+* Array arguments are passed by reference
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function hello(person) {
+      print "hello " person["name"]
+      person["name"] = "you"
+      print "hello " person["name"]
+  }
+  BEGIN {
+      person["name"] = "awk"
+      hello(person)
+      print person["name"]
+  }
+#+end_src
+:stdout:
+#+begin_example
+  hello awk
+  hello you
+  you
+#+end_example
+
+* Undefined scalar arguments are passed by value
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function set(name, value) {
+      name = value
+  }
+  BEGIN {
+      set(x, "foo")
+      print "foo" x "bar"
+  }
+#+end_src
+:stdout:
+#+begin_example
+  foobar
+#+end_example
+
+* Undefined array arguments are passed by reference
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function set(name, key, value) {
+      name[key] = value
+  }
+  BEGIN {
+      set(xs, 1, "foo")
+      print xs[1]
+  }
+#+end_src
+:stdout:
+#+begin_example
+  foo
+#+end_example
+
+* Function arguments not set during application are uninitialized
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function f(scalar, array) {
+      print "foo" scalar "bar"
+      for (key in array) {
+          print "hi"
+      }
+      print "foo" array["baz"] "bar"
+  }
+  BEGIN {
+      f()
+  }
+#+end_src
+:stdout:
+#+begin_example
+  foobar
+  foobar
+#+end_example
+
+* Functions can be nested
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function make_fancy(name) {
+      name = "the venerable " name
+      return name
+  }
+  function greet_with_respect(name) {
+      name = "hello to " make_fancy(name)
+      print name
+  }
+  BEGIN {
+      greet_with_respect("awk")
+  }
+#+end_src
+:stdout:
+#+begin_example
+  hello to the venerable awk
+#+end_example
+
+* Functions are not dynamically scoped
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function g() {
+      print x
+      x = "baz"
+  }
+  function f(x) {
+      x = "bar"
+      g()
+      print x
+  }
+  BEGIN {
+      x = "foo"
+      f()
+      print x
+  }
+#+end_src
+:stdout:
+#+begin_example
+  foo
+  bar
+  baz
+#+end_example
+
+* Nested array arguments are passed by reference
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function set(name, key, value) {
+      name[key] = value
+  }
+  function make_greeting(xs) {
+      set(xs, 1, "hi")
+      return xs[1]
+  }
+  BEGIN {
+      xs[1] = "bye"
+      msg = make_greeting()
+      print msg
+      print xs[1]
+  }
+#+end_src
+:stdout:
+#+begin_example
+  hi
+  bye
+#+end_example
+
+* Functions can be recursive
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function fib(n) {
+      if (n == 0) {
+          return 0
+      } else if (n == 1) {
+          return 1
+      } else {
+          return fib(n - 1) + fib(n - 2)
+      }
+  }
+  BEGIN {
+      print fib(12)
+  }
+#+end_src
+:stdout:
+#+begin_example
+  144
+#+end_example
