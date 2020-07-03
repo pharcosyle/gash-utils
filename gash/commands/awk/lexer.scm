@@ -237,6 +237,19 @@ character."
     ((x . ()) x)
     ((_ . x) x)))
 
+(define octal-char?
+  (let ((octal-chars (string->list "01234567")))
+    (lambda (chr)
+      (memv chr octal-chars))))
+
+(define (octal-chars->char . octs)
+  (define (octal-char->number oct)
+    (string->number (string oct)))
+  (let loop ((octs (map octal-char->number octs)) (b 1) (acc 0))
+    (match octs
+      (() (integer->char acc))
+      ((oct . rest) (loop rest (* b 8) (+ acc (* b oct)))))))
+
 (define* (get-escape port #:optional (escape-map standard-escape-map))
   "Get an escape sequence ('\\x') from @var{port}. If @var{pred} is set,
 then the backslash will be treated as a literal backslash unless the
@@ -246,6 +259,17 @@ next character statisfies @var{pred} (or is a newline)."
      (let ((chr (lookahead-char port)))
        (match chr
          (#\newline (begin (get-char port) '()))
+         ((? octal-char? d1)
+          (get-char port)
+          (match (lookahead-char port)
+            ((? octal-char? d2)
+             (get-char port)
+             (match (lookahead-char port)
+               ((? octal-char? d3)
+                (get-char port)
+                (list (octal-chars->char d3 d2 d1)))
+               (_ (list (octal-chars->char d2 d1)))))
+            (_ (list (octal-chars->char d1)))))
          ((? char?)
           (cond
            ((escape-map chr)
