@@ -81,3 +81,38 @@
   "`which printf`" '%d' not-a-number
 #+end_src
 :status: 1
+
+* Processes a character specifier
+:script:
+#+begin_src sh
+  "`which printf`" '%c' c
+#+end_src
+:stdout: "c"
+
+* Treats missing character arguments as null
+:script:
+#+begin_src sh
+  "`which printf`" '%c'
+#+end_src
+:stdout: "\0"
+
+* Takes the first character from an argument
+:script:
+#+begin_src sh
+  "`which printf`" '%c' foo
+#+end_src
+:stdout: "f"
+
+* Uses null when treating an empty argument as a character
+:script:
+#+begin_src sh
+  "`which printf`" '%c' ''
+#+end_src
+:stdout: "\0"
+
+* Does not process numeric arguments as characters
+:script:
+#+begin_src sh
+  "`which printf`" '%c' 97
+#+end_src
+:stdout: "9"

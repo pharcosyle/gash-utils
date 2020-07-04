@@ -44,10 +44,11 @@
   (%make-conversion type proc width?))
 
 (define-record-type <conversion-adapter>
-  (make-conversion-adapter to-string to-number)
+  (make-conversion-adapter to-string to-number to-character)
   conversion-adapter?
   (to-string conversion-to-string)
-  (to-number conversion-to-number))
+  (to-number conversion-to-number)
+  (to-character conversion-to-character))
 
 (define* (parse-escape s #:optional (start 0) (end (string-length s)))
   (match (and (< start end) (string-ref s start))
@@ -66,6 +67,7 @@
     (match (and (< k end) (string-ref s k))
       (#f (error "missing format character"))
       (#\% (values "%" 1))
+      (#\c (values (make-conversion 'character string) 1))
       (#\d (values (make-conversion 'number number->string) 1))
       (#\s (values (make-conversion 'string values) 1))
       (#\u (values (make-conversion 'number number->string) 1))
@@ -87,7 +89,8 @@
                     (loop (+ j length 1) (cons part acc))))))))))
 
 (define (fold-file-format adapter seed parts . args)
-  (match-let ((($ <conversion-adapter> to-string to-number) adapter))
+  (match-let ((($ <conversion-adapter>
+                  to-string to-number to-character) adapter))
     (let loop ((parts parts) (args args) (seed seed) (acc '()))
       (match parts
         (() (values (string-concatenate-reverse acc) seed))
@@ -99,9 +102,14 @@
             (loop parts* args seed (cons (proc "") acc)))
            (('number)
             (loop parts* args seed (cons (proc 0) acc)))
+           (('character)
+            (loop parts* args seed (cons (proc #\nul) acc)))
            (('string arg . args*)
             (receive (value seed) (to-string arg seed)
               (loop parts* args* seed (cons (proc value) acc))))
            (('number arg . args*)
             (receive (value seed) (to-number arg seed)
+              (loop parts* args* seed (cons (proc value) acc))))
+           (('character arg . args*)
+            (receive (value seed) (to-character arg seed)
               (loop parts* args* seed (cons (proc value) acc))))))))))

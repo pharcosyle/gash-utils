@@ -686,6 +686,21 @@ user-defined function; and the updated environment."
        ((_ . value) (values value env))))
     (_ (eval-awke expr env))))
 
+(define (eval-awke/character expr env)
+  "Evaluate the expression @var{expr} in the environment @var{env},
+returning the result as a character along with the updated environment.
+If the result of evaluation is a number, return a character with that
+code point.  If the result is a string, return the first character of
+the string or @code{#\\nul} if the string is null."
+  (match expr
+    ((? number?) (values (integer->char expr) env))
+    ((? numeric-string?) (values (integer->char
+                                  (numeric-string-number expr)) env))
+    ("" (values #\nul env))
+    ((? string?) (values (string-ref expr 0) env))
+    (_ (let ((result env (eval-awke expr env)))
+         (eval-awke/character result env)))))
+
 
 ;; Evaluation helpers
 
@@ -798,7 +813,9 @@ either case, the updated environment is returned as the second value."
     (values (if return-old? old-value new-value) env)))
 
 (define awk-conversion-adapter
-  (make-conversion-adapter eval-awke/string eval-awke/number))
+  (make-conversion-adapter eval-awke/string
+                           eval-awke/number
+                           eval-awke/character))
 
 (define (perform-printf env format-expr . args)
   "Evaluate @var{format-expr} in the environment @var{env} and use the

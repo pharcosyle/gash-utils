@@ -36,7 +36,11 @@
       ;; TODO: Use C-style numbers instead of Scheme-style numbers.
       ((string->number n) => (cut values <> seed))
       (else (format (current-error-port) "printf: invalid number: ~a~%" n)
-            (values 0 #f))))))
+            (values 0 #f))))
+   (lambda (c seed)
+     (if (string-null? (or c ""))
+         (values #\nul seed)
+         (values (string-ref c 0) seed)))))
 
 (define (printf format-string . args)
   (let ((format (parse-file-format format-string)))

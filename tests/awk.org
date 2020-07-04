@@ -911,3 +911,43 @@
 #+begin_example
   144
 #+end_example
+
+* Printf prints characters
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN { printf("%c", "c") }
+#+end_src
+:stdout: "c"
+
+* Printf treats missing characters as null
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN { printf("%c") }
+#+end_src
+:stdout: "\0"
+
+* Printf prints the first character from a string
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN { printf("%c", "foo") }
+#+end_src
+:stdout: "f"
+
+* Printf uses null when treating the empty string as a character
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN { printf("%c", "") }
+#+end_src
+:stdout: "\0"
+
+* Printf interprets numbers as characters
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN { printf("%c", 97) }
+#+end_src
+:stdout: "a"
