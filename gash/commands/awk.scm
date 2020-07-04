@@ -17,184 +17,311 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Gash-Utils.  If not, see <https://www.gnu.org/licenses/>.
 
-;;; Commentary:
-
-;;; Code:
-
 (define-module (gash commands awk)
+  #:use-module (gash commands awk parser)
+  #:use-module (gash commands config)
+  #:use-module (gash-utils file-formats)
+  #:use-module (gash-utils options)
   #:use-module (ice-9 getopt-long)
+  #:use-module (ice-9 i18n)
   #:use-module (ice-9 match)
   #:use-module (ice-9 pretty-print)
   #:use-module (ice-9 rdelim)
   #:use-module (ice-9 receive)
   #:use-module (ice-9 regex)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-9 gnu)
-  #:use-module (srfi srfi-26)
-  #:use-module (gash commands config)
-  #:use-module (gash util)
-  #:use-module (gash commands awk lexer)
-  #:use-module (gash commands awk parser)
-  #:use-module (gash-utils file-formats)
-  #:export (awk))
+  #:use-module (srfi srfi-11))
 
-(define-immutable-record-type <awk-undefined>
-  (make-awk-undefined location)
-  awk-undefined?
-  (location awk-undefined-location))
+;;; Commentary:
 
-(define *awk-undefined* (make-awk-undefined #f))
+;;; Code:
 
-(define-immutable-record-type <awk-array>
-  (%make-awk-array location values)
-  awk-array?
-  (location awk-array-location)
-  (values awk-array-values set-awk-array-values))
+
+;; SRFI 71
 
-(define (make-awk-array location)
-  (%make-awk-array location '()))
+;; Before we get to Awk, we set up about half of SRFI 71, which
+;; redefines 'let' to work with multiple values.  Why SRFI 71?  Because
+;; we use multiple values everywhere to juggle results and environments,
+;; and SRFI 71 makes it go pretty smoothly.  Why not use the
+;; implementation that comes with Guile?  Because it is missing from
+;; Guile 2.0.
 
-(define* (awk-array-ref index awk-array #:optional (dflt *awk-undefined*))
-  (match (assoc index (awk-array-values awk-array))
-    ((_ . value) value)
-    (_ dflt)))
+;; General formula for redefining a 'let'.
+(define-syntax %meta-let
+  (lambda (x)
+    (syntax-case x ()
+      ((_ lt lv ((binding-parts ...) ...) body ...)
+       (with-syntax ((bindings (map (lambda (xs)
+                                      (list (drop-right xs 1) (last xs)))
+                                    #'((binding-parts ...) ...))))
+         #'(lv bindings body ...)))
+      ((_ lt lv forms ...)
+       #'(lt forms ...)))))
 
-(define (awk-array-member? index awk-array)
-  (match (assoc index (awk-array-values awk-array))
-    ((_ . _) #t)
-    (_ #f)))
+;; Redfine 'let' using 'let-values'.
+(define-syntax-rule (let forms ...)
+  (%meta-let (@ (guile) let) let-values forms ...))
 
-(define (awk-array-set index value awk-array)
-  (let* ((values (awk-array-values awk-array))
-         (values* (alist-cons index value (alist-delete index values))))
-    (set-awk-array-values awk-array values*)))
+;; Redefine 'let*' using 'let*-values'.
+(define-syntax-rule (let* forms ...)
+  (%meta-let (@ (guile) let*) let*-values forms ...))
 
-(define (awk-array-delete index awk-array)
-  (let ((values (awk-array-values awk-array)))
-    (set-awk-array-values awk-array (alist-delete index values))))
+;; Now back to our regular programming.  ;)
 
-(define (awk-array-keys awk-array)
-  (map car (awk-array-values awk-array)))
+
+;; Data types
 
+;; This record type stores the Awk environment.  The record itself is
+;; immutable, but it has references to mutable values.  For instance,
+;; the variables and arrays are built on top of hash tables and are
+;; mutated freely.
 (define-immutable-record-type <env>
-  (make-env in out record fields variables depth frames)
+  (make-env in out record fields locals globals)
   env?
-  (in env-in set-env-in)
-  (out env-out)
-  (record env-record set-env-record)
-  (fields env-fields set-env-fields)
-  (variables env-variables set-env-variables)
-  (depth env-depth set-env-depth)
-  (frames env-frames set-env-frames))
+  (in env-in set-env-in)               ; input port
+  (out env-out set-env-out)            ; output port
+  (record env-record %set-env-record)  ; record string
+  (fields env-fields %set-env-fields)  ; fields list
+  (locals env-locals set-env-locals)   ; hash table of local variables
+  (globals env-globals))               ; hash table of global variables
 
-(define (push-env-frame env locals)
-  "Push @var{locals} onto the @var{env} frame stack."
-  (set-fields env
-    ((env-frames) (cons locals (env-frames env)))
-    ((env-depth) (1+ (env-depth env)))))
+(define (map/env proc lst env)
+  "Map the procedure @var{proc} over the list @var{lst}, threading the
+environment @var{env} through the calls to @var{proc}."
+  (let loop ((xs lst) (env env) (acc '()))
+    (match xs
+      (() (values (reverse acc) env))
+      ((x . xs)
+       (let ((x env (proc x env)))
+         (loop xs env (cons x acc)))))))
 
-(define (pop-env-frame env)
-  "Pop a frame off of the @var{env} frame stack."
-  (set-fields env
-    ((env-frames) (cdr (env-frames env)))
-    ((env-depth) (1- (env-depth env)))))
+(define-syntax-rule (second-value expr)
+  "Return the second value returned by @var{expr}."
+  (call-with-values (lambda () expr)
+    (lambda (first second . rest)
+      second)))
 
-(define (%env-ref location env)
-  "Get the value at @var{location} from @var{env}."
-  (match-let (((depth . name) location))
-    (let ((frame (if (zero? depth)
-                     (env-variables env)
-                     (list-ref (env-frames env)
-                               (- (env-depth env) depth)))))
-      (match (assoc name frame)
-        ((_ . value) value)))))
+;; Awk has a notion of a numeric string, which is a string that can be
+;; promoted to a number in contexts where a normal string would not.  To
+;; take the example from the specification, "000" as a numeric string is
+;; equal to 0, but "000" as a regular string is not.
+(define-immutable-record-type <numeric-string>
+  (make-numeric-string string number)
+  numeric-string?
+  (string numeric-string-string)
+  (number numeric-string-number))
 
-(define (env-ref name env)
-  "Get the value named @var{name} from the closest frame in @var{env}."
+;; This is a bit of hack, but I think it is clever enough to keep
+;; around.  Awk has a notion of an uninitialized scalar, which is an
+;; uninitialized value constrained to be a scalar.  It is supposed to
+;; have both string value "" and numeric value 0.  As far as I can tell,
+;; this is the same as having a numeric string with those values.  If
+;; true, the following value can be used in place of a distinct
+;; "uninitialized scalar" value.
+(define uninitialized-scalar
+  (make-numeric-string "" 0))
 
-  (define frames
-    (match (env-frames env)
-      ((frame . _) (cons frame (list (env-variables env))))
-      (() (list (env-variables env)))))
+;; When passing an uninitialized value as an argument to a function, we
+;; need to be able to pass information back up to the original slot that
+;; it came from.  In the case that an uninitialized argument becomes an
+;; array, it needs to be as if an empty array was passed in to the
+;; function by reference.  Hence, we need to send a reference to an
+;; uninitialized array back to the original slot.  In the case that it
+;; becomes a scalar, we need to pass that type information back to the
+;; original slot.  We do this by setting it to 'uninitialized-scalar'.
+;; The following record represents an uninitialized argument.  It
+;; provides a 'setter' field which can be used to set the value of a
+;; variable in the caller's environment.
+(define-immutable-record-type <uninitialized-argument>
+  (%make-uninitialized-argument setter)
+  uninitialized-argument?
+  (setter uninitialized-argument-setter))
 
-  (let loop ((frames frames))
-    (match frames
-      (() (make-awk-undefined (cons 0 name)))
-      ((frame . rest)
-       (match (assoc name frame)
-         ((_ . (? awk-array? array))
-          (%env-ref (awk-array-location array) env))
-         ((_ . scalar) scalar)
-         (_ (loop rest)))))))
+(define (make-uninitialized-argument name env)
+  "Create an uninitialized argument linked to the variable named
+@var{name} in environment @var{env}.  The @code{setter} field of the
+result can be used to set @var{name} in @var{env}."
+  (%make-uninitialized-argument
+   (lambda (value)
+     (if (hashq-get-handle (env-locals env) name)
+         (hashq-set! (env-locals env) name value)
+         (hashq-set! (env-globals env) name value)))))
 
-(define (%env-set location value env)
-  "Set the value at @var{location} to @var{value} in @var{env}."
-  (match location
-    ((0 . name)
-     (let ((variables (alist-delete name (env-variables env))))
-       (set-env-variables env (alist-cons name value variables))))
-    ((depth . name)
-     (let* ((frame-index (- (env-depth env) depth))
-            (old-frame (list-ref (env-frames env) frame-index))
-            (frame (alist-cons name value (alist-delete name old-frame)))
-            (above (list-head (env-frames env) frame-index))
-            (below (list-tail (env-frames env) (1+ frame-index))))
-       (set-env-frames env (append above (cons frame below)))))))
+;; If a function delares an argument and the caller omits it, it is a
+;; reserved local variable.  It is both uninitalized and not linked to
+;; caller's envronment.  We will reuse the 'uninitialized-argument'
+;; system, but update the local environment of the function instead of
+;; the caller's environment.
+(define (make-uninitialized-local name locals)
+  "Create an uninitalized argument linked to the local variable named
+@var{name} in the local variables hash table @var{locals}."
+  (%make-uninitialized-argument
+   (lambda (value)
+     (hashq-set! locals name value))))
 
-(define (env-set name value env)
-  "Set the value named @var{name} to @var{value} in closest frame in
+(define (set-uninitialized-argument! arg value)
+  "Invoke the @code{setter} filed of the uninitialized argument
+@var{arg} with @var{value} as an argument."
+  ((uninitialized-argument-setter arg) value))
+
+
+;; Variable handling
+
+;; These procedures abstract away the global/local distinction, and
+;; handle type checking.
+
+(define (env-ref/procedure name env)
+  "Lookup the procedure @var{name} in the envrionment @var{env}.  If
+@var{name} does not exist or is not a function, raise an error."
+  (match (hashq-get-handle (env-globals env) name)
+    ((_ . (? procedure? proc)) proc)
+    (_ (error "not a function:" name))))
+
+(define (env-set/procedure! name proc env)
+  "Set the variable @var{name} to the procedure @var{proc} in the
+environment @var{env}."
+  (match (hashq-create-handle! (env-globals env) name proc)
+    ((_ . value)
+     (unless (eq? value proc)
+       (error "function name already taken:" name)))))
+
+(define (env-ref/scalar! name env)
+  "Lookup the scalar @var{name} in the environment @var{env}.  If
+@var{name} does not exist, create it with value
+@code{uninitialized-scalar}.  If it does exist and is not a scalar,
+raise an error."
+  (match (or (hashq-get-handle (env-locals env) name)
+             (hashq-create-handle! (env-globals env) name
+                                   uninitialized-scalar))
+    ((_ . (? procedure?)) (error "function used as a scalar:" name))
+    ((_ . (? hash-table?)) (error "array used as a scalar:" name))
+    ((_ . (? uninitialized-argument? uarg))
+     (set-uninitialized-argument! uarg uninitialized-scalar)
+     (hashq-set! (env-locals env) name uninitialized-scalar)
+     uninitialized-scalar)
+    ((_ . value) value)))
+
+(define (env-set/scalar! name value env)
+  "Set the variable @var{name} to the scalar @var{value} in the
+environment @var{env}.  If @var{name} already exists and is not a
+scalar, raise an error.."
+  (match (hashq-get-handle (env-locals env) name)
+    ((_ . (? hash-table?)) (error "array used as a scalar:" name))
+    ((_ . (? uninitialized-argument? uarg))
+     (set-uninitialized-argument! uarg uninitialized-scalar)
+     (hashq-set! (env-locals env) name value))
+    ((_ . _) (hashq-set! (env-locals env) name value))
+    (#f (match (hashq-get-handle (env-globals env) name)
+          ((_ . (? procedure?)) (error "function used as a scalar:" name))
+          ((_ . (? hash-table?)) (error "array used as a scalar:" name))
+          (_ (hashq-set! (env-globals env) name value))))))
+
+(define (env-ref/array! name env)
+  "Lookup the array @var{name} in the environment @var{env}.  If
+@var{name} does not exist, create it as an empty array.  If it does
+exist and is not an array, raise an error."
+  (match (or (hashq-get-handle (env-locals env) name)
+             (hashq-create-handle! (env-globals env) name
+                                   (make-hash-table)))
+    ((_ . (? procedure?)) (error "function used as an array:" name))
+    ((_ . (? uninitialized-argument? uarg))
+     (let ((array (make-hash-table)))
+       (set-uninitialized-argument! uarg array)
+       (hashq-set! (env-locals env) name array)
+       array))
+    ((_ . (? hash-table? array)) array)
+    ((_ . value) (error "scalar used as an array:" name))))
+
+;; No 'env-set/array!' because we mutate arrays directly with the
+;; following procedures.
+
+(define (env-array-ref name key env)
+  "Lookup @var{key} in the array named @var{name} in environment
 @var{env}."
+  (let ((array (env-ref/array! name env)))
+    (match (hash-create-handle! array key uninitialized-scalar)
+      ((_ . value) value))))
 
-  (define frames
-    (match (env-frames env)
-      ((frame . _) (cons frame (list (env-variables env))))
-      (() (list (env-variables env)))))
+(define (env-array-set! name key value env)
+  "Associate @var{value} with @var{key} in the array named @var{name} in
+the environment @var{env}."
+  (let ((array (env-ref/array! name env)))
+    (hash-set! array key value)
+    value))
 
-  (let loop ((frames frames) (depth (env-depth env)))
-    (match frames
-      (() (%env-set (cons 0 name) value env))
-      ((frame . rest)
-       (match (assoc name frame)
-         ((_ . (? awk-array? array))
-          (if (and (awk-array? value)
-                   (equal? (awk-array-location array)
-                           (awk-array-location value)))
-              (%env-set (awk-array-location array) value env)
-              (error "an array was used as a scalar: " name)))
-         ((_ . (? awk-undefined? undef))
-          (if (awk-array? value)
-              (%env-set (awk-undefined-location undef) value env)
-              (%env-set (cons depth name) value env)))
-         ((_ . _) (%env-set (cons depth name) value env))
-         (_ (loop rest 0)))))))
+(define (env-array-member? name key env)
+  "Check if there is any value associated with @var{key} in the array
+named @var{name} in the environment @var{env}."
+  (let ((array (env-ref/array! name env)))
+    (and (hash-get-handle array key) #t)))
 
-(define (env-set-globals pairs env)
-  "Set the each of the name-value pairs in @var{pairs} as global
-variables in @var{env}."
-  (let* ((keys (map car pairs))
-         (variables (filter (negate (compose (cut member <> keys) car))
-                            (env-variables env))))
-    (set-env-variables env (append pairs variables))))
+(define (env-array-delete! name key env)
+  "Delete any value associated with @var{key} in the array named
+@var{name} in the environment @var{env}."
+  (let ((array (env-ref/array! name env)))
+    (hash-remove! array key)
+    key))
 
-(define (env-ref/array name env)
-  "Get the value named @var{name} as an array from the closest frame in
-@var{env}.  If the value is undefined and has a location, it will
-updated to be an empty array.  As such, this procedure returns two
-values, the result and the updated environment."
-  (match (env-ref name env)
-    ((? awk-array? array)
-     (values array env))
-    ((? awk-undefined? undef)
-     (match (awk-undefined-location undef)
-       (#f (error "a scalar was used an an array: " name))
-       (location (let ((array (make-awk-array location)))
-                   (values array (%env-set location array env))))))
-    (_ (error "a scalar was used an an array: " name))))
+
+;; Current record, fields, and the NF variable
+
+;; These three things are all linked, and updating one of them requires
+;; updating the other two.  We gather all of that logic here so that the
+;; values can be set easily.
+
+(define (set-env-record env record)
+  "Set the @code{env-record} field of @var{env} to the string
+@var{record}.  This procedure also updates the @code{env-fields} field
+and the @code{'NF} variable accordingly."
+  (match record
+    (#f (env-set/scalar! 'NF 0 env)
+        (set-fields env
+          ((env-record) #f)
+          ((env-fields) '())))
+    (_ (let* ((fs env (eval-awke/string 'FS env))
+              (fields (string-split/awk record fs)))
+         (env-set/scalar! 'NF (length fields) env)
+         (set-fields env
+           ((env-record) record)
+           ((env-fields) fields))))))
+
+(define (set-env-fields env fields)
+  "Set the @code{env-fields} field of @var{env} to the list
+@var{fields}.  This procedure also updates the @code{env-record} field
+and the @code{'NF} variable accordingly."
+  (let* ((string-fields env (map/env eval-awke/string fields env))
+         (ofs env (eval-awke/string 'OFS env)))
+    (env-set/scalar! 'NF (length fields) env)
+    (set-fields env
+      ((env-record) (string-join string-fields ofs))
+      ((env-fields) fields))))
+
+(define (set-env-nf env raw-nf)
+  "Set the @code{'NF} variable in the environment @var{env} to the
+scalar @var{raw-nf}.  This procedure also updates the @code{env-record}
+field and the @code{env-fields} field of @var{env} accordingly."
+  (let* ((numeric-nf env (eval-awke/number raw-nf env))
+         (nf (max 0 (truncate numeric-nf)))
+         (old-nf (length (env-fields env))))
+    (env-set/scalar! 'NF raw-nf env)
+    (set-env-fields env (if (<= nf old-nf)
+                            (take (env-fields env) nf)
+                            (append (env-fields env)
+                                    (take (circular-list uninitialized-scalar)
+                                          (- nf old-nf)))))))
+
+
+;; String splitting helpers
 
 (define char-set:awk-non-space
   (char-set-complement (char-set-union char-set:blank (char-set #\newline))))
 
 (define (string-split/regex str pattern)
+  "Split the string @var{str} by the regular expression @var{pattern}.
+The @var{pattern} parameter can be a string or a compiled regular
+expression."
   (let loop ((matches (list-matches pattern str)) (k 0) (acc '()))
     (match matches
       (()
@@ -205,6 +332,8 @@ values, the result and the updated environment."
          (loop rest (match:end m) (cons subs acc)))))))
 
 (define (string-split/awk str delim)
+  "Split the string @var{str} by the string @var{delim} using Awk string
+splitting semantics."
   (cond
    ((string-null? delim)
     (map string (string->list str)))
@@ -215,449 +344,860 @@ values, the result and the updated environment."
    (else
     (string-split/regex str delim))))
 
-;; Builtins
+
+;; Special variables
 
-(define (awk-split env string name delimiter delimiters)
-  (receive (array env) (env-ref/array name env)
-    (let* ((split (string-split/awk string delimiter))
-           (count (length split))
-           (array (fold awk-array-set array (iota count 1) split))
-           (env (env-set name array env)))
-      (when delimiters
-        (error (format #f "awk: split: delimiters not supported: ~s\n" delimiters)))
-      (values count env))))
+(define *special-variables*
+  `((ARGC . 0)
+    (ARGV . ())
+    (CONVFMT . "%.6g")
+    ;; TODO: This should be mapped to the actual environment.
+    (ENVIRON . ,(make-hash-table))
+    (FILENAME . ,uninitialized-scalar)
+    (FNR . 0)
+    (FS . " ")
+    (NF . ,uninitialized-scalar)
+    (NR . 0)
+    (OFMT . "%.6g")
+    (OFS . " ")
+    (ORS . "\n")
+    (RLENGTH . ,uninitialized-scalar)
+    (RS . "\n")
+    (RSTART . ,uninitialized-scalar)
+    (SUBSEP . ,(string #\fs))))
 
-(define (awk-length env expr)
-  (receive (str env) (awk-expression->string expr env)
-    (values (string-length str) env)))
+(define *special-variable-names* (map car *special-variables*))
 
-(define* (awk-substr env string start #:optional length)
-  (let ((start (1- (awk-expression->number start env)))
-        (end (if length (1- (+ start (awk-expression->number length env)))
-                 (string-length string))))
-    (values (substring string start end) env)))
+
+;; Main evaluation procedure
 
-(define (awk-index env s1 s2)
-  (receive (s1 env) (awk-expression->string s1 env)
-    (receive (s2 env) (awk-expression->string s2 env)
-      (match (string-contains s1 s2)
-        (#f (values 0 env))
-        (idx (values (1+ idx) env))))))
+;; All of the evaluation procedures take an environment and return two
+;; values: their result and the updated environment.
 
-(define (awk-expression->string expression env)
-  (match expression
-    ((? string?) (values expression env))
-    ((? number?) (values (number->string expression) env))
-    (#t (values "1" env))
-    (#f (values "0" env))
-    ((? awk-array?) (error "an array was used as a scalar"))
-    ((? awk-undefined?) (values "" env))
-    (_ (receive (expression env) (awk-expression expression env)
-         (awk-expression->string expression env)))))
-
-(define (awk-expression->boolean expression env)
-  (match expression
-    ((? number?) (values (not (zero? expression)) env))
-    ((? string?) (values (not (string-null? expression)) env))
-    ((? boolean?) (values expression env))
-    ((? awk-array?) (error "an array was used as a scalar"))
-    ((? awk-undefined?) (values #f env))
-    (_ (receive (expression env) (awk-expression expression env)
-         (awk-expression->boolean expression env)))))
-
-(define (awk-expression->number expression env)
-  (match expression
-    ("" (values 0 env))
-    ((? string?) (values (or (string->number expression) 0) env))
-    ((? number?) (values expression env))
-    (#t (values 1 env))
-    (#f (values 0 env))
-    ((? awk-array?) (error "an array was used as a scalar"))
-    ((? awk-undefined?) (values 0 env))
-    (_ (receive (v env) (awk-expression expression env)
-         (awk-expression->number v env)))))
-
-(define (awk-set lvalue value env)
-  ;; TODO: Handle fields.
-  (match lvalue
-    ((? symbol? name)
-     (env-set name value env))
-    (('array-ref index name)
-     (receive (array env) (env-ref/array name env)
-       (receive (result env) (awk-expression index env)
-         (env-set name (awk-array-set result value array) env))))))
-
-(define (awk-expression expression env)
-  (match expression
-    ((? symbol? name) (values (env-ref name env) env))
-    (('array-ref index name)
-     (receive (array env) (env-ref/array name env)
-       (receive (index env) (awk-expression index env)
-         (values (awk-array-ref index array) env))))
-    (('array-member? index name)
-     (receive (array env) (env-ref/array name env)
-       (receive (index env) (awk-expression index env)
-         (values (awk-array-member? index array) env))))
-    (('$ 'NF) (values (last (env-fields env)) env))
-    (('$ number) (let ((field (awk-expression number env))
-                       (fields (env-fields env))
-                       (line (env-record env)))
-                   (values (cond ((zero? field) line)
-                                 ((> field (length fields)) "")
-                                 (else (list-ref fields (1- field))))
-                           env)))
-    ;; FIXME
-    (('apply (and name 'split) string array arguments ...)
-     (receive (string env) (awk-expression string env)
-       (let* ((array array)
-              (delimiter (if (pair? arguments)
-                             (car arguments)
-                             (env-ref 'FS env)))
-              (delimiters (if (= (length arguments) 2)
-                              (cadr arguments)
-                              #f)))
-         ((env-ref name env) env string array delimiter delimiters))))
-    (('apply name arguments ...)
-     (let ((proc (env-ref name env)))
-       (let loop ((arguments arguments) (env env) (acc '()))
-         (match arguments
-           (() (apply proc env (reverse! acc)))
-           ((arg . rest)
-            (receive (arg env) (awk-expression arg env)
-              (loop rest env (cons arg acc))))))))
-    (('post-incr! x)
-     (receive (v env) (awk-expression->number x env)
-       (values v (awk-set x (1+ v) env))))
-    (('post-decr! x)
-     (receive (v env) (awk-expression->number x env)
-       (values v (awk-set x (1- v) env))))
-    (('pre-incr! x)
-     (receive (v env) (awk-expression->number x env)
-       (values (1+ v) (awk-set x (1+ v) env))))
-    (('pre-decr! x)
-     (receive (v env) (awk-expression->number x env)
-       (values (1- v) (awk-set x (1- v) env))))
-    ((? number?) (values expression env))
-    ((? string?) (values expression env))
-    (('+ x y) (receive (x env) (awk-expression->number x env)
-                (receive (y env) (awk-expression->number y env)
-                  (values (+ x y) env))))
-    (('- x y) (receive (x env) (awk-expression->number x env)
-                (receive (y env) (awk-expression->number y env)
-                  (values (- x y) env))))
-    (('* x y) (receive (x env) (awk-expression->number x env)
-                (receive (y env) (awk-expression->number y env)
-                  (values (* x y) env))))
-    (('/ x y) (receive (x env) (awk-expression->number x env)
-                (receive (y env) (awk-expression->number y env)
-                  (values (/ x y) env))))
-    (('and x y) (receive (x env) (awk-expression x env)
-                  (if (not (awk-expression->boolean x env))
-                      (values #f env)
-                      (receive (y env) (awk-expression y env)
-                        (values y env)))))
-    (('or x y) (receive (x env) (awk-expression x env)
-                 (if (awk-expression->boolean x env)
-                     (values x env)
-                     (receive (y env) (awk-expression y env)
-                       (values y env)))))
-    (('string-match x ('re regex))
-     (receive (x env) (awk-expression->string x env)
-       (values (and (string-match regex x) #t) env)))
-    (('not-string-match x ('re regex))
-     (receive (x env) (awk-expression->string x env)
-       (awk-expression->boolean (not (string-match regex x)) env)))
-    (('equal? x y) (receive (x env) (awk-expression x env)
-                     (receive (y env) (awk-expression y env)
-                       (values (equal? x y) env))))
-    (('not-equal? x y) (receive (x env) (awk-expression x env)
-                         (receive (y env) (awk-expression y env)
-                           (values (not (equal? x y)) env))))
-    (('< x y) (receive (x env) (awk-expression->number x env)
-                (receive (y env) (awk-expression->number y env)
-                  (values (< x y) env))))
-    (('<= x y) (receive (x env) (awk-expression->number x env)
-                 (receive (y env) (awk-expression->number y env)
-                   (values (<= x y) env))))
-    (('> x y) (receive (x env) (awk-expression->number x env)
-                (receive (y env) (awk-expression->number y env)
-                  (values (> x y) env))))
-    (('>= x y) (receive (x env) (awk-expression->number x env)
-                 (receive (y env) (awk-expression->number y env)
-                   (values (>= x y) env))))
-    (('set! lvalue y)
-     (receive (y env) (awk-expression y env)
-       (values y (awk-set lvalue y env))))
-    (('set-op! '+ x y)
-     (receive (v env) (awk-expression->number x env)
-       (receive (y env) (awk-expression->number y env)
-         (values (+ v y) (awk-set x (+ v y) env)))))
-    (('not x)
-     (receive (x env) (awk-expression->boolean x env)
-       (values (not x) env)))
-    (('string-append x y)
-     (receive (x env) (awk-expression->string x env)
-       (receive (y env) (awk-expression->string y env)
-         (values (string-append x y) env))))
-    (('re regex) (values (and (string-match regex (env-record env)) 1) env))))
-
-(define *next-record-prompt* (make-prompt-tag))
-
-(define (next-record env)
-  (abort-to-prompt *next-record-prompt* env))
-
-(define *break-loop-prompt* (make-prompt-tag))
-
-(define (break-loop env)
-  (abort-to-prompt *break-loop-prompt* env))
-
-(define awk-conversion-adapter
-  (make-conversion-adapter awk-expression->string awk-expression->number))
-
-(define (awk-printf env format-string . args)
-  (receive (format-string env) (awk-expression->string format-string env)
-    (let ((format (parse-file-format format-string #:escaped? #f)))
-      (receive (result env)
-          (apply fold-file-format awk-conversion-adapter env format args)
-        (display result)
-        env))))
-
-(define (run-commands command env)
-  (match command
+(define (eval-awke expr env)
+  "Evaluate the expression @var{expr} in the environment @var{env},
+returning the result of evaluation along with the updated environment."
+  (match expr
+    ;; Control flow
+    (('progn exprs ...)
+     (eval-awke* env exprs))
+    (('if test-expr then-expr)
+     (let ((result env (eval-awke/boolean test-expr env)))
+       (if result
+           (eval-awke then-expr env)
+           (values uninitialized-scalar env))))
+    (('if test-expr then-expr else-expr)
+     (let ((result env (eval-awke/boolean test-expr env)))
+       (if result
+           (eval-awke then-expr env)
+           (eval-awke else-expr env))))
+    (('while test-expr exprs ...)
+     (let loop ((value uninitialized-scalar) (env env))
+       (let ((result env (eval-awke/boolean test-expr env)))
+         (if result
+             (let ((continue? value env (eval-loop-body env exprs)))
+               (if continue?
+                   (loop value env)
+                   (values value env)))
+             (values value env)))))
+    (('do test-expr exprs ...)
+     (let loop ((value uninitialized-scalar) (env env))
+       (let ((continue? value env (eval-loop-body env exprs)))
+         (if continue?
+             (let ((result env (eval-awke/boolean test-expr env)))
+               (if result
+                   (loop value env)
+                   (values value env)))
+             (values value env)))))
+    (('for (init-expr test-mexpr update-expr) exprs ...)
+     (let loop ((value uninitialized-scalar)
+                (env (second-value (eval-awke init-expr env))))
+       (let ((result env (if (eq? test-mexpr #t)
+                             (values #t env)
+                             (eval-awke/boolean test-mexpr env))))
+         (if result
+             (let ((continue? value env (eval-loop-body env exprs)))
+               (if continue?
+                   (loop value (second-value (eval-awke update-expr env)))
+                   (values value env)))
+             (values value env)))))
+    (('for-each (variable-name array-name) exprs ...)
+     (let ((array (env-ref/array! array-name env)))
+       (let loop ((pairs (hash-map->list cons array))
+                  (value uninitialized-scalar)
+                  (env env))
+         (match pairs
+           (() (values value env))
+           (((key . _) . rest)
+            (let* ((_ env (perform-set! variable-name key env))
+                   (continue? value env (eval-loop-body env exprs)))
+              (if continue?
+                  (loop rest value env)
+                  (values value env))))))))
+    (('break)
+     (abort-to-prompt *break-prompt* env))
+    (('continue)
+     (abort-to-prompt *continue-prompt* env))
+    (('next)
+     (abort-to-prompt *next-prompt* env))
+    (('exit)
+     (abort-to-prompt *exit-prompt* 0 env))
+    (('exit expr)
+     (let ((value env (eval-awke/number expr env)))
+       (abort-to-prompt *exit-prompt* value env)))
+    (('return)
+     (abort-to-prompt *return-prompt* uninitialized-scalar env))
+    (('return expr)
+     (let ((value env (eval-awke expr env)))
+       (abort-to-prompt *return-prompt* value env)))
     ;; Output
     (('print)
-     (let* ((fields (env-fields env))
-            (count  (min (env-ref 'NF env) (length fields))))
-       (display (string-join (list-head fields count))))
-     (newline)
-     env)
-    (('print expr)
-     (receive (result env) (awk-expression->string expr env)
-       (display result)
-       (newline)
-       env))
-    (('print expr ..1)
-     (let loop ((exprs expr) (env env) (acc '()))
-       (match exprs
-         (()
-          ;; TODO: Use the OFS variable.
-          (display (string-join (reverse! acc) " "))
-          (newline)
-          env)
-         ((expr . rest)
-          (receive (result env) (awk-expression->string expr env)
-            (loop rest env (cons result acc)))))))
-    (('printf format-string args ...)
-     (apply awk-printf env format-string args))
+     (eval-awke '(print ($ 0)) env))
+    (('print exprs ..1)
+     (let* ((strings env (map/env eval-awke/string exprs env))
+            (ofs env (eval-awke/string 'OFS env)))
+       (display (string-join strings ofs) (env-out env))
+       (newline (env-out env))
+       (values uninitialized-scalar env)))
+    (('printf format-expr exprs ...)
+     (apply perform-printf env format-expr exprs))
+    ;; Input
+    ;; TODO
     ;; Redirects
-    (('with-redirect redir i/o-expr)
+    (('with-redirect redir expr)
      (match redir
-       ;; This is an Automake idiom for printing to stderr.
+       ;; We do not support general redirects yet, but are obliged to
+       ;; hack together something for a particular Automake idiom for
+       ;; printing to stderr.
        (('pipe-to "cat >&2")
-        (with-output-to-port (current-error-port)
-          (lambda ()
-            (run-commands i/o-expr env))))
-       (_ (error "awk: cannot redirect output"))))
-    ;; Loops
-    (('for-each (key array) exprs ...)
-     (receive (array env) (env-ref/array array env)
-       (fold (lambda (value env)
-               (fold run-commands (env-set key value env) exprs))
-             env
-             (awk-array-keys array))))
-    (('for (init test expr) exprs ...)
-     (call-with-prompt *break-loop-prompt*
-       (lambda ()
-         (receive (init-expr env) (awk-expression init env)
-           (let loop ((env env))
-             (receive (test env) (awk-expression->boolean test env)
-               (if (not test) env
-                   (let ((env (fold run-commands env exprs)))
-                     (receive (expr env) (awk-expression expr env)
-                       (loop env))))))))
-       (lambda (cont env)
-         env)))
-    (('while test exprs ...)
-     (let loop ((env env))
-       (receive (result env) (awk-expression->boolean test env)
-         (if result
-             (loop (fold run-commands env exprs))
-             env))))
-    (('do test exprs ...)
-     (let loop ((env (fold run-commands env exprs)))
-       (receive (result env) (awk-expression->boolean test env)
-         (if result
-             (loop (fold run-commands env exprs))
-             env))))
-    ;; Conditionals
-    (('if expr then)
-     (receive (expr env) (awk-expression->boolean expr env)
-       (if expr
-           (run-commands then env)
-           env)))
-    (('if expr then else)
-     (receive (expr env) (awk-expression->boolean expr env)
-       (if expr
-           (run-commands then env)
-           (run-commands else env))))
-    ;; Simple statements
-    (('break) (break-loop env))
-    (('next) (next-record env))
-    (('return) (abort-to-prompt *return-prompt* *awk-undefined* env))
-    (('return expr) (receive (result env) (awk-expression expr env)
-                      (abort-to-prompt *return-prompt* result env)))
-    ;; Sequencing
-    (('progn exprs ...) (fold run-commands env exprs))
-    ;; Others
-    ((or (? number?) (? string?)) env)
-    (((? symbol?) . rest)
-     (receive (expr env) (awk-expression command env)
-       env))))
+        (let* ((out (env-out env))
+               (env (set-env-out env (current-error-port)))
+               (result env (eval-awke expr env))
+               (env (set-env-out env out)))
+          (values result env)))
+       (_ (error "unsupported redirect:" redir))))
+    ;; Arithmetic
+    (('+ expr)
+     (let ((value env (eval-awke/number expr env)))
+       (values (abs value) env)))
+    (('- expr)
+     (let ((value env (eval-awke/number expr env)))
+       (values (- value) env)))
+    (('+ expr1 expr2)
+     (perform-arithmetic + expr1 expr2 env))
+    (('- expr1 expr2)
+     (perform-arithmetic - expr1 expr2 env))
+    (('* expr1 expr2)
+     (perform-arithmetic * expr1 expr2 env))
+    (('/ expr1 expr2)
+     (perform-arithmetic / expr1 expr2 env))
+    (('modulo expr1 expr2)
+     (perform-arithmetic modulo expr1 expr2 env))
+    (('expt expr1 expr2)
+     (perform-arithmetic expt expr1 expr2 env))
+    ;; String concatenation
+    (('string-append expr1 expr2)
+     (let* ((value1 env (eval-awke/string expr1 env))
+            (value2 env (eval-awke/string expr2 env)))
+       (values (string-append value1 value2) env)))
+    ;; Comparisons
+    (('< expr1 expr2)
+     (perform-comparison string<? < expr1 expr2 env))
+    (('<= expr1 expr2)
+     (perform-comparison (negate string>?) <= expr1 expr2 env))
+    (('equal? expr1 expr2)
+     (perform-comparison string=? = expr1 expr2 env))
+    (('not-equal? expr1 expr2)
+     (perform-comparison (negate string=?) (negate =) expr1 expr2 env))
+    (('> expr1 expr2)
+     (perform-comparison string>? > expr1 expr2 env))
+    (('>= expr1 expr2)
+     (perform-comparison (negate string<?) >= expr1 expr2 env))
+    ;; String matching
+    (('string-match str-expr pat-expr)
+     (let* ((str env (eval-awke/string str-expr env))
+            (pat env (eval-awke/regex pat-expr env)))
+       (if (string-match pat str)
+           (values 1 env)
+           (values 0 env))))
+    (('not-string-match str-expr pat-expr)
+     (let* ((str env (eval-awke/string str-expr env))
+            (pat env (eval-awke/regex pat-expr env)))
+       (if (string-match pat str)
+           (values 0 env)
+           (values 1 env))))
+    ;; Array operations
+    (('array-member? key name)
+     (let ((key env (eval-key key env)))
+       (if (env-array-member? name key env)
+           (values 1 env)
+           (values 0 env))))
+    (('array-delete! key name)
+     (let ((key env (eval-key key env)))
+       (env-array-delete! name key env)
+       (values uninitialized-scalar env)))
+    ;; Boolean expressions
+    (('and expr1 expr2)
+     (let ((value1 env (eval-awke/boolean expr1 env)))
+       (if value1
+           (eval-awke/number expr2 env)
+           (values 0 env))))
+    (('or expr1 expr2)
+     (let ((value1 env (eval-awke expr1 env)))
+       (match value1
+         ((or "" 0) (eval-awke/number expr2 env))
+         ((? numeric-string?)
+          (if (string-null? (numeric-string-string value1))
+              (eval-awke/number expr2 env)
+              (values value1 env)))
+         (_ (values value1 env)))))
+    (('not expr)
+     (let ((value env (eval-awke/boolean expr env)))
+       (if value
+           (values 0 env)
+           (values 1 env))))
+    ;; Setting variables
+    (('set! lvalue expr)
+     (let* ((resolved-lvalue env (resolve-lvalue lvalue env))
+            (value env (eval-awke expr env)))
+       (perform-set! resolved-lvalue value env)))
+    (('set-op! setop lvalue expr)
+     (let* ((resolved-lvalue env (resolve-lvalue lvalue env))
+            (x env (eval-awke/number resolved-lvalue env))
+            (y env (eval-awke/number expr env)))
+       (case setop
+         ((+) (perform-set! resolved-lvalue (+ x y) env))
+         ((-) (perform-set! resolved-lvalue (- x y) env))
+         ((*) (perform-set! resolved-lvalue (* x y) env))
+         ((/) (perform-set! resolved-lvalue (/ x y) env))
+         ((modulo) (perform-set! resolved-lvalue (modulo x y) env))
+         ((expt) (perform-set! resolved-lvalue (expt x y) env)))))
+    (('post-incr! lvalue)
+     (perform-nudge 1+ #t lvalue env))
+    (('post-decr! lvalue)
+     (perform-nudge 1- #t lvalue env))
+    (('pre-incr! lvalue)
+     (perform-nudge 1+ #f lvalue env))
+    (('pre-decr! lvalue)
+     (perform-nudge 1- #f lvalue env))
+    ;; Function application
+    (('apply (? built-in? name) exprs ...)
+     (let ((proc (env-ref/procedure name env)))
+       (apply proc env exprs)))
+    (('apply name exprs ...)
+     (let ((proc (env-ref/procedure name env))
+           (args env (map/env eval-awke/argument exprs env)))
+       (apply proc env args)))
+    ;; Lvalues
+    ((? symbol? name)
+     (values (env-ref/scalar! name env) env))
+    (('array-ref key name)
+     (let ((key env (eval-key key env)))
+       (values (env-array-ref name key env) env)))
+    (('$ field-expr)
+     (let* ((field env (eval-awke/number field-expr env))
+            (nf env (eval-awke/number 'NF env)))
+       (cond
+        ((zero? field)
+         (values (or (env-record env) uninitialized-scalar) env))
+        ((and (> field 0) (<= field nf))
+         (values (list-ref (env-fields env) (1- field)) env))
+        (else
+         (values uninitialized-scalar env)))))
+    ;; Literals
+    ((? string?)
+     (values expr env))
+    ((? number?)
+     (values expr env))
+    (('re pattern)
+     (eval-awke `(string-match ($ 0) ,pattern) env))
+    (_ (error "not an Awk expression:" expr))))
 
-(define (load-file filename env)
-  (let ((port (if (equal? filename "-")
-                  (current-input-port)
-                  (open-input-file filename)))
-        (pairs `((FILENAME . ,filename)
-                 (FNR . 0))))
-    (env-set-globals pairs (set-env-in env port))))
+(define (eval-awke* env exprs)
+  "Evaluate each of the expressions @var{exprs} in the environment
+@var{env} and return the result of the last expression along with the
+updated environment.  If @var{exprs} is the empty list, return
+@code{uninitialized-scalar} and @var{env} unchanged."
+  (match exprs
+    (() (values uninitialized-scalar env))
+    ((expr) (eval-awke expr env))
+    ((expr . rest)
+     (eval-awke* (second-value (eval-awke expr env)) rest))))
 
-(define (read-record env)
-  (match (read-delimited (env-ref 'RS env) (env-in env))
-    ((? eof-object? eof) (set-fields env
-                           ((env-record) eof)
-                           ((env-fields) '())))
-    (record
-     (let* ((fields (string-split/awk record (env-ref 'FS env)))
-            (pairs `((NF . ,(length fields))
-                     (NR . ,(1+ (env-ref 'NR env)))
-                     (FNR . ,(1+ (env-ref 'FNR env))))))
-       (env-set-globals pairs (set-fields env
-                                ((env-record) record)
-                                ((env-fields) fields)))))))
+
+;; Typed evaluation procedures
 
-(define (eval-item item env)
-  (match item
-    ((#t exprs ...)
-     (fold run-commands env exprs))
-    (((or 'begin 'end) exprs ...)
-     env)
-    ((pattern exprs ...)
-     (receive (result env) (awk-expression->boolean pattern env)
-       (if result
-           (fold run-commands env exprs)
-           env)))))
+(define (eval-awke/string expr env)
+  "Evaluate the expression @var{expr} in the environment @var{env},
+returning the result as a string along with the updated environment."
+  (match expr
+    ((? string?) (values expr env))
+    ((? number?) (values (number->string expr) env))
+    ((? numeric-string?) (values (numeric-string-string expr) env))
+    (_ (let ((result env (eval-awke expr env)))
+         (eval-awke/string result env)))))
 
-(define* (run-awk-file program file-name env)
-  (let ((env (load-file file-name env)))
-    (let loop ((env (read-record env)))
-      (if (eof-object? (env-record env))
-          env
-          (let ((env (call-with-prompt *next-record-prompt*
-                       (lambda ()
-                         (fold eval-item env program))
-                       (lambda (cont env)
-                         env))))
-            (loop (read-record env)))))))
+(define (eval-awke/regex expr env)
+  "Evaluate the expression @var{expr} in the environment @var{env},
+returning the result as a string along with the updated environment.  If
+@var{expr} is a regex, do not evaulate it but return it directly."
+  ;; XXX: Hack our way around an old GCC Awk script bug:
+  ;; <https://gcc.gnu.org/bugzilla/show_bug.cgi?id=78766>.
+  (define hack-pattern
+    (match-lambda
+      ("^{" (values "^[{]" env))
+      (pattern (values pattern env))))
+  (match expr
+    (('re pattern) (values (hack-pattern pattern) env))
+    (_ (let ((pattern env (eval-awke/string expr env)))
+         (values (hack-pattern pattern) env)))))
 
-(define *return-prompt* (make-prompt-tag))
+(define (eval-awke/number expr env)
+  "Evaluate the expression @var{expr} in the environment @var{env},
+returning the result as a number along with the updated environment."
+  (match expr
+    ((? number?) (values expr env))
+    ((? numeric-string?) (values (numeric-string-number expr) env))
+    ((? string?) (values (or (string->number expr) 0) env))
+    (_ (let ((result env (eval-awke expr env)))
+         (eval-awke/number result env)))))
 
-(define (make-function name arg-names exprs)
+(define (eval-awke/boolean expr env)
+  "Evaluate the expression @var{expr} in the environment @var{env},
+returning the result as a boolean along with the updated environment."
+  (match expr
+    ((? number?) (values (not (zero? expr)) env))
+    ((? numeric-string?) (values (not (string-null?
+                                       (numeric-string-string expr))) env))
+    ((? string?) (values (not (string-null? expr)) env))
+    (_ (let ((result env (eval-awke expr env)))
+         (eval-awke/boolean result env)))))
+
+(define (eval-awke/argument expr env)
+  "Evaluate the expression @var{expr} in the environment @var{env},
+returning two values: a result suitable to be passed as an argument to a
+user-defined function; and the updated environment."
+  (match expr
+    ((? symbol? name)
+     (match (or (hashq-get-handle (env-locals env) name)
+                (hashq-get-handle (env-globals env) name))
+       (#f (values (make-uninitialized-argument name env) env))
+       ((_ . (? procedure?)) (error "function used as an argument:" name))
+       ((_ . value) (values value env))))
+    (_ (eval-awke expr env))))
+
+
+;; Evaluation helpers
+
+(define (eval-key key env)
+  "Evaluate the array key @var{key} in the environment @var{env},
+returning both a string key and the updated environment."
+  (match key
+    (expr (eval-awke/string expr env))
+    ((exprs ..1)
+     (let* ((parts env (map/env eval-awke/string exprs env))
+            (subsep env (eval-awke/string 'SUBSEP env)))
+       (values (string-join parts subsep) env)))))
+
+(define (resolve-lvalue lvalue env)
+  "Evaluate any sub-expressions in @var{lvalue} in the environment
+@var{env} and return two values: an lvalue with the results substituted
+in for the original expressions; and the updated environment.  This can
+be used to evaluate an lvalue twice without performing the side-effects
+of its evaluation twice."
+  (match lvalue
+    ((? symbol?) (values lvalue env))
+    (('array-ref key name)
+     (let ((key env (eval-key key env)))
+       (values `(array-ref ,key ,name) env)))
+    (('$ expr)
+     (let ((field env (eval-awke/number expr env)))
+       (values `($ ,field) env)))))
+
+(define (perform-set! lvalue value env)
+  "Set @var{lvalue} to the scalar @var{value} in the environment
+@var{env}, returning @var{value} and the updated environment."
+
+  (define (list-set lst k val dflt)
+    (if (< k (length lst))
+        (append (list-head lst k)
+                (cons val (list-tail lst (1+ k))))
+        (append lst
+                (take (circular-list dflt) (- k (length lst)))
+                (list val))))
+
+  (match lvalue
+    ('NF (values value (set-env-nf env value)))
+    ((? symbol? name)
+     (env-set/scalar! name value env)
+     (values value env))
+    (('array-ref key name)
+     (let ((key env (eval-key key env)))
+       (env-array-set! name key value env)
+       (values value env)))
+    (('$ expr)
+     (let* ((raw-field env (eval-awke/number expr env))
+            (field (truncate raw-field)))
+       (when (< field 0)
+         (error "bad field index:" field))
+       (if (zero? field)
+           (let* ((string-value env (eval-awke/string value env))
+                  (env (set-env-record env string-value)))
+             (values string-value env))
+           (let* ((field (1- field))
+                  (old-fields (env-fields env))
+                  (fields (list-set old-fields field value
+                                    uninitialized-scalar)))
+             (values value (set-env-fields env fields))))))))
+
+(define (perform-arithmetic op expr1 expr2 env)
+  "Perform @var{op} on the results of evaluating the expressions
+@var{expr1} and @var{expr2} numerically in the environment @var{env}.
+The return values are the result from @var{op} and the updated
+environment."
+  (let* ((value1 env (eval-awke/number expr1 env))
+         (value2 env (eval-awke/number expr2 env)))
+    (values (op value1 value2) env)))
+
+(define (compare-numerically? value1 value2)
+  "Check if the scalars @var{value1} and @var{value2} can be compared
+numerically."
+  (or (and (number? value1) (number? value2))
+      (and (number? value1) (numeric-string? value2))
+      (and (numeric-string? value1) (number? value2))))
+
+(define (perform-comparison string-op number-op expr1 expr2 env)
+  "Perform a comparison on the results of evaluating the expressions
+@var{expr1} and @var{expr2} in the environment @var{env}.  If the
+results can be compared numerically, @var{number-op} will be used as the
+comparison operator.  If they cannot, @var{string-op} will be used.  The
+return values are the result of the comparison and the updated
+environment."
+  (let* ((value1 env (eval-awke expr1 env))
+         (value2 env (eval-awke expr2 env)))
+    (if (compare-numerically? value1 value2)
+        (let* ((value1 env (eval-awke/number value1 env))
+               (value2 env (eval-awke/number value2 env)))
+          (if (number-op value1 value2)
+              (values 1 env)
+              (values 0 env)))
+        (let* ((value1 env (eval-awke/string value1 env))
+               (value2 env (eval-awke/string value2 env)))
+          (if (string-op value1 value2)
+              (values 1 env)
+              (values 0 env))))))
+
+(define (perform-nudge op return-old? lvalue env)
+  "Update @var{lvalue} in the environment @var{env} by performing
+@var{op} on it.  If @var{return-old?} is true, return the value as it
+was before nudging.  Otherwise, return the result of @var{op}.  In
+either case, the updated environment is returned as the second value."
+  (let* ((resolved-lvalue env (resolve-lvalue lvalue env))
+         (old-value env (eval-awke/number resolved-lvalue env))
+         (new-value env (perform-set! resolved-lvalue (op old-value) env)))
+    (values (if return-old? old-value new-value) env)))
+
+(define awk-conversion-adapter
+  (make-conversion-adapter eval-awke/string eval-awke/number))
+
+(define (perform-printf env format-expr . args)
+  "Evaluate @var{format-expr} in the environment @var{env} and use the
+result as a format string with arguments @var{args}.  The result is
+written to the output port of @var{env}.  Note that @var{args} is a list
+of expressions that will be evaluated lazily (only if needed).  This
+procedure returns two values: @code{uninitialized-scalar} and the
+updated environment."
+  (let* ((format-string env (eval-awke/string format-expr env))
+         (format (parse-file-format format-string #:escaped? #f))
+         (result env (apply fold-file-format awk-conversion-adapter
+                            env format args)))
+    (display result (env-out env))
+    (values uninitialized-scalar env)))
+
+(define *continue-prompt* (make-prompt-tag "continue"))
+
+(define *break-prompt* (make-prompt-tag "break"))
+
+(define *return-prompt* (make-prompt-tag "return"))
+
+(define *next-prompt* (make-prompt-tag "next"))
+
+(define *exit-prompt* (make-prompt-tag "exit"))
+
+(define (eval-loop-body env exprs)
+  "Evaluate @var{exprs} in the envrionment @var{env} with break and
+continue prompts in place.  This procedure returns three values: whether
+to continue the loop, the result of evaluating the last expression, and
+the updated environment."
+  (call-with-prompt *break-prompt*
+    (lambda ()
+      (call-with-prompt *continue-prompt*
+        (lambda ()
+          (let ((value env (eval-awke* env exprs)))
+            (values #t value env)))
+        (lambda (cont env)
+          (values #t uninitialized-scalar env))))
+    (lambda (cont env)
+      (values #f uninitialized-scalar env))))
+
+
+;; Built-ins
+
+(define (unimplemented-built-in name)
+  (lambda _
+    (error "unimplemented built-in used:" name)))
+
+(define* (strip-escapes s #:optional (start 0) (end (string-length s)))
+  (match (string-index s #\\ start end)
+    (#f s)
+    (k (let ((j (1+ k)))
+         (match (and (< j end) (string-ref s j))
+           (#f s)
+           (#\\ (strip-escapes (string-replace s "" k j) k (1- end)))
+           ;; TODO: Factor code for this out of Sed.
+           (#\& (error "can only substitute plain strings"))
+           (_ (strip-escapes s j end)))))))
+
+(define (perform-sub! sub ere repl lvalue env)
+  (let* ((ere env (eval-awke/regex ere env))
+         (repl env (eval-awke/string repl env))
+         (repl (strip-escapes repl))
+         (resolved-lvalue env (resolve-lvalue lvalue env))
+         (in env (eval-awke/string resolved-lvalue env)))
+    (let* ((result count (sub ere repl in))
+           (_ env (perform-set! resolved-lvalue result env)))
+      (values count env))))
+
+(define *built-ins*
+  `(;; Arithmetic built-ins
+    (atan2 . ,(lambda (env y x)
+                (let* ((y env (eval-awke/number y env))
+                       (x env (eval-awke/number x env)))
+                  (values (atan y x) env))))
+    (cos . ,(lambda (env x)
+              (let ((x env (eval-awke/number x env)))
+                (values (cos x) env))))
+    (sin . ,(lambda (env x)
+              (let ((x env (eval-awke/number x env)))
+                (values (sin x) env))))
+    (exp . ,(lambda (env x)
+              (let ((x env (eval-awke/number x env)))
+                (values (exp x) env))))
+    (log . ,(lambda (env x)
+              (let ((x env (eval-awke/number x env)))
+                (values (log x) env))))
+    (sqrt . ,(lambda (env x)
+               (let ((x env (eval-awke/number x env)))
+                 (values (sqrt x) env))))
+    (int . ,(lambda (env x)
+              (let ((x env (eval-awke/number x env)))
+                (values (truncate x) env))))
+    (rand . ,(unimplemented-built-in 'rand))
+    (srand . ,(unimplemented-built-in 'srand))
+    ;; String built-ins
+    (gsub . ,(lambda* (env ere repl #:optional (in '($ 0)))
+               (define (sub ere repl in)
+                 (let* ((count 0)
+                        (prepl (lambda _ (set! count (1+ count)) repl))
+                        (result (regexp-substitute/global #f ere in
+                                                          'pre prepl 'post)))
+                   (values result count)))
+               (perform-sub! sub ere repl in env)))
+    (index . ,(lambda (env s t)
+                (let* ((s env (eval-awke/string s env))
+                       (t env (eval-awke/string t env)))
+                  (match (string-contains s t)
+                    (#f (values 0 env))
+                    (i (values (1+ i) env))))))
+    (length . ,(lambda* (env #:optional (s '($ 0)))
+                 (let* ((s env (eval-awke/string s env)))
+                   (values (string-length s) env))))
+    (match . ,(lambda (env s ere)
+                (let* ((s env (eval-awke/string s env))
+                       (ere env (eval-awke/regex ere env)))
+                  (match (string-match ere s)
+                    (#f (env-set/scalar! 'RSTART 0 env)
+                        (env-set/scalar! 'RLENGTH -1 env)
+                        (values 0 env))
+                    (m (let ((len (- (match:end m) (match:start m))))
+                         (env-set/scalar! 'RSTART (1+ (match:start m)) env)
+                         (env-set/scalar! 'RLENGTH len env)
+                         (values (1+ (match:start m)) env)))))))
+    (split . ,(lambda* (env s a #:optional (fs 'FS))
+                (let* ((s env (eval-awke/string s env))
+                       (a (match a
+                            ((? symbol?) (env-ref/array! a env))
+                            (_ (error "scalar passed to split"))))
+                       (fs env (eval-awke/regex fs env))
+                       (parts (string-split/awk s fs))
+                       (len (length parts)))
+                  (hash-clear! a)
+                  (for-each (lambda (k v) (hash-set! a k v))
+                            (map number->string (iota len 1)) parts)
+                  (values len env))))
+    (sprintf . ,(lambda (env fmt . exprs)
+                  (let* ((fmt env (eval-awke/string fmt env))
+                         (format (parse-file-format fmt #:escaped? #f)))
+                    (apply fold-file-format awk-conversion-adapter
+                           env format exprs))))
+    (sub . ,(lambda* (env ere repl #:optional (in '($ 0)))
+              (define (sub ere repl in)
+                (match (string-match ere in)
+                  (#f (values in 0))
+                  (m (values (regexp-substitute #f m 'pre repl 'post) 1))))
+              (perform-sub! sub ere repl in env)))
+    (substr . ,(lambda* (env s m #:optional n)
+                 (define (clamp x lb ub)
+                   (truncate (max lb (min ub x))))
+                 (let* ((s env (eval-awke/string s env))
+                        (m env (eval-awke/number m env))
+                        (m (clamp (1- m) 0 (string-length s)))
+                        (n (or n (string-length s)))
+                        (n env (eval-awke/number n env))
+                        (end (clamp (+ m n) m (string-length s))))
+                   (values (substring s m end) env))))
+    (tolower . ,(lambda (env s)
+                  (let ((s env (eval-awke/string s env)))
+                    (values (string-downcase s) env))))
+    (toupper . ,(lambda (env s)
+                  (let ((s env (eval-awke/string s env)))
+                    (values (string-upcase s) env))))
+    ;; I/O, and general built-ins
+    (close . ,(unimplemented-built-in 'close))
+    (system . ,(unimplemented-built-in 'system))))
+
+(define *built-in-names* (map car *built-ins*))
+
+(define (built-in? name)
+  "Check whether @var{name} is the name of a built-in function."
+  (memq name *built-in-names*))
+
+
+;; Function definitions
+
+(define* (set-locals names values #:optional (locals (make-hash-table)))
+  (match names
+    (() locals)
+    ((name . names-rest)
+     (match values
+       (()
+        (hashq-set! locals name (make-uninitialized-local name locals))
+        (set-locals names-rest '() locals))
+       ((value . values-rest)
+        (hashq-set! locals name value)
+        (set-locals names-rest values-rest locals))))))
+
+(define (make-function arg-names exprs)
+  "Make a user-defined function with argument names @var{arg-names} and
+code @var{exprs}."
   (lambda (env . args)
-    (let loop ((names arg-names) (args args) (locals '()))
-      (match names
-        (() (let ((env (push-env-frame env locals)))
-              (receive (result env)
-                  (call-with-prompt *return-prompt*
-                    (lambda ()
-                      (values *awk-undefined*
-                              (fold run-commands env exprs)))
-                    (lambda (cont result env)
-                      (values result env)))
-                (values result (pop-env-frame env)))))
-        ((name . names-rest)
-         (match args
-           (()
-            (let* ((location (cons (1+ (env-depth env)) name))
-                   (undef (make-awk-undefined location)))
-              (loop names-rest '() (alist-cons name undef locals))))
-           ((arg . args-rest)
-            (loop names-rest args-rest (alist-cons name arg locals)))))))))
+    (let* ((locals (set-locals arg-names args))
+           (old-locals (env-locals env))
+           (env (set-env-locals env locals))
+           (result env (call-with-prompt *return-prompt*
+                         (lambda ()
+                           (values uninitialized-scalar
+                                   (second-value (eval-awke* env exprs))))
+                         (lambda (cont result env)
+                           (values result env)))))
+      (values result (set-env-locals env old-locals)))))
 
 (define (eval-function-definition item env)
   "Evaluate the function definition @var{item} with environment
-@var{env}.  If @var{item} is not a function definition, do nothing."
+@var{env}, and return the updated environment.  If @var{item} is not a
+function definition, do nothing."
   (match item
     (('defun name (arg-names ...) exprs ...)
-     (env-set name (make-function name arg-names exprs) env))
+     (when (any (lambda (x) (memq x *special-variable-names*)) arg-names)
+       (error "function has a parameter that shadows a special variable:"
+              name))
+     (env-set/procedure! name (make-function arg-names exprs) env)
+     env)
     (_ env)))
 
-(define (eval-special-items items pattern env)
-  (match items
-    (() env)
-    ((((? (cut eq? <> pattern)) exprs ...) . rest)
-     (let* ((env* (call-with-prompt *next-record-prompt*
-                    (lambda ()
-                      (fold run-commands env exprs))
-                    (lambda _
-                      (error "awk: next statement in special item")))))
-       (eval-special-items rest pattern env*)))
-    ((_ . rest) (eval-special-items rest pattern env))))
+
+;; Items (excluding function definitions)
 
-(define (make-default-env out field-separator)
-  (define variables
-    `((RS . "\n")
-      (FS . ,field-separator)
-      (NR . 0)
-      (index . ,awk-index)
-      (length . ,awk-length)
-      (split . ,awk-split)
-      (substr . ,awk-substr)))
-  (make-env #f out #f '() variables 0 '()))
+(define (eval-special-item type item env)
+  "Evaluate the @var{type} special item @var{item} with environment
+@var{env}, and return the updated environment.  The @var{type} parameter
+must be either @code{'begin} or @code{'end}.  If @var{item} is not a
+special item with type @var{type}, do nothing."
+  (match item
+    (((? (lambda (x) (eq? x type))) exprs ...)
+     (call-with-prompt *next-prompt*
+       (lambda ()
+         (second-value (eval-awke* env exprs)))
+       (lambda _
+         (error "awk: next statement in special item"))))
+    (_ env)))
 
-(define* (%eval-awk items names #:optional
+(define (eval-begin-item item env)
+  "Evaluate the @code{'begin} item @var{item} with environment
+@var{env}, and return the updated environment.  If @var{item} is not a
+@code{'begin} item, do nothing."
+  (eval-special-item 'begin item env))
+
+(define (eval-end-item item env)
+  "Evaluate the @code{'end} item @var{item} with environment @var{env},
+and return the updated environment.  If @var{item} is not a @code{'end}
+item, do nothing."
+  (eval-special-item 'end item env))
+
+(define (eval-item item env)
+  "Evaluate the regular item @var{item} with environment @var{env}, and
+return the updated environment. If @var{item} is a special item or a
+function definition, do nothing.  If @var{item} is not an item, raise an
+error."
+  (match item
+    (((or 'begin 'end 'defun) . _) env)
+    ((#t exprs ...)
+     (second-value (eval-awke* env exprs)))
+    ((pattern exprs ...)
+     (let ((result env (eval-awke pattern env)))
+       (if (zero? result)
+           env
+           (second-value (eval-awke* env exprs)))))
+    (_ (error "not an Awk item:" item))))
+
+
+;; Initialization and file processing
+
+(define (make-default-env out files field-separator)
+  "Make the initial environment with output port @var{out}, argument
+list @var{files}, and field separator @var{field-separator}."
+  (let ((globals (make-hash-table))
+        (argv (make-hash-table))
+        (argc (length files)))
+    ;; Initialize special variables.
+    (for-each (match-lambda
+                ((key . value) (hashq-set! globals key value)))
+              *special-variables*)
+    ;; Initialize the ARGV array.
+    (for-each (lambda (k v)
+                (hash-set! argv k v))
+              (map number->string (iota argc)) files)
+    ;; Update ARGC and ARGV.
+    (hashq-set! globals 'ARGC argc)
+    (hashq-set! globals 'ARGV argv)
+    ;; Update FS.
+    (hashq-set! globals 'FS field-separator)
+    ;; Set built-in functions.
+    (for-each (match-lambda
+                ((key . value) (hashq-set! globals key value)))
+              *built-ins*)
+    (make-env #f out #f '() (make-hash-table) globals)))
+
+(define (eval-assignments assigns env)
+  "Set each name-value pair in @var{assigns} in the environment
+@var{env}, and return the updated environment."
+  (for-each (match-lambda
+              ((name . value)
+               (env-set/scalar! name value env)))
+            assigns)
+  env)
+
+(define (load-file filename env)
+  "Open @var{filename} and store the resulting port in the @code{env-in}
+field in @var{env}.  This procedure also updates the @code{'FILENAME}
+and @code{'FNR} variables."
+  (let ((port (if (equal? filename "-")
+                  (current-input-port)
+                  (open-input-file filename))))
+    (env-set/scalar! 'FILENAME filename env)
+    (env-set/scalar! 'FNR 0 env)
+    (set-env-in env port)))
+
+(define (read-record env)
+  "Read a record from the input port of @var{env}, and update the
+environment accordingly."
+  (match (read-delimited (env-ref/scalar! 'RS env) (env-in env))
+    ((? eof-object?) (set-env-record env #f))
+    (record (env-set/scalar! 'NR (1+ (env-ref/scalar! 'NR env)) env)
+            (env-set/scalar! 'FNR (1+ (env-ref/scalar! 'FNR env)) env)
+            (set-env-record env record))))
+
+(define (process-file items filename env)
+  "Evaluate each of the regular items in @var{items} with the
+environment @var{env} over each of the records in @var{filename}."
+  (let ((env (load-file filename env)))
+    (let loop ((env (read-record env)))
+      (if (env-record env)
+          (let ((env (call-with-prompt *next-prompt*
+                       (lambda ()
+                         (fold eval-item env items))
+                       (lambda (cont env)
+                         env))))
+            (loop (read-record env)))
+          env))))
+
+(define* (%eval-awk items files assigns #:optional
                     (out (current-output-port))
                     #:key (field-separator " "))
-  (let* ((env (make-default-env out field-separator))
+  (let* ((env (make-default-env out files field-separator))
          (env (fold eval-function-definition env items))
-         (env (eval-special-items items 'begin env))
-         (env (fold (cut run-awk-file items <> <>) env names)))
-    (eval-special-items items 'end env)))
+         (env (eval-assignments assigns env))
+         (env (fold eval-begin-item env items)))
+    (let loop ((k 0) (env env))
+      (if (< k (env-ref/scalar! 'ARGC env))
+          (let ((file env (eval-awke `(array-ref ,k ARGV) env)))
+            (loop (1+ k) (process-file items file env)))
+          (fold eval-end-item env items)))))
+
+
+;; Command-line interface
+
+(define *help-message* "\
+Usage: awk [OPTION]... PROGRAM [ARGUMENT]...
+     | awk [OPTION]... -f PROGFILE [ARGUMENT]...
+  -f, --file             read a program from a file
+  -F, --field-separator  specify the default field separator
+  -v, --assign           assign a variable before running the program
+  -h, --help             display this help
+  -V, --version          display version
+")
+
+(define *version-message*
+  (format #f "awk (~a) ~a~%" %package-name %version))
+
+(define *options-grammar*
+  (make-options-grammar
+   `((list file #\f)
+     (value field-separator #\F)
+     (list assign #\v)
+     (message ("help" #\h) ,*help-message*)
+     (message ("version" #\V) ,*version-message*))))
+
+(define (get-items-and-args files args)
+  (if (null? files)
+      (match args
+        ((items-string . args)
+         (values (with-input-from-string items-string read-awk) args))
+        (_ (error "no program specified")))
+      (values (append-map (lambda (file)
+                            (with-input-from-file file read-awk))
+                          files)
+              args)))
+
+(define (split-assignment assign)
+  (match (string-index assign #\=)
+    (#f (error "awk: bad assignment:" assign))
+    (k (let ((name (string->symbol (substring assign 0 k)))
+             (value (substring assign (1+ k))))
+         (cons name value)))))
 
 (define (awk . args)
-  (let* ((option-spec
-	  '((file (single-char #\f) (value #t))
-            (field-separator (single-char #\F) (value #t))
-
-            (help (single-char #\h))
-            (version (single-char #\V))))
-	 (options (getopt-long args option-spec))
-         (program-file (option-ref options 'file #f))
-         (delimiter (option-ref options 'field-separator " "))
-
-	 (help? (option-ref options 'help #f))
-         (version? (option-ref options 'version #f))
-	 (files (option-ref options '() '()))
-         (usage? (and (not help?) (not program-file) (null? files))))
-    (cond (version? (format #t "awk (GASH) ~a\n" %version) (exit 0))
-          ((or help? usage?) (format (if usage? (current-error-port) #t)
-                                     "\
-Usage: awk [OPTION]...
-      --help               display this help and exit
-      --version            output version information and exit
-")
-           (exit (if usage? 2 0)))
-          (else
-           (receive (parse-tree files)
-               (if program-file (values (with-input-from-file program-file read-awk) files)
-                   (values (with-input-from-string (car files) read-awk) (cdr files)))
-             (when (getenv "AWK_DEBUG")
-               (pretty-print parse-tree (current-error-port)))
-             (let ((files (if (pair? files) files
-                              '("-")))
-                   (outport (current-output-port)))
-               (%eval-awk parse-tree files outport
-                          #:field-separator delimiter)))))))
+  (let* ((options (parse-options args *options-grammar*))
+         (files (or (assoc-ref options 'file) '()))
+         (field-separator (or (assoc-ref options 'field-separator) " "))
+         (assignments (or (assoc-ref options 'assign) '()))
+         (args (or (assoc-ref options '()) '())))
+    (let ((items arguments (get-items-and-args files args)))
+      (when (getenv "AWK_DEBUG")
+        (pretty-print items (current-error-port)))
+      (%eval-awk items (if (null? arguments) '("-") arguments)
+                 (map split-assignment assignments) (current-output-port)
+                 #:field-separator field-separator))))
 
 (define main awk)
 

@@ -66,8 +66,19 @@
       if ("foo" in array)
           print "have foo"
   
-      for (key in array)
-          print key " => " array[key]
+      for (key in array) {
+          if (key == "foo") {
+              results[3] = key " => " array[key]
+          } else if (key == "bar") {
+              results[2] = key " => " array[key]
+          } else if (key == "baz") {
+              results[1] = key " => " array[key]
+          }
+      }
+  
+      print results[1]
+      print results[2]
+      print results[3]
   }
 #+end_src
 :stdin:
@@ -368,11 +379,11 @@
 #+end_example
 :stdout:
 #+begin_example
-  1 2
-  1 2 3 4
+  1 2   
+  1 2 3 4 
   1 2 3 4 5
   1 2 3 4 5
-  1
+  1    
 #+end_example
 
 * awk-re
@@ -455,6 +466,115 @@
 #+begin_example
   3
 #+end_example
+
+* An array cannot be replaced by a scalar
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      xs[1] = 0
+      xs = 0
+  }
+#+end_src
+:status: 1
+
+* An array cannot be aliased
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      xs[1] = 0
+      ys = xs
+  }
+#+end_src
+:status: 1
+
+* A scalar cannot be replaced by an array
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      x = 0
+      xs[1] = 0
+      x = xs
+  }
+#+end_src
+:status: 1
+
+* A built-in cannot be replaced by a value
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      index = 1
+  }
+#+end_src
+:status: 1
+
+* A function cannot be replaced by a value
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function foo () {
+      print "hi!"
+  }
+  BEGIN {
+      foo = 1
+  }
+#+end_src
+:status: 1
+
+* A built-in cannot be replaced by a function
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function index () {
+      print "hi!"
+  }
+  BEGIN {
+      index()
+  }
+#+end_src
+:status: 1
+
+* A function cannot be replaced by a function
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  function foo () {}
+  function foo () {}
+  BEGIN {
+      foo()
+  }
+#+end_src
+:status: 1
+
+* Accessing an undefined variable as a scalar does not set it
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      print x + 0
+      print "foo" x "bar"
+  }
+#+end_src
+:stdout:
+#+begin_example
+  0
+  foobar
+#+end_example
+
+* Accessing an undefined variable as a scalar makes it a scalar
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      print x + 0
+      x[1] = "foo"
+      print x[1]
+  }
+#+end_src
+:status: 1
 
 * Accessing an undefined variable as an array makes it an array
 :interpreter: "awk"
