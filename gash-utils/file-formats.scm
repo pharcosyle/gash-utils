@@ -68,6 +68,7 @@
       (#\% (values "%" 1))
       (#\d (values (make-conversion 'number number->string) 1))
       (#\s (values (make-conversion 'string values) 1))
+      (#\u (values (make-conversion 'number number->string) 1))
       (_ (error "unknown conversion specifier")))))
 
 (define* (parse-file-format s #:optional (start 0) (end (string-length s))
