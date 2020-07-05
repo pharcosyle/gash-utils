@@ -1,5 +1,6 @@
 *.go
 *.log
+*.trs
 *~
 /.config.make
 /bin/basename
@@ -45,5 +46,4 @@ config.status
 configure
 gash/commands/testb.scm
 pre-inst-env
-/tests/*.trs
 /tests/run-test-suite
