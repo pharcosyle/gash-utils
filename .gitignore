@@ -39,6 +39,8 @@ autom4te.cache/*
 build-aux/*
 !build-aux/git-version-gen
 !build-aux/gitlab-ci.yml
+!/build-aux/gitlog-to-changelog
+!/build-aux/gitlog-to-changelog-repro.patch
 !build-aux/guile.am
 !build-aux/pre-inst-env.in
 config.log

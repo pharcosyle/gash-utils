@@ -1,1 +1,15 @@
-This is the first release, so there are no changes yet!
+Normally a ChangeLog is generated at "make dist" time and available in
+source tarballs.
+
+If not, see the Git commit log:
+
+    <https://git.savannah.nongnu.org/cgit/gash/gash-utils.git/log/>.
+
+The following notice will be appended to the generated ChangeLog.
+
+Copyright © 2020 Timothy Sample <samplet@ngyro.com>
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.  This file is offered as-is,
+without any warranty.

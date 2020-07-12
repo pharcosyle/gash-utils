@@ -25,6 +25,8 @@ EXTRA_DIST +=                                   \
   bootstrap                                     \
   build-aux/git-version-gen                     \
   build-aux/gitlab-ci.yml                       \
+  build-aux/gitlog-to-changelog                 \
+  build-aux/gitlog-to-changelog-repro.patch     \
   doc/awk-syntax.txt                            \
   guix.scm                                      \
   tests/data/README
@@ -204,7 +206,7 @@ EXTRA_DIST +=                                   \
 # Distribution
 ##############
 
-dist-hook:
+dist-hook: gen-ChangeLog
 	echo $(VERSION) > $(distdir)/.tarball-version
 	if test -e .git; then \
 	    git ls-tree -r --name-only HEAD \
@@ -214,6 +216,25 @@ dist-hook:
 	else \
 	    cp $(srcdir)/.tarball-manifest $(distdir)/.tarball-manifest; \
 	    cp $(srcdir)/.tarball-timestamp $(distdir)/.tarball-timestamp; \
+	fi
+
+build-aux/gitlog-to-changelog-repro: \
+		$(srcdir)/build-aux/gitlog-to-changelog \
+		$(srcdir)/build-aux/gitlog-to-changelog-repro.patch
+	$(AM_V_GEN){ mkdir -p $$(dirname $@) && \
+	             patch -t --output=$@ $? && \
+	             chmod a+x $@; }
+
+.PHONY: gen-ChangeLog
+gen-ChangeLog: build-aux/gitlog-to-changelog-repro
+	$(AM_V_GEN)if test -e .git; then \
+	    { ./build-aux/gitlog-to-changelog-repro \
+	          --format='%s%n%n%b%n' -- v0.1.0.. && \
+	      echo && \
+	      sed -n -e '/^Copyright/,$$p' < $(top_srcdir)/ChangeLog; \
+	    } > $(distdir)/ChangeLog-t && \
+	    { rm -f $(distdir)/ChangeLog && \
+	      mv $(distdir)/ChangeLog-t $(distdir)/ChangeLog; } \
 	fi
 
 # Reproducible tarball
@@ -237,3 +258,5 @@ distcheck-hook:
 	        exit 1;                         \
 	    fi;                                 \
 	done
+
+DISTCLEANFILES = build-aux/gitlog-to-changelog-repro

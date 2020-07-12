@@ -1,0 +1,16 @@
+This patch adjusts the 'gitlog-to-changelog' script from Gnulib so
+that its output is reproducible.
+
+diff --git a/build-aux/gitlog-to-changelog b/build-aux/gitlog-to-changelog
+index deddef2..6fec950 100755
+--- a/build-aux/gitlog-to-changelog
++++ b/build-aux/gitlog-to-changelog
+@@ -345,7 +345,7 @@ sub git_dir_option($)
+                   ? '  (tiny change)' : '');
+ 
+       my $date_line = sprintf "%s  %s$tiny\n",
+-        strftime ("%Y-%m-%d", localtime ($1)), $2;
++        strftime ("%Y-%m-%d", gmtime ($1)), $2;
+ 
+       my @coauthors = grep /^Co-authored-by:.*$/, @line;
+       # Omit meta-data lines we've already interpreted.
