@@ -26,7 +26,7 @@ AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([color-tests silent-rules -Wall -Werror])
 AM_SILENT_RULES([yes])
 
-GUILE_PKG([2.2 2.0])
+GUILE_PKG([3.0 2.2 2.0])
 GUILE_PROGS
 
 AC_ARG_VAR([GUILD], [guild (Guile compiler) command])

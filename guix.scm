@@ -96,7 +96,7 @@
      ("pkg-config" ,pkg-config)))
   (inputs
    `(("gash" ,gash)
-     ("guile" ,guile-2.2)))
+     ("guile" ,guile-3.0)))
   (home-page "https://savannah.nongnu.org/projects/gash/")
   (synopsis "Select GNU utilities reimplemented in Guile Scheme")
   (description "Gash-Utils provides a number of GNU utilities (e.g.,
