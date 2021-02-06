@@ -80,16 +80,6 @@
   /
 #+end_example
 
-* ls-sanity
-:script:
-#+begin_src sh
-  ls --version | head -1 | cut -b 1-9
-#+end_src
-:stdout:
-#+begin_example
-  ls (GASH)
-#+end_example
-
 * ls
 :script:
 #+begin_src sh
