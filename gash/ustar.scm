@@ -1,6 +1,7 @@
 ;;; Gash-Utils
 ;;; Copyright © 2013 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;; Copyright © 2021 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Gash-Utils.
 ;;;
@@ -234,7 +235,8 @@
                      gname
                      dev-major
                      dev-minor
-                     prefix)
+                     prefix
+                     extension)
   ustar-header?
   (name      ustar-header-name     )
   (mode      ustar-header-mode     )
@@ -252,7 +254,17 @@
   (gname     ustar-header-gname    )
   (dev-major ustar-header-dev-major)
   (dev-minor ustar-header-dev-minor)
-  (prefix    ustar-header-prefix   ))
+  (prefix    ustar-header-prefix   )
+  (extension ustar-header-extension))
+
+(define *gnu-long-name* "L")
+(define *gnu-long-link* "K")
+
+(define-immutable-record-type <ustar-exstension>
+  (make-ustar-extension header content)
+  ustar-extension?
+  (header ustar-extension-header)
+  (content ustar-extension-content))
 
 (define (ustar-header-type header)
   (let ((file-types #(regular - symlink char-special block-special directory fifo))
@@ -290,7 +302,11 @@
     (bytevector-copy! bv offset sub 0 size)
     sub))
 
-(define (read-ustar-header port)
+(define (extension-header? header)
+  (member (ustar-header-type-flag header)
+          (list *gnu-long-name* *gnu-long-link*)))
+
+(define* (read-ustar-header port #:optional extension)
   (define offset
     (let ((offset 0))
       (lambda (. args)
@@ -332,12 +348,22 @@
                   (bv->ustar-string (assoc-ref field-bv-alist 'gname    ) "group name"       )
                   (bv->ustar-number (assoc-ref field-bv-alist 'dev-major) "dev major"        )
                   (bv->ustar-number (assoc-ref field-bv-alist 'dev-minor) "dev minor"        )
-                  (bv->ustar-string (assoc-ref field-bv-alist 'prefix   ) "directory name"   ))))
+                  (bv->ustar-string (assoc-ref field-bv-alist 'prefix   ) "directory name"   )
+                  extension)))
            (when (not (= (ustar-header-checksum header) checksum))
              (error "checksum mismatch, expected: ~s, got: ~s\n"
                     (ustar-header-checksum header)
                     checksum))
-           header))))
+           (if (extension-header? header)
+               (let* ((size (ustar-header-size header))
+                      (content (get-bytevector-n port size))
+                      (remainder (modulo size 512)))
+                 (when (eof-object? content)
+                   (error "file ended while reading extension content"))
+                 (unless (zero? remainder)
+                   (get-bytevector-n port (- 512 remainder)))
+                 (read-ustar-header port (make-ustar-extension header (bv->ustar-string content "extension"))))
+               header)))))
 
 (define* (write-ustar-header port path st #:key group mtime numeric-owner? owner)
   (let* ((type  (stat:type st))
@@ -468,13 +494,26 @@
                                                          #:group group #:mtime mtime #:numeric-owner? numeric-owner? #:owner owner #:verbosity verbosity))
                    files))))))
 
+(define (ustar-extension-ref header flag)
+  (and=> (ustar-header-extension header)
+         (lambda (extension)
+           (and=> (ustar-extension-header extension)
+                  (lambda (eheader)
+                    (and (string=? (ustar-header-type-flag eheader) flag)
+                         (ustar-extension-content extension)))))))
+
 (define* (ustar-header-file-name header #:key (strip 0))
   (let* ((name (ustar-header-name header))
          (prefix (ustar-header-prefix header))
-         (file-name (if (string-null? prefix) name
-                        (string-append prefix "/" name))))
+         (file-name (or (ustar-extension-ref header *gnu-long-name*)
+                        (if (string-null? prefix) name
+                            (string-append prefix "/" name)))))
     (if (zero? strip) file-name
         (string-join (list-tail (string-split file-name #\/) strip) "/"))))
+
+(define (ustar-header-link-name* header)
+  (or (ustar-extension-ref header *gnu-long-link*)
+      (ustar-header-link-name header)))
 
 (define* (read-ustar-file port header #:key (extract? #t) (strip 0))
   (let* ((size (ustar-header-size header))
@@ -507,7 +546,7 @@
             ((directory)
              (mkdir-p file-name)
              (utime file-name mtime mtime))
-            ((symlink) (symlink (ustar-header-link-name header) file-name ))))
+            ((symlink) (symlink (ustar-header-link-name* header) file-name))))
         (thunk))))
 
 (define (ustar-header->stat header)
