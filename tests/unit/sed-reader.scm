@@ -1,5 +1,5 @@
 ;;; Gash-Utils
-;;; Copyright © 2020 Timothy Sample <samplet@ngyro.com>
+;;; Copyright © 2020, 2021 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Gash-Utils.
 ;;;
@@ -36,5 +36,13 @@
 (test-equal "Parses regexes with named character classes"
   '(always s "[[:space:]]" "" (g))
   (parse "s/[[:space:]]//g"))
+
+(test-equal "Parses addresses starting with backslash"
+  '((at "^foo") p)
+  (parse "\\$^foo$ p"))
+
+(test-equal "Allows escaping address delimiter"
+  '((at "abc\\xdef") p)
+  (parse "\\xabc\\xdefx p"))
 
 (test-end "sed-reader")

@@ -233,6 +233,7 @@ file is encountered."
   (match (lookahead-char port)
     (#\$ (get-char port) '$)
     ((? (cut char-set-contains? char-set:digit <>)) (read-number port))
+    (#\\ (get-char port) (read-re port))
     (_ (read-re port))))
 
 (define* (read-function port #:key (depth 0))
