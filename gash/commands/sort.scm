@@ -28,52 +28,51 @@
 
   #:use-module (gash commands config)
   #:use-module (gash io)
-  #:use-module (gash shell-utils))
+  #:use-module (gash shell-utils)
+  #:use-module (gash-utils options))
 
 ;;; Commentary:
 
 ;;; Code:
 
-(define (sort . args)
-  (let* ((option-spec
-	  '((numeric-sort (single-char #\n))
-            (reverse (single-char #\r))
-            (unique (single-char #\u))
-
-            (help (single-char #\h))
-            (version (single-char #\V))))
-	 (options (getopt-long args option-spec))
-         (numeric-sort? (option-ref options 'numeric-sort #f))
-         (reverse? (option-ref options 'reverse #f))
-         (unique? (option-ref options 'unique #f))
-
-	 (help? (option-ref options 'help #f))
-         (version? (option-ref options 'version #f))
-	 (files (option-ref options '() '()))
-         (usage? #f))
-    (cond (version? (format #t "sort (GASH) ~a\n" %version) (exit 0))
-          ((or help? usage?) (format (if usage? (current-error-port) #t)
-                                     "\
+(define *help-message* "\
 Usage: sort OPTION... [FILE]...
 Write sorted concatenation of all FILEs to standard output.
 
 With no FILE, or when FILE is -, read standard input.
 
 Options:
-  -n, --numeric-sort          compare according to string numerical value
+  -n, --numeric-sort      compare according to string numerical value
   -r, --reverse           reverse the result of comparisons
   -u, --unique            delete duplicate lines
       --help              display this help and exit
       --version           output version information and exit
 ")
-           (exit (if usage? 2 0)))
-          (else
-           (let* ((files (if (pair? files) files
-                             (list "-")))
-                  (lines (append-map (compose (cut read-lines <>) (lambda (file) (if (equal? file "-") (current-input-port) (open-input-file file)))) files))
-                  (sorted (sort! lines (if numeric-sort? string-numeric<? string-locale<?)))
-                  (sorted (if unique? (delete-duplicates! sorted string=?) sorted))
-                  (sorted (if reverse? (reverse! sorted) sorted)))
-             (for-each stdout sorted))))))
+
+(define *version-message*
+  (format #f "sort (~a) ~a~%" %package-name %version))
+
+(define *options-grammar*
+  (make-options-grammar
+   `((flag numeric-sort #\n)
+     (flag reverse #\r)
+     (flag unique #\u)
+     (message ("help" #\h) ,*help-message*)
+     (message ("version" #\V) ,*version-message*))
+   #:default 'files))
+
+(define (sort . args)
+  (let* ((options (parse-options args *options-grammar*))
+         (numeric-sort? (assoc-ref options 'numeric-sort))
+         (reverse? (assoc-ref options 'reverse))
+         (unique? (assoc-ref options 'unique))
+         (files (or (assoc-ref options 'files) '())))
+    (let* ((files (if (pair? files) files
+                      (list "-")))
+           (lines (append-map (compose (cut read-lines <>) (lambda (file) (if (equal? file "-") (current-input-port) (open-input-file file)))) files))
+           (sorted (sort! lines (if numeric-sort? string-numeric<? string-locale<?)))
+           (sorted (if unique? (delete-duplicates! sorted string=?) sorted))
+           (sorted (if reverse? (reverse! sorted) sorted)))
+      (for-each stdout sorted))))
 
 (define main sort)
