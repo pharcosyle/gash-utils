@@ -184,6 +184,7 @@ FULL_TESTS =                                    \
   tests/grep.org                                \
   tests/printf.org                              \
   tests/sed.org                                 \
+  tests/sort.org                                \
   tests/tar.org
 
 TEST_DATA_FILES =                               \
