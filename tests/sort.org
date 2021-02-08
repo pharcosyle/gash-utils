@@ -72,3 +72,53 @@
   banana
   orange
 #+end_example
+
+* Checks a sorted list
+:script:
+#+begin_src sh
+  sort -c
+#+end_src
+:stdin:
+#+begin_example
+  apple
+  banana
+  cherry
+#+end_example
+
+* Checks a non-sorted list
+:script:
+#+begin_src sh
+  sort -c
+#+end_src
+:stdin:
+#+begin_example
+  banana
+  apple
+  cherry
+#+end_example
+:status: 1
+
+* Checks a uniquely sorted list
+:script:
+#+begin_src sh
+  sort -uc
+#+end_src
+:stdin:
+#+begin_example
+  apple
+  banana
+  cherry
+#+end_example
+
+* Checks a non-uniquely sorted list
+:script:
+#+begin_src sh
+  sort -uc
+#+end_src
+:stdin:
+#+begin_example
+  apple
+  banana
+  banana
+#+end_example
+:status: 1

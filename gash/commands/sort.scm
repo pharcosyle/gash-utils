@@ -1,5 +1,5 @@
 ;;; Gash-Utils
-;;; Copyright © 2018 Timothy Sample <samplet@ngyro.com>
+;;; Copyright © 2018, 2021 Timothy Sample <samplet@ngyro.com>
 ;;; Copyright © 2019 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
 ;;;
 ;;; This file is part of Gash-Utils.
@@ -44,6 +44,7 @@ With no FILE, or when FILE is -, read standard input.
 Options:
   -n, --numeric-sort      compare according to string numerical value
   -r, --reverse           reverse the result of comparisons
+  -c, --check             check that input is already sorted
   -u, --unique            delete duplicate lines
       --help              display this help and exit
       --version           output version information and exit
@@ -56,23 +57,30 @@ Options:
   (make-options-grammar
    `((flag numeric-sort #\n)
      (flag reverse #\r)
+     (flag check #\c)
      (flag unique #\u)
      (message ("help" #\h) ,*help-message*)
      (message ("version" #\V) ,*version-message*))
    #:default 'files))
 
+(define guile-sort (@ (guile) sort))
+
 (define (sort . args)
   (let* ((options (parse-options args *options-grammar*))
          (numeric-sort? (assoc-ref options 'numeric-sort))
          (reverse? (assoc-ref options 'reverse))
+         (check? (assoc-ref options 'check))
          (unique? (assoc-ref options 'unique))
          (files (or (assoc-ref options 'files) '())))
     (let* ((files (if (pair? files) files
                       (list "-")))
            (lines (append-map (compose (cut read-lines <>) (lambda (file) (if (equal? file "-") (current-input-port) (open-input-file file)))) files))
-           (sorted (sort! lines (if numeric-sort? string-numeric<? string-locale<?)))
+           (sorted (guile-sort lines (if numeric-sort? string-numeric<? string-locale<?)))
            (sorted (if unique? (delete-duplicates! sorted string=?) sorted))
            (sorted (if reverse? (reverse! sorted) sorted)))
-      (for-each stdout sorted))))
+      (when (and check? (not (equal? lines sorted)))
+        (exit 1))
+      (unless check?
+        (for-each stdout sorted)))))
 
 (define main sort)
