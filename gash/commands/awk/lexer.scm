@@ -357,6 +357,7 @@ next character statisfies @var{pred} (or is a newline)."
            (? blank?)
            #\"
            #\newline) (acc->token acc chr))
+      (#\\ (throw 'lex-error))
       (_ (let ((str (get-word-string port)))
            (loop (lookahead-char port) (if (not (string-null? str))
                                            (cons str acc)
