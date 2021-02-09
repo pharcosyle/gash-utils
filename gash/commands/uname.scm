@@ -21,43 +21,11 @@
 ;;; Code:
 
 (define-module (gash commands uname)
-  #:use-module (ice-9 getopt-long)
   #:use-module (gash commands config)
+  #:use-module (gash-utils options)
   #:export (uname))
 
-(define (uname . args)
-  (let* ((option-spec
-	  '((all (single-char #\a))
-            (kernel-name (single-char #\s))
-            (node-name (single-char #\n))
-            (kernel-release (single-char #\r))
-            (kernel-version (single-char #\v))
-            (machine (single-char #\m))
-            (processor (single-char #\p))
-            (hardware-platform (single-char #\i))
-            (operating-system (single-char #\o))
-
-            (help (single-char #\h))
-            (version (single-char #\V))))
-	 (options (getopt-long args option-spec))
-         (all? (option-ref options 'all #f))
-         (kernel-name? (option-ref options 'kernel-name #f))
-         (node-name? (option-ref options 'node-name #f))
-         (kernel-release? (option-ref options 'kernel-release #f))
-         (kernel-version? (option-ref options 'kernel-version #f))
-         (machine? (option-ref options 'machine #f))
-         (processor? (option-ref options 'processor #f))
-         (hardware-platform? (option-ref options 'hardware-platform #f))
-         (operating-system? (option-ref options 'operating-system #f))
-         (kernel-name? (not (or all? kernel-name? node-name? kernel-release? kernel-version? machine? processor? hardware-platform? operating-system?)))
-
-	 (help? (option-ref options 'help #f))
-         (version? (option-ref options 'version #f))
-	 (files (option-ref options '() '()))
-         (usage? (and (not help?) (pair? files))))
-    (cond (version? (format #t "uname (GASH) ~a\n" %version) (exit 0))
-          ((or help? usage?) (format (if usage? (current-error-port) #t)
-                                     "\
+(define *help-message* "\
 Usage: uname [OPTION]...
 Print certain system information.  With no OPTION, same as -s.
 
@@ -75,28 +43,60 @@ Options:
       --help               display this help and exit
       --version            output version information and exit
 ")
-           (exit (if usage? 2 0)))
-          (else
-           (let* ((un ((@ (guile) uname)))
-                  (output (filter
-                           identity
-                           (list (and (or all? kernel-name?)
-                                      (format #f "~a" (utsname:sysname un)))
-                                 (and (or all? node-name?)
-                                      (format #f "~a" (utsname:nodename un)))
-                                 (and (or all? kernel-release?)
-                                      (format #f "~a" (utsname:release un)))
-                                 (and (or all? kernel-version?)
-                                      (format #f "~a" (utsname:version un)))
-                                 (and (or all? machine?)
-                                      (format #f "~a" (utsname:machine un)))
-                                 (and processor?
-                                      (format #f "~a" "unknown"))
-                                 (and hardware-platform?
-                                      (format #f "~a" "unknown"))
-                                 (and (or all? operating-system?)
-                                      (format #f "GNU/~a" (utsname:sysname un)))))))
-             (display (string-join output))
-             (newline))))))
+
+(define *version-message*
+  (format #f "uname (~a) ~a~%" %package-name %version))
+
+(define *options-grammar*
+  (make-options-grammar
+   `((flag all #\a)
+     (flag hardware-platform #\i)
+     (flag machine #\m)
+     (flag node-name #\n)
+     (flag operating-system #\o)
+     (flag processor #\p)
+     (flag kernel-release #\r)
+     (flag kernel-name #\s)
+     (flag kernel-version #\v)
+     (message ("help" #\h) ,*help-message*)
+     (message ("version" #\V) ,*version-message*))
+   #:default
+   (lambda (arg result)
+     (format (current-error-port) "uname: Invalid argument: ~a~%" arg)
+     (exit 1))))
+
+(define (uname . args)
+  (let* ((options (parse-options args *options-grammar*))
+         (all? (or (assoc-ref options 'all) #f))
+         (kernel-name? (or (assoc-ref options 'kernel-name) #f))
+         (node-name? (or (assoc-ref options 'node-name) #f))
+         (kernel-release? (or (assoc-ref options 'kernel-release) #f))
+         (kernel-version? (or (assoc-ref options 'kernel-version) #f))
+         (machine? (or (assoc-ref options 'machine) #f))
+         (processor? (or (assoc-ref options 'processor) #f))
+         (hardware-platform? (or (assoc-ref options 'hardware-platform) #f))
+         (operating-system? (or (assoc-ref options 'operating-system) #f))
+         (kernel-name? (not (or all? kernel-name? node-name? kernel-release? kernel-version? machine? processor? hardware-platform? operating-system?)))
+         (un ((@ (guile) uname)))
+           (output (filter
+                    identity
+                    (list (and (or all? kernel-name?)
+                               (format #f "~a" (utsname:sysname un)))
+                          (and (or all? node-name?)
+                               (format #f "~a" (utsname:nodename un)))
+                          (and (or all? kernel-release?)
+                               (format #f "~a" (utsname:release un)))
+                          (and (or all? kernel-version?)
+                               (format #f "~a" (utsname:version un)))
+                          (and (or all? machine?)
+                               (format #f "~a" (utsname:machine un)))
+                          (and processor?
+                               (format #f "~a" "unknown"))
+                          (and hardware-platform?
+                               (format #f "~a" "unknown"))
+                          (and (or all? operating-system?)
+                               (format #f "GNU/~a" (utsname:sysname un)))))))
+    (display (string-join output))
+    (newline)))
 
 (define main uname)
