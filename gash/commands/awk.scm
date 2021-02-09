@@ -1167,7 +1167,12 @@ environment @var{env} over each of the records in @var{filename}."
       (if (< k (env-ref/scalar! 'ARGC env))
           (let ((file env (eval-awke `(array-ref ,k ARGV) env)))
             (loop (1+ k) (process-file items file env)))
-          (fold eval-end-item env items)))))
+          (call-with-prompt *exit-prompt*
+            (lambda ()
+              (fold eval-end-item env items)
+              0)
+            (lambda (cont value env)
+              value))))))
 
 
 ;; Command-line interface
@@ -1220,9 +1225,10 @@ Usage: awk [OPTION]... PROGRAM [ARGUMENT]...
     (let ((items arguments (get-items-and-args files args)))
       (when (getenv "AWK_DEBUG")
         (pretty-print items (current-error-port)))
-      (%eval-awk items (if (null? arguments) '("-") arguments)
-                 (map split-assignment assignments) (current-output-port)
-                 #:field-separator field-separator))))
+      (exit
+       (%eval-awk items (if (null? arguments) '("-") arguments)
+                  (map split-assignment assignments) (current-output-port)
+                  #:field-separator field-separator)))))
 
 (define main awk)
 
