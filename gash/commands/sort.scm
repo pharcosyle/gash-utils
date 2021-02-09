@@ -18,7 +18,6 @@
 ;;; along with Gash-Utils.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (gash commands sort)
-  #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 i18n)
   #:use-module (ice-9 match)
   #:use-module (ice-9 rdelim)
