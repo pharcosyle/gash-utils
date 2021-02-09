@@ -174,18 +174,6 @@
     (('in from to) (address->pred (cons from to)))
     (_ (error "SED: unsupported address predicate" apred))))
 
-(define (fast-forward env address)
-  (define apred (address->pred address))
-  (let loop ((env (set-fields env
-                    ((env-target) (read-line (env-in env)))
-                    ((env-line) (1+ (env-line env))))))
-    (cond
-     ((eof-object? (env-target env)) env)
-     ((apred env) env)
-     (else (loop (set-fields env
-                   ((env-target) (read-line (env-in env)))
-                   ((env-line) (1+ (env-line env)))))))))
-
 (define (find-labels commands)
   (let loop ((commands commands) (acc '()))
     (match commands
@@ -283,6 +271,19 @@
                   (acons apred pred address-pred-alist))
             pred)))))
 
+(define (fast-forward env apred end)
+  (define in-pred (get-address-pred apred))
+  (define end-pred (address->pred end))
+  (let loop ((env (set-fields env
+                    ((env-target) (read-line (env-in env)))
+                    ((env-line) (1+ (env-line env))))))
+    (cond
+     ((eof-object? (env-target env)) env)
+     ((and (in-pred env) (end-pred env)) env)
+     (else (loop (set-fields env
+                   ((env-target) (read-line (env-in env)))
+                   ((env-line) (1+ (env-line env)))))))))
+
 (define* (execute-commands commands env)
   (match commands
     (() env)
@@ -306,7 +307,7 @@
            (('c text)
             (let ((env* (match apred
                           ((or ('in _ end) ('not ('in _ end)))
-                           (fast-forward env end))
+                           (fast-forward env apred end))
                           (_ env))))
               (unless (eof-object? (env-target env*))
                 (display text (env-out env*))
