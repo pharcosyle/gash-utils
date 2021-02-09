@@ -957,6 +957,14 @@ the updated environment."
                          (format (parse-file-format fmt #:escaped? #f)))
                     (apply fold-file-format awk-conversion-adapter
                            env format exprs))))
+    ;; This is a Gawk extension, but it is used by the GNU Build System.
+    (strtonum . ,(lambda (env s)
+                   (let* ((s env (eval-awke/string s env))
+                          (n (if (or (string-prefix? "0x" s)
+                                     (string-prefix? "0X" s))
+                                 (string->number (substring s 2) 16)
+                                 (string->number (string-trim s)))))
+                     (values (or n 0) env))))
     (sub . ,(lambda* (env ere repl #:optional (in '($ 0)))
               (define (sub ere repl in)
                 (match (string-match ere in)

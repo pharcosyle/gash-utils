@@ -152,6 +152,7 @@
     ("sprintf" . sprintf)
     ("sqrt" . sqrt)
     ("srand" . srand)
+    ("strtonum" . strtonum)
     ("sub" . sub)
     ("substr" . substr)
     ("system" . system)
