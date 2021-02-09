@@ -127,7 +127,7 @@
          (flags (cons (if (extended?) regexp/extended regexp/basic)
                       (if (memq 'i flags) `(,regexp/icase) '())))
          (regexp (apply (regexp-factory) (replace-escapes pattern) flags))
-         (proc (replace->lambda (replace-escapes replacement) global?)))
+         (proc (replace->lambda replacement global?)))
     (match (list-matches regexp str)
       ((and m+ (_ _ ...)) (proc str m+))
       (_ str))))
