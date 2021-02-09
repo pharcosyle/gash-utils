@@ -445,21 +445,22 @@ is a newline (or EOF)."
 
 (define (get-token port)
   "Get the next lexical token from @var{port}."
-  (let loop ((chr (lookahead-char port)))
-    (match chr
-      ((? eof-object?) '*eoi*)
-      ((? blank?) (loop (next-char port)))
-      (#\# (begin
-             (skip-to-end-of-line port)
-             (loop (lookahead-char port))))
-      (#\newline (get-newline-lexical-token port))
-      (#\\ (match (next-char port)
-             (#\newline (loop (next-char port)))
-             (_ (unget-char port #\\)
-                (get-word-lexical-token port))))
-      ((? (const %regex)) (get-regex port))
-      ((? operator-prefix-char?) (get-operator-lexical-token port))
-      ((? char-numeric?)
-       (get-numeric-lexical-token port))
-      (#\" (get-string port))
-      (_ (get-word-lexical-token port)))))
+  (if %regex
+      (get-regex port)
+      (let loop ((chr (lookahead-char port)))
+        (match chr
+          ((? eof-object?) '*eoi*)
+          ((? blank?) (loop (next-char port)))
+          (#\# (begin
+                 (skip-to-end-of-line port)
+                 (loop (lookahead-char port))))
+          (#\newline (get-newline-lexical-token port))
+          (#\\ (match (next-char port)
+                 (#\newline (loop (next-char port)))
+                 (_ (unget-char port #\\)
+                    (get-word-lexical-token port))))
+          ((? operator-prefix-char?) (get-operator-lexical-token port))
+          ((? char-numeric?)
+           (get-numeric-lexical-token port))
+          (#\" (get-string port))
+          (_ (get-word-lexical-token port))))))
