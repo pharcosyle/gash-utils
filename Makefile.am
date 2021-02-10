@@ -86,7 +86,8 @@ SOURCES =                                       \
   gash/ustar.scm                                \
   gash/util.scm                                 \
   gash-utils/file-formats.scm                   \
-  gash-utils/options.scm
+  gash-utils/options.scm                        \
+  gash-utils/regex.scm
 
 gash/commands/testb.scm: $(srcdir)/gash/commands/test.scm Makefile
 	$(AM_V_GEN)sed \

@@ -19,6 +19,7 @@
 
 (define-module (gash commands awk lexer)
   #:use-module (gash compat textual-ports)
+  #:use-module (gash-utils regex)
   #:use-module (ice-9 match)
   #:use-module (ice-9 rdelim)
   #:use-module (ice-9 receive)
@@ -284,16 +285,10 @@ next character statisfies @var{pred} (or is a newline)."
   "Get a regex from @var{port}."
 
   (let* ((begin-location (port->port-location port))
-         (chars (let loop ((chr (lookahead-char port)))
-                  (match chr
-                    ((? eof-object?) (throw 'lex-error))
-                    (#\/ '())
-                    (#\\ (let ((escape (get-escape port)))
-                           (append escape (loop (lookahead-char port)))))
-                    (_ (cons (get-char port) (loop (lookahead-char port)))))))
-         (end-location (port->port-location port))
-         (string (apply string chars)))
+         (string (parameterize ((%extended? #t)) (read-re-until #\/ port)))
+         (end-location (port->port-location port)))
     (set! %regex #f)
+    (unget-char port #\/)
     (make-lexical-token
      'REGEX
      (complete-source-location begin-location (string-length string))
