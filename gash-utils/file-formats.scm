@@ -20,6 +20,7 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
   #:use-module (srfi srfi-9)
+  #:use-module (srfi srfi-26)
   #:export (<conversion-adapter>
             make-conversion-adapter
             conversion-adapter?
@@ -67,10 +68,22 @@
     (match (and (< k end) (string-ref s k))
       (#f (error "missing format character"))
       (#\% (values "%" 1))
+      (#\# (match (and (< (1+ k) end) (string-ref s (1+ k)))
+             (#f (error "missing alternate conversion specifier"))
+             ((and (or #\x #\X) chr)
+              (let ((proc (compose (cut string-append "0" (string chr) <>)
+                                   (if (char=? chr #\X) string-upcase values)
+                                   (cut number->string <> 16))))
+                (values (make-conversion 'number proc) 2)))
+             (_ (error "unknown alternate conversion specifier"))))
       (#\c (values (make-conversion 'character string) 1))
       (#\d (values (make-conversion 'number number->string) 1))
       (#\s (values (make-conversion 'string values) 1))
       (#\u (values (make-conversion 'number number->string) 1))
+      ((and (or #\x #\X) chr)
+       (let ((proc (compose (if (char=? chr #\X) string-upcase values)
+                            (cut number->string <> 16))))
+         (values (make-conversion 'number proc) 1)))
       (_ (error "unknown conversion specifier")))))
 
 (define* (parse-file-format s #:optional (start 0) (end (string-length s))
