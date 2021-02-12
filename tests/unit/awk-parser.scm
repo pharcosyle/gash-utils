@@ -64,7 +64,7 @@
   (parse* "array[1]"))
 
 (test-equal "Parses a multi-dimensional array reference"
-  '(array-ref (x y) array)
+  '(array-ref (index x y) array)
   (parse* "array[x, y]"))
 
 (test-equal "Parses a field reference"
@@ -175,7 +175,7 @@
   (parse* "\"key\" in array"))
 
 (test-equal "Parses multi-dimensional array membership"
-  '(array-member? (x y) array)
+  '(array-member? (index x y) array)
   (parse* "(x, y) in array"))
 
 (test-equal "Parses logical conjunction"
@@ -408,7 +408,7 @@
   (parse* "delete array[key]"))
 
 (test-equal "Parses multi-dimensional array deletion"
-  '(array-delete! ("x" "y") array)
+  '(array-delete! (index "x" "y") array)
   (parse* "delete array[\"x\", \"y\"]"))
 
 

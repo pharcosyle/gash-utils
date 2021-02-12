@@ -705,12 +705,16 @@ the string or @code{#\\nul} if the string is null."
 (define (eval-key key env)
   "Evaluate the array key @var{key} in the environment @var{env},
 returning both a string key and the updated environment."
+  (define (eval-expr-with-subsep expr env)
+    (let* ((subsep env (eval-awke/string 'SUBSEP env))
+           (part env (eval-awke/string expr env)))
+      (values (string-append subsep part) env)))
   (match key
-    (expr (eval-awke/string expr env))
-    ((exprs ..1)
-     (let* ((parts env (map/env eval-awke/string exprs env))
-            (subsep env (eval-awke/string 'SUBSEP env)))
-       (values (string-join parts subsep) env)))))
+    (('index first-expr rest-exprs ...)
+     (let* ((first-part env (eval-awke/string first-expr env))
+            (rest-parts env (map/env eval-expr-with-subsep rest-exprs env)))
+       (values (apply string-append first-part rest-parts) env)))
+    (expr (eval-awke/string expr env))))
 
 (define (resolve-lvalue lvalue env)
   "Evaluate any sub-expressions in @var{lvalue} in the environment

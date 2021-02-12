@@ -951,3 +951,23 @@
   BEGIN { printf("%c", 97) }
 #+end_src
 :stdout: "a"
+
+* Handles multi-dimensional arrays
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      foo[1, 2] = "bar"
+      if ((1, 2) in foo) {
+          print foo[1, 2]
+          delete foo[1, 2]
+      }
+      if ((1, 2) in foo) {
+          print "still here!"
+      }
+  }
+#+end_src
+:stdout:
+#+begin_example
+  bar
+#+end_example

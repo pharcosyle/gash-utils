@@ -46,10 +46,10 @@
     (('progn . body) body)
     (_ (list expr))))
 
-(define (unwrap-singleton lst)
+(define (make-array-index lst)
   (match lst
     ((x) x)
-    (_ lst)))
+    (_ `(index ,@lst))))
 
 (define* (make-parser)
   "Make an LALR parser for the Awk language."
@@ -233,7 +233,7 @@
 
    (simple-statement
     (Delete name LBRACKET expr-list RBRACKET)
-    : `(array-delete! ,(unwrap-singleton $4) ,$2)
+    : `(array-delete! ,(make-array-index $4) ,$2)
     (expr) : $1
     (print-statement) : $1)
 
@@ -343,16 +343,16 @@
 
    (member-expr
     (member-expr In name)
-    : `(array-member? ,(unwrap-singleton $1) ,$3)
+    : `(array-member? ,$1 ,$3)
     (LPAREN multiple-expr-list RPAREN In name)
-    : `(array-member? ,(unwrap-singleton $2) ,$5)
+    : `(array-member? ,(make-array-index $2) ,$5)
     (re-expr) : $1)
 
    (print-member-expr
     (print-member-expr In name)
-    : `(array-member? ,(unwrap-singleton $1) ,$3)
+    : `(array-member? ,$1 ,$3)
     (LPAREN multiple-expr-list RPAREN In name)
-    : `(array-member? ,(unwrap-singleton $2) ,$5)
+    : `(array-member? ,(make-array-index $2) ,$5)
     (print-re-expr) : $1)
 
    (re-expr
@@ -440,7 +440,7 @@
    (lvalue
     (name) : $1
     (name LBRACKET expr-list RBRACKET)
-    : `(array-ref ,(unwrap-singleton $3) ,$1)
+    : `(array-ref ,(make-array-index $3) ,$1)
     ($ lvalue) : `($ ,$2)
     ($ base-expr) : `($ ,$2))
 

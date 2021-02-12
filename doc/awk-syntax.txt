@@ -83,7 +83,7 @@ lvalue ::= name
          | ('$ expr)
 
 key    ::= expr
-         | (first-expr second-expr expr ...)
+         | ('index first-expr second-expr expr ...)
 
 name   ::= symbol
 
