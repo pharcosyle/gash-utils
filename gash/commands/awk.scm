@@ -1079,10 +1079,10 @@ error."
     ((#t exprs ...)
      (second-value (eval-awke* env exprs)))
     ((pattern exprs ...)
-     (let ((result env (eval-awke pattern env)))
-       (if (zero? result)
-           env
-           (second-value (eval-awke* env exprs)))))
+     (let ((result env (eval-awke/boolean pattern env)))
+       (if result
+           (second-value (eval-awke* env exprs))
+           env)))
     (_ (error "not an Awk item:" item))))
 
 
