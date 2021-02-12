@@ -1,6 +1,6 @@
 ;;; Gash-Utils
 ;;; Copyright © 2019 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
-;;; Copyright © 2020 Timothy Sample <samplet@ngyro.com>
+;;; Copyright © 2020, 2021 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Gash-Utils.
 ;;;
@@ -538,19 +538,17 @@ returning the result of evaluation along with the updated environment."
        (values uninitialized-scalar env)))
     ;; Boolean expressions
     (('and expr1 expr2)
-     (let ((value1 env (eval-awke/boolean expr1 env)))
-       (if value1
+     (let* ((value1 env (eval-awke/number expr1 env))
+            (bool env (eval-awke/boolean value1 env)))
+       (if bool
            (eval-awke/number expr2 env)
-           (values 0 env))))
+           (values value1 env))))
     (('or expr1 expr2)
-     (let ((value1 env (eval-awke expr1 env)))
-       (match value1
-         ((or "" 0) (eval-awke/number expr2 env))
-         ((? numeric-string?)
-          (if (string-null? (numeric-string-string value1))
-              (eval-awke/number expr2 env)
-              (values value1 env)))
-         (_ (values value1 env)))))
+     (let* ((value1 env (eval-awke/number expr1 env))
+            (bool env (eval-awke/boolean value1 env)))
+       (if bool
+           (values value1 env)
+           (eval-awke/number expr2 env))))
     (('not expr)
      (let ((value env (eval-awke/boolean expr env)))
        (if value
