@@ -96,8 +96,9 @@
     ;; from complaining about 'getline'.  There is ambiguity between
     ;; the '|' form and the '<' form.
     >> (right: PIPE)
-
-    = ^= %= *= /= += -=
+    ;; We need to mark '/=' as right associative for the parser
+    ;; generator to accept the ERE (regex) work-around.
+    = ^= %= *= (right: /=) += -=
     ;; Mark '<' as right associative to ignore the ambiguity between
     ;; the '|' and '<' forms of 'getline'.  Also, do not worry about
     ;; ambiguity between '<' for 'getline' and '<' for less than.
@@ -461,10 +462,15 @@
     (Getline lvalue) : `(getline ,$2))
 
    (regex
-    (regex-start REGEX /) : (begin (set! %regex #f) `(re ,$2)))
+    (regex-start REGEX /) : (begin
+                              (set! %regex #f)
+                              (match $1
+                                ('/ `(re ,$2))
+                                ('/= `(re ,(string-append "=" $2))))))
 
    (regex-start
-    (/) : (set! %regex #t))
+    (/) : (begin (set! %regex #t) '/)
+    (/=) : (begin (set! %regex #t) '/=))
 
    (newline-opt
     () : '()

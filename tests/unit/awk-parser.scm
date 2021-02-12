@@ -218,6 +218,10 @@
   '(set-op! / a (set-op! / b 1))
   (parse* "a /=b/= 1"))
 
+(test-equal "Parses regex instead of division assignment"
+  '(re "=abc")
+  (parse* "/=abc/"))
+
 (test-equal "Parses modulus assignment"
   '(set-op! modulo x 2)
   (parse* "x %= 2"))
