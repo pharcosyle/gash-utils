@@ -987,7 +987,9 @@ the updated environment."
                     (values (string-upcase s) env))))
     ;; I/O, and general built-ins
     (close . ,(unimplemented-built-in 'close))
-    (system . ,(unimplemented-built-in 'system))))
+    (system . ,(lambda (env s)
+                 (let ((s env (eval-awke/string s env)))
+                   (values (system s) env))))))
 
 (define *built-in-names* (map car *built-ins*))
 
