@@ -21,6 +21,7 @@
   #:use-module (ice-9 rdelim)
   #:use-module (rnrs io ports)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-26)
   #:export (%extended?
             read-re-until))
 
@@ -38,6 +39,18 @@
 be read."
   (get-char port)
   (lookahead-char port))
+
+(define *special-escapes*
+  `((#\a . #\alarm)
+    (#\b . #\backspace)
+    (#\f . #\page)
+    (#\n . #\newline)
+    (#\r . #\return)
+    (#\t . #\tab)
+    (#\v . #\vtab)))
+
+(define (special-escape? chr)
+  (assv-ref *special-escapes* chr))
 
 (define (read-bracket-expression port)
   "Read a regular expression bracket expression from PORT,
@@ -72,9 +85,13 @@ it, such as named character classes and backslash escapes."
                       (acc* (cons* cc #\[ acc)))
                   (loop (get-char port) (append-reverse class acc*))))
                (chr (loop (get-char port) (cons* chr #\[ acc)))))
-        (#\\ (match (get-char port)
-               ((? eof-object?) (error "Unterminated bracket expression"))
-               (chr (loop (get-char port) (cons* chr #\\ acc)))))
+        (#\\ (match (lookahead-char port)
+               ((? eof-object?) (error "Unterminated regular expression"))
+               ((? special-escape? nchr)
+                (get-char port)
+                (loop (get-char port)
+                      (cons (assv-ref *special-escapes* nchr) acc)))
+               (_ (loop (get-char port) (cons chr acc)))))
         (chr (loop (get-char port) (cons chr acc))))))
 
   (match (lookahead-char port)
@@ -93,6 +110,9 @@ This procedure takes into account the ways that the delimiter could
 appear in the regular expression without ending it, such as in a
 bracket expression or capture group.  In order to determine what
 constitutes a capture group, it uses the `%extended?' parameter."
+  (define (delim? chr)
+    (char=? chr delim))
+
   (let loop ((chr (lookahead-char port)) (depth 0) (acc '()))
     (cond
      ((eof-object? chr)
@@ -110,9 +130,17 @@ constitutes a capture group, it uses the `%extended?' parameter."
       (if (%extended?)
           (match (next-char port)
             ((? eof-object?) (error "Unterminated regular expression"))
+            ((? delim?) (loop (next-char port) depth (cons delim acc)))
+            ((? special-escape? nchr)
+             (loop (next-char port) depth
+                   (cons (assv-ref *special-escapes* nchr) acc)))
             (nchr (loop (next-char port) depth (cons* nchr chr acc))))
           (match (next-char port)
             ((? eof-object?) (error "Unterminated regular expression"))
+            ((? delim?) (loop (next-char port) depth (cons delim acc)))
+            ((? special-escape? nchr)
+             (loop (next-char port) depth
+                   (cons (assv-ref *special-escapes* nchr) acc)))
             (#\( (loop (next-char port) (1+ depth) (cons* #\( chr acc)))
             (#\) (loop (next-char port) (1- depth) (cons* #\) chr acc)))
             (nchr (loop (next-char port) depth (cons* nchr chr acc))))))

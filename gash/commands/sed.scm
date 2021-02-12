@@ -89,12 +89,6 @@
            (if global? (loop rest (match:end m) replace)
                (loop '() (match:end m) replace))))))))
 
-(define (replace-escapes str)
-  (let* ((str (string-replace-string str "\\n" "\n"))
-         (str (string-replace-string str "\\r" "\r"))
-         (str (string-replace-string str "\\t" "\t")))
-    str))
-
 (define extended? (make-parameter #f))
 
 (define end-of-script-tag (make-prompt-tag))
@@ -126,7 +120,7 @@
   (let* ((global? (memq 'g flags))
          (flags (cons (if (extended?) regexp/extended regexp/basic)
                       (if (memq 'i flags) `(,regexp/icase) '())))
-         (regexp (apply (regexp-factory) (replace-escapes pattern) flags))
+         (regexp (apply (regexp-factory) pattern flags))
          (proc (replace->lambda replacement global?)))
     (match (list-matches regexp str)
       ((and m+ (_ _ ...)) (proc str m+))
@@ -145,7 +139,7 @@
   (match address
     ((? string?)
      (let* ((flags `(,(if (extended?) regexp/extended regexp/basic)))
-            (pattern (replace-escapes address))
+            (pattern address)
             (regexp (apply (regexp-factory) pattern flags)))
        (lambda (env)
          (regexp-exec regexp (env-target env)))))

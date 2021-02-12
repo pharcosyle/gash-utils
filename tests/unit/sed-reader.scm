@@ -42,7 +42,7 @@
   (parse "\\$^foo$ p"))
 
 (test-equal "Allows escaping address delimiter"
-  '((at "abc\\xdef") p)
+  '((at "abcxdef") p)
   (parse "\\xabc\\xdefx p"))
 
 (test-end "sed-reader")
