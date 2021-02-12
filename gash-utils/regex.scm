@@ -96,9 +96,9 @@ it, such as named character classes and backslash escapes."
 
   (match (lookahead-char port)
     (#\^ (match (next-char port)
-           (#\] (get-char port) (string-append "[^]" (read-rest)))
+           (#\] (get-char port) "[^]")
            (_ (string-append "[^" (read-rest)))))
-    (#\] (get-char port) (string-append "[]" (read-rest)))
+    (#\] (get-char port) "[]")
     (_ (string-append "[" (read-rest)))))
 
 (define (read-re-until delim port)
