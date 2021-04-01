@@ -54,6 +54,74 @@
   10
 #+end_example
 
+* Sorts case-sensitively
+:script:
+#+begin_src sh
+  LANG=C sort
+#+end_src
+:stdin:
+#+begin_example
+  apple
+  BANANA
+#+end_example
+:stdout:
+#+begin_example
+  BANANA
+  apple
+#+end_example
+
+* Sorts case-insensitively
+:script:
+#+begin_src sh
+  LANG=C sort -f
+#+end_src
+:stdin:
+#+begin_example
+  apple
+  BANANA
+#+end_example
+:stdout:
+#+begin_example
+  apple
+  BANANA
+#+end_example
+
+* Sorts with keys
+:script:
+#+begin_src sh
+  sort -k 2,2
+#+end_src
+:stdin:
+#+begin_example
+  foo banana
+  bar apple
+#+end_example
+:stdout:
+#+begin_example
+  bar apple
+  foo banana
+#+end_example
+
+* Sorts with field separator and multiple keys
+:script:
+#+begin_src sh
+  sort -t : -k 3,3 -k 1,1 -k 2,2
+#+end_src
+:stdin:
+#+begin_example
+  1:1:1
+  1:1:0
+  0:1:1
+  1:0:1
+#+end_example
+:stdout:
+#+begin_example
+  1:1:0
+  0:1:1
+  1:0:1
+  1:1:1
+#+end_example
+
 * Removes duplicates
 :script:
 #+begin_src sh
