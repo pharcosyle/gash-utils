@@ -346,25 +346,58 @@ transferred and the continuation of the transfer as a thunk."
                 file (strerror errno))
         #f))))
 
-(define* (copy-file* source dest #:key force? verbose?)
+(define-syntax-rule (preserve-step name source body ...)
+  (catch 'system-error
+    (lambda ()
+      body ...
+      #t)
+    (lambda (key func fmt msg errno . rest)
+      (format (current-error-port)
+              "cp: could not preserve ~a of ~a~%cp: ~a~%"
+              name source msg)
+      #f)))
+
+(define (copy-file-metadata source dest)
+  (match (false-if-exception (stat source))
+    (#f (format (current-error-port)
+                "cp: could not preserve metadata of ~a~%"
+                source))
+    (st (preserve-step
+         "timestamps" source
+         (utime dest (stat:atime st) (stat:mtime st)
+                (stat:atimensec st) (stat:mtimensec st)))
+        ;; TODO: Preserve the UID and GID.
+        (preserve-step
+         "permission bits" source
+         (chmod dest (bit-extract (stat:mode st) 0 9))))))
+
+(define* (copy-file* source dest #:key force? preserve? verbose?)
   (when verbose?
     (format (current-error-port) "'~a' -> '~a'\n" source dest))
-  (if (not force?) (copy-file source dest)
+  (if (not force?)
+      (begin
+        (copy-file source dest)
+        (when preserve? (copy-file-metadata source dest)))
       (catch 'system-error
         (lambda _
-          (copy-file source dest))
+          (copy-file source dest)
+          (when preserve? (copy-file-metadata source dest)))
         (lambda (key func fmt msg errno . rest)
           (when (getenv "GASH_DEBUG")
             (format (current-error-port) "errno:~s\n" (car errno)))
           (match errno
             (((or 13 17))
              (delete-file dest)
-             (copy-file source dest))
+             (copy-file source dest)
+             (when preserve? (copy-file-metadata source dest)))
             (_ (throw key func fmt msg errno)))))))
 
-(define* (copy-files #:optional files #:key force? verbose?)
+(define* (copy-files #:optional files #:key force? preserve? verbose?)
   (define (copy source dest)
-    (copy-file* source dest #:force? force? #:verbose? verbose?))
+    (copy-file* source dest
+                #:force? force?
+                #:preserve? preserve?
+                #:verbose? verbose?))
 
   (match files
     ((source (and (? directory-exists?) dir))

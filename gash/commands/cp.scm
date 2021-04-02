@@ -33,6 +33,7 @@ Usage: cp [OPTION]... SOURCE... DEST
 
 Options:
   -f, --force     remove existing destination files
+  -p, --preserve  preserve timestamps and permissions
   -v, --verbose   display name of each copied file
   -h, --help      display this help and exit
   -V, --version   display version information and exit
@@ -44,6 +45,7 @@ Options:
 (define *options-grammar*
   (make-options-grammar
    `((flag force #\f)
+     (flag preserve #\p)
      (flag verbose #\v)
      (message ("help" #\h) ,*help-message*)
      (message ("version" #\V) ,*version-message*))
@@ -52,8 +54,12 @@ Options:
 (define (cp . args)
   (let* ((options (parse-options args *options-grammar*))
          (force? (assoc-ref options 'force))
+         (preserve? (assoc-ref options 'preserve))
          (verbose? (assoc-ref options 'verbose))
 	 (files (or (assoc-ref options 'files) '())))
-    (copy-files files #:force? force? #:verbose? verbose?)))
+    (copy-files files
+                #:force? force?
+                #:preserve? preserve?
+                #:verbose? verbose?)))
 
 (define main cp)
