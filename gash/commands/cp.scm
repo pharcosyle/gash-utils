@@ -1,5 +1,6 @@
 ;;; Gash-Utils
 ;;; Copyright © 2019 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;; Copyright © 2021 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Gash-Utils.
 ;;;
@@ -24,26 +25,10 @@
   #:use-module (ice-9 getopt-long)
   #:use-module (gash commands config)
   #:use-module (gash shell-utils)
+  #:use-module (gash-utils options)
   #:export (cp))
 
-(define (cp . args)
-  (let* ((option-spec
-	  '((force (single-char #\f))
-            (verbose (single-char #\v))
-
-            (help (single-char #\h))
-            (version (single-char #\V))))
-	 (options (getopt-long args option-spec))
-         (force? (option-ref options 'force #f))
-         (verbose? (option-ref options 'verbose #f))
-
-	 (help? (option-ref options 'help #f))
-         (version? (option-ref options 'version #f))
-	 (files (option-ref options '() '()))
-         (usage? (and (not help?) (< (length files) 2))))
-    (cond (version? (format #t "cp (GASH) ~a\n" %version) (exit 0))
-          ((or help? usage?) (format (if usage? (current-error-port) #t)
-                                     "\
+(define *help-message* "\
 Usage: cp [OPTION]... SOURCE... DEST
 
 Options:
@@ -52,8 +37,23 @@ Options:
   -h, --help      display this help and exit
   -V, --version   display version information and exit
 ")
-           (exit (if usage? 2 0)))
-          (else
-           (copy-files files #:force? force? #:verbose? verbose?)))))
+
+(define *version-message*
+  (format #f "cp (~a) ~a~%" %package-name %version))
+
+(define *options-grammar*
+  (make-options-grammar
+   `((flag force #\f)
+     (flag verbose #\v)
+     (message ("help" #\h) ,*help-message*)
+     (message ("version" #\V) ,*version-message*))
+   #:default 'files))
+
+(define (cp . args)
+  (let* ((options (parse-options args *options-grammar*))
+         (force? (assoc-ref options 'force))
+         (verbose? (assoc-ref options 'verbose))
+	 (files (or (assoc-ref options 'files) '())))
+    (copy-files files #:force? force? #:verbose? verbose?)))
 
 (define main cp)
