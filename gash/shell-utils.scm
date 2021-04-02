@@ -6,6 +6,7 @@
 ;;; Copyright © 2017 Ricardo Wurmus <rekado@elephly.net>
 ;;; Copyright © 2015, 2018 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2018 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;; Copyright © 2021 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Gash-Utils.
 ;;;
@@ -362,20 +363,21 @@ transferred and the continuation of the transfer as a thunk."
             (_ (throw key func fmt msg errno)))))))
 
 (define* (copy-files #:optional files #:key force? verbose?)
+  (define (copy source dest)
+    (copy-file* source dest #:force? force? #:verbose? verbose?))
+
   (match files
     ((source (and (? directory-exists?) dir))
-     (copy-file* source (string-append dir "/" (basename source))
-                 #:force? force #:verbose? verbose?))
+     (copy source (string-append dir "/" (basename source))))
     ((source dest)
-     (copy-file* source dest #:force? force #:verbose? verbose?))
+     (copy source dest))
     ((sources ... dir)
      (unless (directory-exists? dir)
        (error (format #f "cp: target `~a' is not a directory\n" dir)))
-     (for-each
-      (cut copy-file* <> <> #:force? force? #:verbose? verbose?)
-      sources
-      (map (compose (cute string-append dir "/" <>) basename)
-           sources)))))
+     (for-each copy
+               sources
+               (map (compose (cute string-append dir "/" <>) basename)
+                    sources)))))
 
 (define* (link-file* source dest #:key force? verbose?)
   (when verbose?
