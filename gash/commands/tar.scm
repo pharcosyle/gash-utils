@@ -39,6 +39,7 @@
             (gzip (single-char #\z))
             (bzip2 (single-char #\j))
             (xz (single-char #\J))
+            (auto-compress (single-char #\a))
             (group (value #t))
             (exclude (value #t))
             (extract (single-char #\x))
@@ -83,6 +84,7 @@
          (bzip2? (option-ref options 'bzip2 #f))
          (gzip? (option-ref options 'gzip #f))
          (xz? (option-ref options 'xz #f))
+         (auto-compress (option-ref options 'auto-compress #f))
          (compression (cond (bzip2? 'bzip2)
                             (compress? 'compress)
                             (gzip? 'gzip)
@@ -134,6 +136,7 @@ Usage: tar [OPTION]... [FILE]...
   -Z, --compress             filter the archive through compress
 
 Ignored for compatibility:
+  -a, --auto-compress
   -B, --read-full-records
       --exclude=PATTERN
   -p, --preserve-permissions, --same-permissions
