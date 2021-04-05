@@ -63,9 +63,15 @@
                           (option-ref options 'list #f)
                           (null? (cdr args))
                           (string-prefix? "-" (cadr args))) options
-                          (let ((args (cons* (car args)
-                                             (string-append "-" (cadr args))
-                                             (cddr args))))
+                          (let* ((cmd (string-append "-" (cadr args)))
+                                 (no-f (string-filter (lambda (x)
+                                                        (not (char=? x #\f)))
+                                                      cmd))
+                                 (args (cons* (car args)
+                                              (if (string=? cmd no-f)
+                                                  cmd
+                                                  (string-append no-f "f"))
+                                              (cddr args))))
                             (getopt-long args option-spec))))
          (create? (option-ref options 'create #f))
          (list? (option-ref options 'list #f))
