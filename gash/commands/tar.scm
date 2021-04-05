@@ -43,6 +43,7 @@
             (exclude (value #t))
             (extract (single-char #\x))
             (file (single-char #\f) (value #t))
+            (files-from (single-char #\T) (value #t))
             (help (single-char #\h))
             (mtime (value #t))
             (list (single-char #\t))
@@ -70,6 +71,7 @@
          (list? (option-ref options 'list #f))
          (extract? (option-ref options 'extract #f))
          (file (option-ref options 'file "-"))
+         (files-from (option-ref options 'files-from #f))
 	 (files (option-ref options '() '()))
          (compress? (option-ref options 'compress #f))
          (bzip2? (option-ref options 'bzip2 #f))
@@ -92,7 +94,9 @@
                      (option-ref options 'strip-components #f)
                      "0")))
 	 (help? (option-ref options 'help #f))
-	 (usage? (and (not help?) (not (or (and create? (pair? files))
+	 (usage? (and (not help?) (not (or (and create?
+                                                (or (pair? files)
+                                                    files-from))
                                            extract? list?))))
 	 (verbosity (length (multi-opt options 'verbose)))
          (version? (option-ref options 'version #f))
@@ -127,6 +131,7 @@ Ignored for compatibility:
   -B, --read-full-records
       --exclude=PATTERN
   -p, --preserve-permissions, --same-permissions
+  -T, --files-from
 ")
            (exit (if usage? 2 0)))
           (create?
