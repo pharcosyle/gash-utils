@@ -89,7 +89,7 @@
                             (compress? 'compress)
                             (gzip? 'gzip)
                             (xz? 'xz)
-                            (else (and (or extract? list? )
+                            (else (and (or extract? list? create?)
                                        (cond ((string-suffix? ".Z" file) 'compress)
                                              ((string-suffix? ".bz2" file) 'bzip2)
                                              ((string-suffix? ".gz" file) 'gzip)
