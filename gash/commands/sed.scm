@@ -348,7 +348,7 @@
                   ((env-queue) '())
                   ((env-sub?) #f)
                   ((env-read?) #t))))
-        #t))
+        #f))
 
   (parameterize ((regexp-factory (make-regexp-factory)))
     (let loop ((env (make-env in out 1 (read-line in) ""
@@ -408,21 +408,22 @@ Usage: sed [OPTION]... [SCRIPT] [FILE]...
                        (call-with-input-string script
                          (cut read-sed-all <> #:extended? (extended?)))))
                  (cond ((and in-place? (pair? files))
-                        (for-each (lambda (file)
-                                    (with-atomic-file-replacement file
-                                      (cut edit-stream commands <> <>
-                                           #:quiet? quiet?)))
-                                  files))
+                        (any (lambda (file)
+                               (with-atomic-file-replacement file
+                                 (negate (cut edit-stream commands <> <>
+                                              #:quiet? quiet?))))
+                             files))
                        ((pair? files)
-                        (for-each (lambda (file)
-                                    (call-with-input-file file
-                                      (cut edit-stream commands <>
-                                           #:quiet? quiet?)))
-                                  files))
+                        (any (lambda (file)
+                               (call-with-input-file file
+                                 (negate (cut edit-stream commands <>
+                                              #:quiet? quiet?))))
+                             files))
                        (else (edit-stream commands #:quiet? quiet?))))))))))
 
 (define main sed)
 
 ;;; Local Variables:
 ;;; eval: (put 'set-fields 'scheme-indent-function 1)
+;;; eval: (put 'with-atomic-file-replacement 'scheme-indent-function 1)
 ;;; End:

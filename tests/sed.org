@@ -425,3 +425,14 @@
   3
   5
 #+end_example
+
+* Stops processing files after ~q~
+:script:
+#+begin_src sh
+  sed -e '2q' -- tests/data/foo tests/data/fooRbar
+#+end_src
+:stdout:
+#+begin_example
+  foo
+  bar
+#+end_example
