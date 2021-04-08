@@ -361,6 +361,31 @@
                         (lambda (cont env*) env*))))
             (flush-then-loop loop env*))))))
 
+;; TODO: Should this be part of 'cat'?
+(define (file-concatenate files)
+  (define port #f)
+  (define %files files)
+  (define (next-file!)
+    (match %files
+      (() (set! port #f))
+      ((file . rest)
+       (when port (close-port port))
+       (set! port (open-file file "r"))
+       (set! %files rest))))
+  (next-file!)
+  (make-soft-port (vector #f #f #f
+                          (lambda ()
+                            (let loop ()
+                              (if port
+                                  (match (get-char port)
+                                    ((? eof-object?) (begin (next-file!)
+                                                            (loop)))
+                                    (chr chr))
+                                  (eof-object))))
+                          (lambda ()
+                            (when port (close-port port))))
+                  "r"))
+
 (define (sed . args)
   (let* ((option-spec
 	  '((expression (single-char #\e) (value #t))
@@ -369,12 +394,14 @@
             (file (single-char #\f) (value #t))
             (help (single-char #\h))
             (in-place (single-char #\i))
+            (separate (single-char #\s))
             (quiet (single-char #\n))
             (version (single-char #\V))))
 	 (options (getopt-long args option-spec))
 	 (files (option-ref options '() '()))
 	 (help? (option-ref options 'help #f))
          (in-place? (option-ref options 'in-place #f))
+         (separate? (option-ref options 'separate #f))
          (quiet? (option-ref options 'quiet #f))
 	 (usage? (and (not help?) (or (and (null? files) (isatty? (current-input-port))))))
          (version? (option-ref options 'version #f)))
@@ -390,6 +417,7 @@ Usage: sed [OPTION]... [SCRIPT] [FILE]...
   -f, --file=SCRIPT          add contents of SCRIPT to the commands to be executed
   -h, --help                 display this help
   -i, --in-place             edit files in place
+  -s, --separate             process each file independently
   -n, --quiet                only write explicitly selected output
   -V, --version              display version
 ")
@@ -413,17 +441,21 @@ Usage: sed [OPTION]... [SCRIPT] [FILE]...
                                  (negate (cut edit-stream commands <> <>
                                               #:quiet? quiet?))))
                              files))
-                       ((pair? files)
+                       ((and separate? (pair? files))
                         (any (lambda (file)
                                (call-with-input-file file
                                  (negate (cut edit-stream commands <>
                                               #:quiet? quiet?))))
                              files))
+                       ((pair? files)
+                        (call-with-port (file-concatenate files)
+                          (cut edit-stream commands <> #:quiet? quiet?)))
                        (else (edit-stream commands #:quiet? quiet?))))))))))
 
 (define main sed)
 
 ;;; Local Variables:
+;;; eval: (put 'call-with-port 'scheme-indent-function 1)
 ;;; eval: (put 'set-fields 'scheme-indent-function 1)
 ;;; eval: (put 'with-atomic-file-replacement 'scheme-indent-function 1)
 ;;; End:

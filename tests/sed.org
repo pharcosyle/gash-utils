@@ -338,6 +338,7 @@
     -f, --file=SCRIPT          add contents of SCRIPT to the commands to be executed
     -h, --help                 display this help
     -i, --in-place             edit files in place
+    -s, --separate             process each file independently
     -n, --quiet                only write explicitly selected output
     -V, --version              display version
 #+end_example
