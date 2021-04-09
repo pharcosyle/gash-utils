@@ -1,6 +1,6 @@
 ;;; Gash-Utils
 ;;; Copyright © 2019 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
-;;; Copyright © 2020, 2021 Timothy Sample <samplet@ngyro.com>
+;;; Copyright © 2020-2022 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Gash-Utils.
 ;;;
@@ -25,6 +25,7 @@
   #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 i18n)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 popen)
   #:use-module (ice-9 pretty-print)
   #:use-module (ice-9 rdelim)
   #:use-module (ice-9 receive)
@@ -32,7 +33,8 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-9 gnu)
-  #:use-module (srfi srfi-11))
+  #:use-module (srfi srfi-11)
+  #:use-module (srfi srfi-26))
 
 ;;; Commentary:
 
@@ -73,15 +75,24 @@
 
 ;; Data types
 
+(define-immutable-record-type <redirect>
+  (make-redirect name type port)
+  redirect?
+  (name redirect-name)   ; string
+  (type redirect-type)   ; 'file or 'pipe
+  (port redirect-port))  ; port
+
 ;; This record type stores the Awk environment.  The record itself is
 ;; immutable, but it has references to mutable values.  For instance,
 ;; the variables and arrays are built on top of hash tables and are
 ;; mutated freely.
 (define-immutable-record-type <env>
-  (make-env in out record fields locals globals)
+  (make-env in out input-redirected? redirects record fields locals globals)
   env?
   (in env-in set-env-in)               ; input port
   (out env-out set-env-out)            ; output port
+  (input-redirected? env-input-redirected? set-env-input-redirected?)
+  (redirects env-redirects set-env-redirects)  ; <redirect> list
   (record env-record %set-env-record)  ; record string
   (fields env-fields %set-env-fields)  ; fields list
   (locals env-locals set-env-locals)   ; hash table of local variables
@@ -112,6 +123,13 @@ environment @var{env} through the calls to @var{proc}."
   numeric-string?
   (string numeric-string-string)
   (number numeric-string-number))
+
+(define (import-string str)
+  "Convert @var{str} to a @code{numeric-string} where appropriate."
+  (let ((result size (locale-string->inexact str)))
+    (if (and result (string-every char-set:blank (substring str size)))
+        (make-numeric-string str result)
+        str)))
 
 ;; This is a bit of hack, but I think it is clever enough to keep
 ;; around.  Awk has a notion of an uninitialized scalar, which is an
@@ -312,6 +330,80 @@ field and the @code{env-fields} field of @var{env} accordingly."
                                     (take (circular-list uninitialized-scalar)
                                           (- nf old-nf)))))))
 
+(define* (get-record env #:key (update-nr? #t))
+  "Read a record from the input port of @var{env}.  If @var{update-nr?}
+is set (the default), the @var{NR} and @var{FNR} Awk variables will be
+updated in @var{env}."
+  (match (read-delimited (env-ref/scalar! 'RS env) (env-in env))
+    ((? eof-object?) #f)
+    (record (when update-nr?
+              (env-set/scalar! 'NR (1+ (env-ref/scalar! 'NR env)) env)
+              (env-set/scalar! 'FNR (1+ (env-ref/scalar! 'FNR env)) env))
+            record)))
+
+(define* (read-record env #:key (update-nr? #t))
+  "Read a record from the input port of @var{env} and set it as the
+current record in @var{env}, returning the updated environment.  If
+@var{update-nr?}  is set (the default), the @var{NR} and @var{FNR} Awk
+variables will be updated in @var{env}."
+  (set-env-record env (get-record env #:update-nr? update-nr?)))
+
+
+;; Redirects
+
+(define (lookup-redirect env name)
+  (find (lambda (redir)
+          (string=? (redirect-name redir) name))
+        (env-redirects env)))
+
+(define (remove-redirect env name)
+  (set-env-redirects env (remove (lambda (redir)
+                                   (string=? (redirect-name redir) name))
+                                 (env-redirects env))))
+
+(define (set-redirect env name type purpose create)
+  (match (lookup-redirect env name)
+    (#f (let ((port (false-if-exception (create))))
+          (if port
+              (let ((redir (make-redirect name type port))
+                    (redirs (env-redirects env)))
+                (values port (set-env-redirects env (cons redir redirs))))
+              (values #f env))))
+    (($ <redirect> _ existing-type port)
+     (unless (eq? existing-type type)
+       (error (format #f  "cannot use existing ~a redirect as ~a: ~s"
+                      existing-type type name)))
+     (unless (or (eq? purpose 'input) (output-port? port))
+       (error (format #f "cannot write to existing redirect: ~s" name)))
+     (unless (or (eq? purpose 'output) (input-port? port))
+       (error (format #f "cannot read from existing redirect: ~s" name)))
+     (values port env))))
+
+(define* (redirect-output-file env target #:key (truncate? #t))
+  (set-redirect env target 'file 'output
+                (lambda () (open-file target (if truncate? "w" "a")))))
+
+(define (redirect-input-file env source)
+  (set-redirect env source 'file 'input
+                (lambda () (open-file source "r"))))
+
+(define (redirect-output-pipe env target)
+  (set-redirect env target 'pipe 'output
+                (lambda () (open-output-pipe target))))
+
+(define (redirect-input-pipe env source)
+  (set-redirect env source 'pipe 'input
+                (lambda () (open-input-pipe source))))
+
+(define (close-redirect env name)
+  (match (lookup-redirect env name)
+    (#f (values -1 env))
+    (($ <redirect> _ type port)
+     (values (case type
+               ((file) (if (false-if-exception (close-port port)) 0 -1))
+               ((pipe) (status:exit-val (close-pipe port))))
+             (remove-redirect env name)))))
+
 
 ;; String splitting helpers
 
@@ -462,19 +554,36 @@ returning the result of evaluation along with the updated environment."
     (('printf format-expr exprs ...)
      (apply perform-printf env format-expr exprs))
     ;; Input
-    ;; TODO
+    (('getline)
+     (let* ((update-nr? (not (env-input-redirected? env)))
+            (env (read-record env #:update-nr? update-nr?)))
+       (values (if (env-record env) 1 0) env)))
+    (('getline lvalue)
+     (let* ((resolved-lvalue env (resolve-lvalue lvalue env))
+            (update-nr? (not (env-input-redirected? env)))
+            (record (get-record env #:update-nr? update-nr?)))
+       (if record
+           (values 1 (second-value (perform-set! resolved-lvalue
+                                                 (import-string record)
+                                                 env)))
+           (values 0 (second-value (perform-set! resolved-lvalue
+                                                 uninitialized-scalar
+                                                 env))))))
     ;; Redirects
     (('with-redirect redir expr)
      (match redir
-       ;; We do not support general redirects yet, but are obliged to
-       ;; hack together something for a particular Automake idiom for
-       ;; printing to stderr.
-       (('pipe-to "cat >&2")
-        (let* ((out (env-out env))
-               (env (set-env-out env (current-error-port)))
-               (result env (eval-awke expr env))
-               (env (set-env-out env out)))
-          (values result env)))
+       (('truncate target-expr)
+        (let ((redirector (cut redirect-output-file <> <> #:truncate? #t)))
+          (redirect-output env target-expr redirector expr)))
+       (('append target-expr)
+        (let ((redirector (cut redirect-output-file <> <> #:truncate? #f)))
+          (redirect-output env target-expr redirector expr)))
+       (('pipe-to target-expr)
+        (redirect-output env target-expr redirect-output-pipe expr))
+       (('read source-expr)
+        (redirect-input env source-expr redirect-input-file expr))
+       (('pipe-from source-expr)
+        (redirect-input env source-expr redirect-input-pipe expr))
        (_ (error "unsupported redirect:" redir))))
     ;; Arithmetic
     (('+ expr)
@@ -833,6 +942,33 @@ updated environment."
     (display result (env-out env))
     (values uninitialized-scalar env)))
 
+(define (redirect-input env source-expr redirector expr)
+  (let* ((source env (eval-awke/string source-expr env))
+         (port env (redirector env source)))
+    (if port
+        (let* ((in (env-in env))
+               (input-redirected? (env-input-redirected? env))
+               (env (set-fields env
+                      ((env-in) port)
+                      ((env-input-redirected?) #t)))
+               (result env (eval-awke expr env))
+               (env (set-fields env
+                      ((env-in) in)
+                      ((env-input-redirected?) input-redirected?))))
+          (values result env))
+        (values -1 env))))
+
+(define (redirect-output env target-expr redirector expr)
+  (let* ((target env (eval-awke/string target-expr env))
+         (port env (redirector env target)))
+    (if port
+        (let* ((out (env-out env))
+               (env (set-env-out env port))
+               (result env (eval-awke expr env))
+               (env (set-env-out env out)))
+          (values result env))
+        (values -1 env))))
+
 (define *continue-prompt* (make-prompt-tag "continue"))
 
 (define *break-prompt* (make-prompt-tag "break"))
@@ -990,7 +1126,9 @@ the updated environment."
                   (let ((s env (eval-awke/string s env)))
                     (values (string-upcase s) env))))
     ;; I/O, and general built-ins
-    (close . ,(unimplemented-built-in 'close))
+    (close . ,(lambda (env s)
+                (let ((s env (eval-awke/string s env)))
+                  (close-redirect env s))))
     (system . ,(lambda (env s)
                  (let ((s env (eval-awke/string s env)))
                    (values (system s) env))))))
@@ -1115,7 +1253,7 @@ list @var{files}, and field separator @var{field-separator}."
     (for-each (match-lambda
                 ((key . value) (hashq-set! globals key value)))
               *built-ins*)
-    (make-env #f out #f '() (make-hash-table) globals)))
+    (make-env #f out #f '() #f '() (make-hash-table) globals)))
 
 (define (eval-assignments assigns env)
   "Set each name-value pair in @var{assigns} in the environment
@@ -1136,15 +1274,6 @@ and @code{'FNR} variables."
     (env-set/scalar! 'FILENAME filename env)
     (env-set/scalar! 'FNR 0 env)
     (set-env-in env port)))
-
-(define (read-record env)
-  "Read a record from the input port of @var{env}, and update the
-environment accordingly."
-  (match (read-delimited (env-ref/scalar! 'RS env) (env-in env))
-    ((? eof-object?) (set-env-record env #f))
-    (record (env-set/scalar! 'NR (1+ (env-ref/scalar! 'NR env)) env)
-            (env-set/scalar! 'FNR (1+ (env-ref/scalar! 'FNR env)) env)
-            (set-env-record env record))))
 
 (define (process-file items filename env)
   "Evaluate each of the regular items in @var{items} with the

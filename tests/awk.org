@@ -1,6 +1,6 @@
 ;;; Gash-Utils
 ;;; Copyright © 2019 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
-;;; Copyright © 2020 Timothy Sample <samplet@ngyro.com>
+;;; Copyright © 2020, 2022 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Gash-Utils.
 ;;;
@@ -970,4 +970,142 @@
 :stdout:
 #+begin_example
   bar
+#+end_example
+
+* Can use ~getline~
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  /foo/ { getline; print NR, $0; }
+  /baz/ { print NR, $0; }
+#+end_src
+:stdin:
+#+begin_example
+  foo
+  bar
+  baz
+#+end_example
+:stdout:
+#+begin_example
+  2 bar
+  3 baz
+#+end_example
+
+* Can use ~getline~ with a variable
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  /foo/ { getline x; print NR, $0, x; }
+  /baz/ { print NR, $0; }
+#+end_src
+:stdin:
+#+begin_example
+  foo
+  bar
+  baz
+#+end_example
+:stdout:
+#+begin_example
+  2 foo bar
+  3 baz
+#+end_example
+
+* Redirects input
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  /def/ {
+      getline < "tests/data/foo";
+      print NR, $0;
+  }
+  END {
+      getline < "tests/data/foo";
+      print NR, $0;
+  }
+#+end_src
+:stdin:
+#+begin_example
+  abc
+  def
+  ghi
+#+end_example
+:stdout:
+#+begin_example
+  2 foo
+  3 bar
+#+end_example
+
+* Redirects input with a variable
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  /def/ {
+      getline x < "tests/data/foo";
+      print NR, $0, x;
+  }
+  /ghi/ {
+      getline x < "tests/data/foo";
+      print NR, $0, x;
+  }
+#+end_src
+:stdin:
+#+begin_example
+  abc
+  def
+  ghi
+#+end_example
+:stdout:
+#+begin_example
+  2 def foo
+  3 ghi bar
+#+end_example
+
+* Writes and reads from a file
+:script:
+#+begin_src sh
+  awk -v tmpdir="$TEST_TMP" -f -
+  cat "$TEST_TMP"/awk;
+  rm "$TEST_TMP"/awk;
+#+end_src
+:stdin:
+#+begin_src awk
+  BEGIN {
+      f = tmpdir "/awk";
+      print "hello" > f;
+      close(f);
+      getline x < f;
+      print x;
+  }
+#+end_src
+:stdout:
+#+begin_example
+  hello
+  hello
+#+end_example
+
+* Reads from a pipe
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      "echo hello" | getline x;
+      print x;
+  }
+#+end_src
+:stdout:
+#+begin_example
+  hello
+#+end_example
+
+* Writes to a pipe
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      print "hello" | "cat - 1>&2"
+  }
+#+end_src
+:stderr:
+#+begin_example
+  hello
 #+end_example
