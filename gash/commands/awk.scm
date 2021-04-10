@@ -1292,20 +1292,28 @@ environment @var{env} over each of the records in @var{filename}."
 (define* (%eval-awk items files assigns #:optional
                     (out (current-output-port))
                     #:key (field-separator " "))
-  (let* ((env (make-default-env out files field-separator))
-         (env (fold eval-function-definition env items))
-         (env (eval-assignments assigns env))
-         (env (fold eval-begin-item env items)))
-    (let loop ((k 0) (env env))
-      (if (< k (env-ref/scalar! 'ARGC env))
-          (let ((file env (eval-awke `(array-ref ,k ARGV) env)))
-            (loop (1+ k) (process-file items file env)))
-          (call-with-prompt *exit-prompt*
-            (lambda ()
-              (fold eval-end-item env items)
-              0)
-            (lambda (cont value env)
-              value))))))
+
+  (define* (eval-end-items env #:optional (return-value 0))
+    (call-with-prompt *exit-prompt*
+      (lambda ()
+        (fold eval-end-item env items)
+        return-value)
+      (lambda (cont value env)
+        value)))
+
+  (call-with-prompt *exit-prompt*
+    (lambda ()
+      (let* ((env (make-default-env out files field-separator))
+             (env (fold eval-function-definition env items))
+             (env (eval-assignments assigns env))
+             (env (fold eval-begin-item env items)))
+        (let loop ((k 0) (env env))
+          (if (< k (env-ref/scalar! 'ARGC env))
+              (let ((file env (eval-awke `(array-ref ,k ARGV) env)))
+                (loop (1+ k) (process-file items file env)))
+              (eval-end-items env)))))
+    (lambda (cont value env)
+      (eval-end-items env value))))
 
 
 ;; Command-line interface
