@@ -647,17 +647,17 @@ returning the result of evaluation along with the updated environment."
        (values uninitialized-scalar env)))
     ;; Boolean expressions
     (('and expr1 expr2)
-     (let* ((value1 env (eval-awke/number expr1 env))
-            (bool env (eval-awke/boolean value1 env)))
-       (if bool
-           (eval-awke/number expr2 env)
-           (values value1 env))))
+     (let ((bool1 env (eval-awke/boolean expr1 env)))
+       (if bool1
+           (let ((bool2 env (eval-awke/boolean expr2 env)))
+             (values (if bool2 1 0) env))
+           (values 0 env))))
     (('or expr1 expr2)
-     (let* ((value1 env (eval-awke/number expr1 env))
-            (bool env (eval-awke/boolean value1 env)))
-       (if bool
-           (values value1 env)
-           (eval-awke/number expr2 env))))
+     (let ((bool1 env (eval-awke/boolean expr1 env)))
+       (if bool1
+           (values 1 env)
+           (let ((bool2 env (eval-awke/boolean expr2 env)))
+             (values (if bool2 1 0) env)))))
     (('not expr)
      (let ((value env (eval-awke/boolean expr env)))
        (if value

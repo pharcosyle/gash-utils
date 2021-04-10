@@ -1109,3 +1109,18 @@
 #+begin_example
   hello
 #+end_example
+
+* The ~&&~ and ~||~ operators always return 0 or 1
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      print (42 || 42), ("" || "");
+      print (42 && 42), ("" && "");
+  }
+#+end_src
+:stdout:
+#+begin_example
+  1 0
+  1 0
+#+end_example
