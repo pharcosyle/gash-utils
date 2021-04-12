@@ -1124,3 +1124,18 @@
   1 0
   1 0
 #+end_example
+
+* Handles ~&~ in regex replacements
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      x = "foo";
+      gsub(/f./, "[& &]", x);
+      print x;
+  }
+#+end_src
+:stdout:
+#+begin_example
+  [fo fo]o
+#+end_example
