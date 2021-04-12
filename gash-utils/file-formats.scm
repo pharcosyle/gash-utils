@@ -1,5 +1,5 @@
 ;;; Gash-Utils
-;;; Copyright © 2020 Timothy Sample <samplet@ngyro.com>
+;;; Copyright © 2020, 2022 Timothy Sample <samplet@ngyro.com>
 ;;;
 ;;; This file is part of Gash-Utils.
 ;;;
@@ -17,10 +17,14 @@
 ;;; along with Gash-Utils.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (gash-utils file-formats)
+  #:use-module (ice-9 i18n)
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
+  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
+  #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-26)
+  #:use-module ((system foreign) #:select (sizeof unsigned-long))
   #:export (<conversion-adapter>
             make-conversion-adapter
             conversion-adapter?
@@ -35,14 +39,10 @@
 ;;; Code:
 
 (define-record-type <conversion>
-  (%make-conversion type proc width?)
+  (%make-conversion type proc)
   conversion?
   (type conversion-type)
-  (proc conversion-proc)
-  (width? conversion-width?))
-
-(define* (make-conversion type proc #:optional width?)
-  (%make-conversion type proc width?))
+  (proc conversion-proc))
 
 (define-record-type <conversion-adapter>
   (make-conversion-adapter to-string to-number to-character)
@@ -50,6 +50,94 @@
   (to-string conversion-to-string)
   (to-number conversion-to-number)
   (to-character conversion-to-character))
+
+(define *unsigned-modulus* (expt 256 (sizeof unsigned-long)))
+
+(define (flags-set? flag flags)
+  "Check if @var{flag} is in @var{flags}."
+  (any (lambda (f) (char=? f flag)) flags))
+
+(define (flags-delete flag flags)
+  "Remove @var{flag} from @var{flags}."
+  (remove (lambda (f) (char=? f flag)) flags))
+
+(define (ensure-width s prefix width flags)
+  "Pad the string @var{s} such that the total length of the padding,
+@var{prefix}, and @var{s} is at least @var{width}.  The value of
+@var{flags} controls whether the padding will be zero or space as well
+as whether the padding comes before or after the prefix."
+  (let ((delta (- width (+ (string-length s) (string-length prefix)))))
+    (if (positive? delta)
+        (cond
+         ((flags-set? #\- flags)
+          (string-append prefix s (make-string delta #\space)))
+         ((flags-set? #\0 flags)
+          (string-append prefix (make-string delta #\0) s))
+         (else
+          (string-append (make-string delta #\space) prefix s)))
+        (string-append prefix s))))
+
+(define (integer-conversion string-proc prefix-proc flags width precision)
+  "Create a conversion record for formatting integers.  The conversion
+will use @var{string-proc} to convert the integer to a string, and
+@var{prefix-proc} to compute a prefix from the integer.  The string will
+have at least @var{precision} digits and will be at least @var{width}
+long, with the padding style determined by @var{flags}."
+  (define (ensure-integer-precision n s)
+    (let* ((precision (or precision 1))
+           (delta (- precision (string-length s))))
+      (cond
+       ((and (zero? n) (zero? precision)) "")
+       ((positive? delta) (string-append (make-string delta #\0) s))
+       (else s))))
+
+  (%make-conversion
+   'number
+   (lambda (n)
+     (let* ((s (string-proc n))
+            (s (ensure-integer-precision n s))
+            (p (prefix-proc n))
+            (flags (if precision (flags-delete #\0 flags) flags)))
+       (ensure-width s p width flags)))))
+
+(define (make-conversion specifier flags width precision)
+  "Create a conversion record for the specifier character
+@var{specifier}, with the options @var{flags}, @var{width}, and
+@var{precision}."
+  (match specifier
+    (#\c
+     (%make-conversion 'character string))
+    ((or #\d #\i)
+     (integer-conversion (compose number->string abs)
+                         (lambda (n)
+                           (cond
+                            ((negative? n) "-")
+                            ((flags-set? #\+ flags) "+")
+                            ((flags-set? #\space flags) " ")
+                            (else "")))
+                         flags width precision))
+    (#\s
+     (%make-conversion
+      'string
+      (lambda (s)
+        (let ((s (if precision (string-take s precision) s)))
+          (ensure-width s "" width (flags-delete #\0 flags))))))
+    (#\u
+     (integer-conversion (compose number->string
+                                  (cut modulo <> *unsigned-modulus*))
+                         (const "") flags width precision))
+    ((or #\x #\X)
+     (integer-conversion (compose (if (char=? specifier #\X)
+                                      string-upcase
+                                      identity)
+                                  (cut number->string <> 16)
+                                  (cut modulo <> *unsigned-modulus*))
+                         (lambda _
+                           (if (flags-set? #\# flags)
+                               (if (char=? specifier #\X) "0X" "0x")
+                               ""))
+                         flags width precision))
+    (_ (error "unsupported format conversion" specifier))))
 
 (define* (parse-escape s #:optional (start 0) (end (string-length s)))
   (match (and (< start end) (string-ref s start))
@@ -63,28 +151,53 @@
     (#\v (values (string #\vtab) 1))
     (_ (values (string #\\) 0))))
 
-(define* (parse-conversion s #:optional (start 0) (end (string-length s)))
+(define* (parse-conversion-flags s #:optional
+                                 (start 0) (end (string-length s)))
   (let loop ((k start) (acc '()))
     (match (and (< k end) (string-ref s k))
-      (#f (error "missing format character"))
-      (#\% (values "%" 1))
-      (#\# (match (and (< (1+ k) end) (string-ref s (1+ k)))
-             (#f (error "missing alternate conversion specifier"))
-             ((and (or #\x #\X) chr)
-              (let ((proc (compose (cut string-append "0" (string chr) <>)
-                                   (if (char=? chr #\X) string-upcase values)
-                                   (cut number->string <> 16))))
-                (values (make-conversion 'number proc) 2)))
-             (_ (error "unknown alternate conversion specifier"))))
-      (#\c (values (make-conversion 'character string) 1))
-      (#\d (values (make-conversion 'number number->string) 1))
-      (#\s (values (make-conversion 'string values) 1))
-      (#\u (values (make-conversion 'number number->string) 1))
-      ((and (or #\x #\X) chr)
-       (let ((proc (compose (if (char=? chr #\X) string-upcase values)
-                            (cut number->string <> 16))))
-         (values (make-conversion 'number proc) 1)))
-      (_ (error "unknown conversion specifier")))))
+      ((and flag (or #\- #\+ #\space #\# #\0)) (loop (1+ k) (cons flag acc)))
+      (_ (values (reverse acc) (- k start))))))
+
+(define* (parse-conversion-number s #:optional
+                                  (start 0) (end (string-length s)))
+  (let*-values (((s*) (substring s start end))
+                ((result size) (locale-string->integer s*)))
+    (values (or result 0) size)))
+
+(define parse-conversion-width parse-conversion-number)
+
+(define* (parse-conversion-precision s #:optional
+                                     (start 0) (end (string-length s)))
+  (match (and (< start end) (string-ref s start))
+    (#\. (let-values (((n size) (parse-conversion-number s (1+ start) end)))
+           (values n (1+ size))))
+    (_ (values #f 0))))
+
+(define conversion-specifier?
+  (let ((conversion-specifiers "aAdiouxXfFeEgGcs%"))
+    (lambda (chr)
+      (string-index conversion-specifiers chr))))
+
+(define* (parse-conversion-specifier s #:optional
+                                     (start 0) (end (string-length s)))
+  (match (and (< start end) (string-ref s start))
+    (#f (error "missing conversion specifier character"))
+    ((and (? conversion-specifier?) chr) (values chr 1))
+    (chr (error "invalid conversion specifier character" chr))))
+
+(define* (parse-conversion s #:optional (start 0) (end (string-length s)))
+  (match (and (< start end) (string-ref s start))
+    (#\% (values "%" 1))
+    (_ (let*-values (((flags n)     (parse-conversion-flags s start end))
+                     ((k)           (+ start n))
+                     ((width n)     (parse-conversion-width s k end))
+                     ((k)           (+ k n))
+                     ((precision n) (parse-conversion-precision s k end))
+                     ((k)           (+ k n))
+                     ((specifier n) (parse-conversion-specifier s k end))
+                     ((k)           (+ k n)))
+         (values (make-conversion specifier flags width precision)
+                 (- k start))))))
 
 (define* (parse-file-format s #:optional (start 0) (end (string-length s))
                             #:key (escaped? #t))
@@ -109,7 +222,7 @@
         (() (values (string-concatenate-reverse acc) seed))
         (((? string? str) . parts*)
          (loop parts* args seed (cons str acc)))
-        ((($ <conversion> type proc width?) . parts*)
+        ((($ <conversion> type proc) . parts*)
          (match (cons type args)
            (('string)
             (loop parts* args seed (cons (proc "") acc)))
