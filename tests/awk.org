@@ -1139,3 +1139,20 @@
 #+begin_example
   [fo fo]o
 #+end_example
+
+* Sorts using ~asorti~
+:interpreter: "awk"
+:script:
+#+begin_src awk
+  BEGIN {
+      x["U"] = 1;
+      x["N"] = 2;
+      x["G"] = 3;
+      asorti(x, y);
+      print y[1], y[2], y[3];
+  }
+#+end_src
+:stdout:
+#+begin_example
+  G N U
+#+end_example

@@ -1153,6 +1153,30 @@ the updated environment."
   (memq name *built-in-names*))
 
 
+;; Gawk functions
+
+(define *gawk-functions*
+  `((asorti . ,(lambda (env source dest*)
+                 (define dest
+                   (match dest*
+                     ((? hash-table?)
+                      (hash-clear! dest*)
+                      dest*)
+                     ((? uninitialized-argument?)
+                      (let ((dest (make-hash-table)))
+                        (set-uninitialized-argument! dest* dest)
+                        dest))
+                     (_ (error "asorti: 'dest' argument not an array"))))
+                 (unless (hash-table? source)
+                   (error "asorti: 'source' argument not an array"))
+                 (let* ((indexes (hash-map->list (lambda (k v) k) source))
+                        (len (length indexes)))
+                   (for-each (cut hash-set! dest <> <>)
+                             (map number->string (iota len 1))
+                             (sort indexes string<?))
+                   (values len env))))))
+
+
 ;; Function definitions
 
 (define* (set-locals names values #:optional (locals (make-hash-table)))
@@ -1266,6 +1290,10 @@ list @var{files}, and field separator @var{field-separator}."
     (for-each (match-lambda
                 ((key . value) (hashq-set! globals key value)))
               *built-ins*)
+    ;; Set Gawk functions.
+    (for-each (match-lambda
+                ((key . value) (hashq-set! globals key value)))
+              *gawk-functions*)
     (make-env #f out #f '() #f '() (make-hash-table) globals)))
 
 (define (eval-assignments assigns env)
