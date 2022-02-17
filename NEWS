@@ -1,6 +1,58 @@
 All The Latest Gash-Utils News
 ******************************
 
+Noteworthy changes in release 0.2.0 (2022-03-12)
+================================================
+
+New features
+
+  - awk has been mostly rewritten, and now supports most of the
+    standard POSIX features.
+  - The env utility.
+  - sort understands the 'check', 'dictionary-order', 'ignore-case',
+    'ignore-nonprinting', 'ignore-blanks', 'field-separator', and 'key'
+    options.
+  - sed supports the 'c', 'P', and 'D' functions.
+  - printf actually formats strings, and supports the 's', 'c', 'd',
+    'u', 'x', 'X', and '%' format specifiers.  It also supports flags,
+    width, and precision for numeric format specifiers.
+  - tar can read some GNU extensions (long name and long link).
+  - sed understands the 'separate' option, and turns it off by default.
+    This is instead of the old behavior, which was to always treat files
+    separately.
+  - cp supports the 'preserve' option.
+  - tar guesses the compressor from the file name when creating
+    archives.
+  - sed ignores comments.
+  - tar will accept but ignore the 'files-from' and 'auto-compress'
+    options for compatibility's sake.
+  - rm prints a warning if no files are specified (unless the 'force'
+    flag is in effect).
+  - rm accepts the 'help' and 'version' options.
+
+Bug fixes
+
+  - The 'n' sed function now respects the 'quiet' option.
+  - The 'n' sed function now works on the final input line.
+  - sed no longer fails to parse regexes with collating symbols,
+    equivalence classes, and character classes.
+  - Range addresses in sed can now match more than once.
+  - rm now continues to process files after an error.
+  - rmdir no longer prints debugging output.
+  - mkdir no longer inverts the file mode value.
+  - tar can now unpack non-ASCII files.
+  - The main sed loop is now tail-recursive on the bootstrap Guile
+    (2.0.9), allowing it to handle larger files.
+  - mv now considers an empty file list an error.
+  - ls now knows the difference between dotfiles and relative paths
+    beginning with dots (e.g., "./foo").
+  - sed address delimiters can now be escaped if needed.
+  - uname now understands no flags to mean 'kernel-flags'.
+  - tar now allows 'f' anywhere in a command string instead of only at
+    the end.
+  - sed will no longer continue to process files after executing the 'q'
+    function.  It used to quit processing only the current file.
+
 Noteworthy features of release 0.1.0 (2020-02-08)
 =================================================
 
