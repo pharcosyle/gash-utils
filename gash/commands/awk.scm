@@ -1208,8 +1208,9 @@ Usage: awk [OPTION]... PROGRAM [ARGUMENT]...
         ((items-string . args)
          (values (with-input-from-string items-string read-awk) args))
         (_ (error "no program specified")))
-      (values (append-map (lambda (file)
-                            (with-input-from-file file read-awk))
+      (values (append-map (match-lambda
+                            ("-" (read-awk))
+                            (file (with-input-from-file file read-awk)))
                           files)
               args)))
 
