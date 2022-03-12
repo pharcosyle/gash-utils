@@ -65,8 +65,8 @@ Options:
     (when (null? files)
       (format (current-error-port) "mkdir: missing operand~%")
       (exit 2))
-    (let* ((chomodifiers (parse-chmodifiers (or mode "755")))
-           (mode (chmodifiers->mode chomodifiers)))
+    (let* ((chmodifiers (parse-chmodifiers (or mode "755")))
+           (mode (chmodifiers->mode chmodifiers)))
       ;; XXX: This seems like a fragile way to invert the mode.
       (call-with-umask (bit-extract (lognot mode) 0 9)
         (lambda ()
