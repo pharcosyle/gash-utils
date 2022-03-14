@@ -182,9 +182,17 @@
   '(and x y)
   (parse* "x && y"))
 
+(test-equal "Allows newline after logical conjunction"
+  '(and x y)
+  (parse* "x &&\ny"))
+
 (test-equal "Parses logical disjunction"
   '(or x y)
   (parse* "x || y"))
+
+(test-equal "Allows newline after logical disjunction"
+  '(or x y)
+  (parse* "x ||\ny"))
 
 (test-equal "Parses negation disjunction"
   '(not x)

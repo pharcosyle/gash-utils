@@ -326,19 +326,19 @@
     (print-or-expr) : $1)
 
    (or-expr
-    (or-expr || and-expr) : `(or ,$1 ,$3)
+    (or-expr || newline-opt and-expr) : `(or ,$1 ,$4)
     (and-expr) : $1)
 
    (print-or-expr
-    (print-or-expr || print-and-expr) : `(or ,$1 ,$3)
+    (print-or-expr || newline-opt print-and-expr) : `(or ,$1 ,$4)
     (print-and-expr) : $1)
 
    (and-expr
-    (and-expr && member-expr) : `(and ,$1 ,$3)
+    (and-expr && newline-opt member-expr) : `(and ,$1 ,$4)
     (member-expr) : $1)
 
    (print-and-expr
-    (print-and-expr && print-member-expr) : `(and ,$1 ,$3)
+    (print-and-expr && newline-opt print-member-expr) : `(and ,$1 ,$4)
     (print-member-expr) : $1)
 
    (member-expr
