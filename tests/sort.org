@@ -57,7 +57,7 @@
 * Sorts case-sensitively
 :script:
 #+begin_src sh
-  LANG=C sort
+  LC_ALL=C sort
 #+end_src
 :stdin:
 #+begin_example
@@ -73,7 +73,7 @@
 * Sorts case-insensitively
 :script:
 #+begin_src sh
-  LANG=C sort -f
+  LC_ALL=C sort -f
 #+end_src
 :stdin:
 #+begin_example
