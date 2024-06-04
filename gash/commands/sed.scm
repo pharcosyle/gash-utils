@@ -248,6 +248,8 @@
        (set-fields env
          ((env-target) target*)
          ((env-sub?) sub?))))
+    (('w path)
+     (set-env-queue env (cons `(write ,path) (env-queue env))))
     (('x)
      (set-fields env
        ((env-target) (env-hold env))
@@ -336,6 +338,8 @@
     (for-each (match-lambda
                 (('file path) (call-with-input-file path
                                 (cut dump-port <> out)))
+                (('write path) (call-with-output-file path
+                                 (cut put-string <> (env-target env))))
                 (str (display str out)))
               (reverse (env-queue env)))
     (if (env-cycle? env)
